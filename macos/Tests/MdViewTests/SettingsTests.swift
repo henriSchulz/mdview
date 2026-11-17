@@ -47,14 +47,57 @@ final class SettingsTests: ShellTest {
         let m = SettingsWindow.shared.model
         let rows = m.pages.flatMap { $0.sections.flatMap(\.rows) }
         func row(_ k: String) -> SettingsRow { rows.first { $0.key == k }! }
-        XCTAssertFalse(m.shows(row("githubAccount")))
+        XCTAssertTrue(m.shows(row("githubAccount")), "GitHub is drawn here now")
+        XCTAssertFalse(m.shows(row("aiKey")), "the model's key is the page's")
         XCTAssertFalse(m.shows(row("hinting")))
         XCTAssertTrue(m.shows(row("bar")))
         m.values["style"] = "auto"
         XCTAssertFalse(m.shows(row("bullet")))
         m.values["style"] = "fixed"
         XCTAssertTrue(m.shows(row("bullet")))
-        XCTAssertTrue(m.hasOwn(m.pages.first { $0.id == "history" }!))
+        XCTAssertFalse(m.hasOwn(m.pages.first { $0.id == "history" }!), "the history's page has rows of the page's own still")
+        XCTAssertTrue(m.hasOwn(m.pages.first { $0.id == "ai" }!))
+    }
+
+    /// The history of the folder the settings were opened from: how it stands, said in the page's words — and switched on
+    /// from here, as from the page's settings; the window follows.
+    func testTheHistoryIsSwitchedOnFromHere() {
+        write("Notes/A.md", "# A\n")
+        let w = open(folder: dir)
+        SettingsWindow.shared.open(from: w, page: "history")
+        let m = SettingsWindow.shared.model
+        XCTAssertTrue(wait(10) { !m.pages.isEmpty && m.info["history"] != nil })
+        XCTAssertEqual(m.historyState, "none")
+        XCTAssertNotEqual(m.t("prefs.history.is.none"), "prefs.history.is.none", "the page's words did not come")
+        let rows = m.pages.first { $0.id == "history" }!.sections.flatMap(\.rows)
+        XCTAssertTrue(m.shows(rows.first { $0.key == "historyState" }!))
+        XCTAssertFalse(m.shows(rows.first { $0.key == "historyLink" }!), "a link offered where there is no project")
+        SettingsWindow.shared.history("history-enable")
+        XCTAssertTrue(wait(10) { m.historyState == "project" }, "the history did not come on (\(m.historyState))")
+        XCTAssertTrue(m.shows(rows.first { $0.key == "historyLink" }!))
+        XCTAssertEqual(m.value("historyName"), Lib.name(dir))
+        XCTAssertTrue(wait(10) { m.value("historyCount") != nil })
+    }
+
+    /// GitHub as the shell tells it: who is signed in, the code to give, the repositories — the rows say so.
+    func testGitHubAsTold() {
+        let w = open(write("A.md", "# A\n"))
+        SettingsWindow.shared.open(from: w, page: "history")
+        let m = SettingsWindow.shared.model
+        XCTAssertTrue(wait(10) { !m.pages.isEmpty && m.info["github"] != nil })
+        let rows = m.pages.flatMap { $0.sections.flatMap(\.rows) }
+        let get = rows.first { $0.key == "githubGet" }!
+        XCTAssertNil(m.github["user"] as? [String: Any])
+        XCTAssertFalse(m.shows(get), "Get offered to nobody signed in")
+        m.info = ["home": NSHomeDirectory(), "github": ["user": ["login": "henri", "name": "Henri"], "repos": [
+            ["name": "henri/notes", "url": "https://github.com/henri/notes.git", "private": true, "branch": "main"]]],
+                  "history": ["state": "project", "root": NSHomeDirectory() + "/Notes", "name": "Notes", "linked": "https://github.com/henri/notes.git",
+                              "sync": ["state": "conflict", "files": ["a.md", "b.md"]], "changed": 1, "waiting": true]]
+        XCTAssertTrue(m.shows(get))
+        XCTAssertEqual(m.value("historyRoot"), "~/Notes")
+        XCTAssertEqual(m.repos?.first?.name, "henri/notes")
+        XCTAssertEqual(m.syncSays, m.t("prefs.sync.conflict", "2"))
+        XCTAssertEqual(m.value("historyChanged"), m.t("prefs.history.waiting.one", "1"))
     }
 
     /// A picture of the window (not a check): only with MDVIEW_SNAP=<folder>.
@@ -62,7 +105,7 @@ final class SettingsTests: ShellTest {
         let snap = ProcessInfo.processInfo.environment["MDVIEW_SNAP"]
         try XCTSkipIf(snap == nil, "only with MDVIEW_SNAP")
         let w = open(write("A.md", "# A\n"))
-        SettingsWindow.shared.open(from: w, page: "editing")
+        SettingsWindow.shared.open(from: w, page: ProcessInfo.processInfo.environment["MDVIEW_SNAP_PAGE"] ?? "editing")
         XCTAssertTrue(wait(10) { SettingsWindow.shared.window?.isVisible == true })
         let win = SettingsWindow.shared.window!
         win.orderBack(nil)

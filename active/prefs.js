@@ -596,6 +596,8 @@
     const hint = (key) => { const h = T("prefs." + key + ".hint"); return h === "prefs." + key + ".hint" ? "" : h; };
     return {
       title: T("prefs.title"), values: now(), velum: !!document.documentElement.dataset.velum,
+      // (the words of the rows the host draws itself — the history, GitHub, the syncing —, unfilled: {0} and %s are its to fill)
+      strings: Object.fromEntries(["prefs.history.", "prefs.github.", "prefs.sync."].flatMap((p) => window.MdStrings.keys ? window.MdStrings.keys(p) : []).map((k) => [k, window.MdStrings.t(k)])),
       later: { lang: T("prefs.langLater"), hinting: T("prefs.restartLater") },
       groups: GROUPS.map(([t, ids]) => ({ title: t ? T(t) : "", pages: ids })),
       pages: PAGES.map(([id, sign, sections]) => ({ id, sign, title: T("prefs.page." + id),

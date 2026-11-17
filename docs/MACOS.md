@@ -91,9 +91,14 @@ in `NoteWindow.on` or handed to the area's `handleFiles` / `handleSearch` / `han
   grouped forms (SwiftUI). What the settings are comes from the page (`MdView.settingsSchema`: active/prefs.js — pages, rows,
   names, hints and choices in the page's language): a setting added there is here too. Switches, choices and fields are
   drawn here; a change is kept and told to every window as one made in a page (`AppDelegate.applyPrefs`), and one made in a
-  page shows here. What only the page draws — the GitHub sign-in, a repository, the model's key, the history's state, the
-  keys of a quick note, what the app says of itself — is reached from its page here (More Settings of This Page…: the
-  page's own settings, opened there). What means nothing on a Mac (the GTK hinting, updates of a build from the sources) is
+  page shows here. The history and GitHub are drawn here too, for the folder of the window the settings were opened from
+  (its settings-info, heard by the window: `SettingsWindow.heard`): how the history stands and the button that turns it on
+  or off, what the folder's repository holds, the link to the other side and how the two stand, the GitHub account — the
+  code to give at GitHub, signing in and out —, the repositories' chooser (a sheet: link one, make one anew, fetch one into
+  a folder); every step is the shell's own (`handleHistory`), its questions asked on the settings window while it is in
+  front (`sheetHost`). The words are the page's (`MdStrings.keys`: prefs.history.*, prefs.github.*, prefs.sync.*). What
+  only the page still draws — the model's key, the keys of a quick note, the guide and the tour — is reached from its
+  page here (More Settings of This Page…: the page's own settings, opened there). What means nothing on a Mac (the GTK hinting, updates of a build from the sources) is
   not shown.
 - **Menus are the system's.** A menu of plain rows the page would draw — the right click on text, a file or a folder (in
   the sidebar, on a tile, on a tab), the "+" and history buttons, a block's or a table's, a whiteboard's — is handed to the
