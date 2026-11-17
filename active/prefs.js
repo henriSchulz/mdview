@@ -589,5 +589,20 @@
   };
   // (the window is put together in a quiet moment: built on the first Ctrl+, it made that one slow)
   setTimeout(() => { if (!root) { try { build(); } catch (e) { root = scrim = null; } } }, 2500);
-  A.prefs = { open, close, get: now, DEFAULTS, info: gotInfo, stale, get isOpen() { return isOpen(); } };
+  /* What the settings are, for a host that shows them in a window of its own (the macOS shell: MdView.settingsSchema):
+   * the pages in their groups, each row's name, hint, kind and named choices, the style a row waits for, the values now —
+   * in the page's language. What a host does with a row of a kind it does not draw is its own (it opens these settings there). */
+  function schema() {
+    const hint = (key) => { const h = T("prefs." + key + ".hint"); return h === "prefs." + key + ".hint" ? "" : h; };
+    return {
+      title: T("prefs.title"), values: now(), velum: !!document.documentElement.dataset.velum,
+      later: { lang: T("prefs.langLater"), hinting: T("prefs.restartLater") },
+      groups: GROUPS.map(([t, ids]) => ({ title: t ? T(t) : "", pages: ids })),
+      pages: PAGES.map(([id, sign, sections]) => ({ id, sign, title: T("prefs.page." + id),
+        sections: sections.map(([t, rows]) => ({ title: t ? T(t) : "",
+          rows: rows.map(([key, kind, choices, when]) => ({ key, kind, when: when || "", name: T("prefs." + key), hint: hint(key),
+            choices: (choices || []).map(([v, l]) => [v, label(l)]) })) })) })),
+    };
+  }
+  A.prefs = { open, close, get: now, DEFAULTS, info: gotInfo, stale, schema, get isOpen() { return isOpen(); } };
 })();

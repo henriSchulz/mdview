@@ -86,6 +86,15 @@ in `NoteWindow.on` or handed to the area's `handleFiles` / `handleSearch` / `han
   it away, seeing the pointer gone). Files dropped on a folder's row are moved there (the folder's own) or taken in.
   The other layouts and the quick notes keep the page's card. Its cost: the bar and the card are made with a window,
   some 60–90 ms of the main thread a window not made ahead (the first after the app's start) pays.
+- **The settings are a window of the system's** (SettingsWindow.swift): ⌘, (the app menu's Settings…) and the gear open
+  it (the page's openSettings asks `MdHost.settings` first) — its pages at the left in their groups, each page's settings in
+  grouped forms (SwiftUI). What the settings are comes from the page (`MdView.settingsSchema`: active/prefs.js — pages, rows,
+  names, hints and choices in the page's language): a setting added there is here too. Switches, choices and fields are
+  drawn here; a change is kept and told to every window as one made in a page (`AppDelegate.applyPrefs`), and one made in a
+  page shows here. What only the page draws — the GitHub sign-in, a repository, the model's key, the history's state, the
+  keys of a quick note, what the app says of itself — is reached from its page here (More Settings of This Page…: the
+  page's own settings, opened there). What means nothing on a Mac (the GTK hinting, updates of a build from the sources) is
+  not shown.
 - **Menus are the system's.** A menu of plain rows the page would draw — the right click on text, a file or a folder (in
   the sidebar, on a tile, on a tab), the "+" and history buttons, a block's or a table's, a whiteboard's — is handed to the
   shell (`MdHost.menu`, viewer/base.js `hostMenu`; NativeMenu.swift) and shown as an NSMenu: the Finder's signs (SF

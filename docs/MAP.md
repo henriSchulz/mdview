@@ -254,6 +254,7 @@ or the tests see the old ones.
 | `macos/Sources/MdView/Search.swift` | Search, previews, the note beside, whiteboards and PDFs (area B). |
 | `macos/Sources/MdView/SearchBoards.swift` | Whiteboards (board.js): a board for a note, a board's text for the page and back, pictures put on it, the … |
 | `macos/Sources/MdView/SearchPDF.swift` | A PDF in the window: the page gets its name and the links to it, the bytes on request — and a presentation … |
+| `macos/Sources/MdView/SettingsWindow.swift` | The settings are a window of the system's (Phase 5 of the native work, 2026-11-17): ⌘, and the gear open it, … |
 | `macos/Sources/MdView/StartView.swift` | A window with nothing open (no folder, no note): what can be opened, drawn by the system (SwiftUI) over the … |
 | `macos/Sources/MdView/Store.swift` | What is kept between starts: ~/Library/Application Support/MdView/state.json — the settings of the active … |
 | `macos/Sources/MdView/System.swift` | The app and the system around the page (area E): what the page asks of the system — print, full screen, a … |

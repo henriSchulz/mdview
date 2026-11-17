@@ -32,7 +32,13 @@ final class StartScreenTests: ShellTest {
     func testThePagesSettingsPushItBackAndItComesAgain() {
         let w = open()
         XCTAssertTrue(wait(5) { w.startHost?.isHidden == false })
+        // (the gear opens the system's settings window — SettingsWindow.swift —, over which the start screen stays)
         page(w, "(document.getElementById('settings-btn').click(), 1)")
+        XCTAssertTrue(wait(10) { SettingsWindow.shared.window?.isVisible == true }, "the gear did not open the settings window")
+        XCTAssertEqual(w.startHost?.isHidden, false)
+        SettingsWindow.shared.window?.close()
+        // the page's own settings (a row of its own, reached from the settings window) push it back
+        page(w, "(MdPage.loadActive().then(() => MdActive.prefs.open('history')), 1)")
         XCTAssertTrue(wait(5) { w.startHost?.isHidden == true }, "the start screen stands over the page's Settings")
         page(w, "(document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })), document.querySelector('#settings') && document.querySelector('#settings').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })), 1)")
         XCTAssertTrue(wait(5) { w.startHost?.isHidden == false && w.startHost?.alphaValue == 1 }, "the start screen did not come again")

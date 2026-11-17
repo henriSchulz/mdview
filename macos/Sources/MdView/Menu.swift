@@ -76,7 +76,7 @@ extension AppDelegate {
         _ = submenu("Markdown Notes") { m in
             std(m, "About Markdown Notes", #selector(NSApplication.orderFrontStandardAboutPanel(_:)))
             m.addItem(.separator())
-            page(m, "Settings…", ",")
+            add(m, "Settings…", ",") { [weak self] in SettingsWindow.shared.open(from: self?.keyNote) } // (the settings window: SettingsWindow.swift)
             m.addItem(.separator())
             let services = NSMenu(title: "Services")
             let sItem = NSMenuItem(title: "Services", action: nil, keyEquivalent: "")
