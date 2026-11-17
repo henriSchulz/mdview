@@ -612,67 +612,14 @@ extension NoteWindow {
             .prefix(5).map { (Lib.clean(name) as NSString).substring(with: $0.range) }
         var stem = aiTake(words.joined(separator: "-"), 48).trimmingCharacters(in: CharacterSet(charactersIn: "-"))
         if stem.isEmpty { stem = "graphic" }
-        let folder = aiAttachmentDir(note, vault: vault)
+        // (where a pasted picture goes, named as one is — Files.swift: the project's assets for a note of a linked project
+        // under the folder shown, never outside the note's folder; its own copy of these had drifted: review 2026-11-17)
+        let folder = attachmentDir(note, vault: vault)
         do {
             let target = try Lib.writeNew(folder, tries: 200, data: Data((svg + "\n").utf8), name: { $0 == 1 ? "\(stem).svg" : "\(stem)-\($0).svg" })
-            aiOwn(target, note)
-            js("MdView.insertImage", [["path": note, "markup": aiImageMarkup(target, note, vault: vault != nil)]])
+            attachments().own(target, note)
+            js("MdView.insertImage", [["path": note, "markup": imageMarkup(target, note, vault: vault != nil)]])
         } catch { toast("Couldn't save the figure: \(error.localizedDescription)") }
-    }
-
-    /// The base folder of a note's pictures: the folder shown if the note lies in it, else the note's own.
-    private func aiBase(_ note: String) -> String {
-        if let f = folder, note.hasPrefix(f + "/") { return f }
-        return Lib.dir(note)
-    }
-
-    /// Where a picture goes: the base folder's `assets`, beside the note, or in a folder relative to it, as the settings say;
-    /// or wherever the Obsidian vault keeps its attachments (shell/files.rs `attachment_dir`).
-    private func aiAttachmentDir(_ note: String, vault: String?) -> String {
-        let beside = Lib.dir(note)
-        var vault = vault
-        if let v = vault, let f = folder, f != v, f.hasPrefix(v + "/") { vault = nil }
-        guard let vault else {
-            let wanted = ((store.prefs["images"] as? String) ?? Lib.assets).trimmingCharacters(in: .whitespaces)
-            if ["", "beside", "."].contains(wanted) { return beside }
-            if wanted == Lib.assets { return Lib.join(aiBase(note), Lib.assets) }
-            let d = URL(fileURLWithPath: Lib.join(beside, String(wanted.drop { $0 == "/" }))).standardizedFileURL.path
-            return d.hasPrefix(beside) ? d : beside
-        }
-        var conf: String?
-        if let t = Lib.fm.contents(atPath: Lib.join(vault, ".obsidian/app.json")),
-           let o = (try? JSONSerialization.jsonObject(with: t)) as? [String: Any], let c = o["attachmentFolderPath"] as? String,
-           !c.trimmingCharacters(in: CharacterSet(charactersIn: "/")).isEmpty { conf = c }
-        guard let conf else { return vault }
-        let d = URL(fileURLWithPath: conf.hasPrefix("./") ? Lib.join(beside, String(conf.dropFirst(2))) : Lib.join(vault, conf)).standardizedFileURL.path
-        return d.hasPrefix(vault) ? d : vault
-    }
-
-    private func aiImageMarkup(_ target: String, _ note: String, vault: Bool) -> String {
-        if vault { return "![[\(Lib.name(target))]]" }
-        return "![](\(aiQuote(aiWay(target, note))))"
-    }
-
-    /// How a note names a file: the way from the note's folder — but what lies in the base folder's `assets` is `assets/x.png`.
-    private func aiWay(_ target: String, _ note: String) -> String {
-        if Lib.dir(target) == Lib.join(aiBase(note), Lib.assets) { return "\(Lib.assets)/\(Lib.name(target))" }
-        return Lib.relative(target, Lib.dir(note))
-    }
-
-    /// What urllib's quote leaves as it is stays.
-    private func aiQuote(_ s: String) -> String {
-        var allowed = CharacterSet.alphanumerics
-        allowed.insert(charactersIn: "_.-~/")
-        return s.addingPercentEncoding(withAllowedCharacters: allowed) ?? s
-    }
-
-    /// The application made this file for that note (attach.rs `own`): attachments.json beside state.json, the same shape
-    /// the Rust shell writes — a folder's list leaves such files out, and they can go again with what shows them.
-    private func aiOwn(_ target: String, _ note: String) {
-        let file = store.dir.appendingPathComponent("attachments.json")
-        var all = (Lib.fm.contents(atPath: file.path).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }) ?? [:]
-        all[target] = ["note": note]
-        if let d = try? JSONSerialization.data(withJSONObject: all) { try? d.write(to: file, options: .atomic) }
     }
 
     // MARK: suggestions while typing
