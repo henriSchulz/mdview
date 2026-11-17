@@ -187,7 +187,7 @@ final class MacChrome: NSObject, NSToolbarDelegate {
           var st = { nonote: b.hasAttribute("data-nonote"), folder: !!P.folder, sidebar: b.dataset.sidebar || "",
             focus: b.hasAttribute("data-focus"),
             overview: b.hasAttribute("data-overview"), back: !!back && !back.disabled, fwd: !!fwd && !fwd.disabled,
-            mode: seg ? seg.dataset.mode : "read", sync: !!sync && getComputedStyle(sync).display !== "none" && b.hasAttribute("data-linked"), tabs: tabs };
+            mode: seg ? seg.dataset.mode : "read", sync: !!sync && b.hasAttribute("data-linked"), tabs: tabs };
           var s = JSON.stringify(st);
           if (s !== was) { was = s; window.webkit.messageHandlers.msg.postMessage(Object.assign({ type: "macbar" }, st)); }
         };
