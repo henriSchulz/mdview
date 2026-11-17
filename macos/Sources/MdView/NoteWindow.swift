@@ -227,8 +227,8 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         if ready { render(fragment: fragment) } else { pendingFragment = fragment; loadShell() }
     }
 
-    /// Something of the note's project was touched: the page's `opened` stamps follow (app.touch).
-    func touch(_ p: String) {}
+    /// Something at this path changed, or may have: its project's snapshot follows once it is quiet (app.touch).
+    func touch(_ p: String) { HistoryHub.shared.touch(p) }
 
     func showNothing() {
         if fresh != nil, fresh == path { settleFresh(last: true) }
