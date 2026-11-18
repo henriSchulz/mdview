@@ -139,7 +139,7 @@ test("the sidebar and the tabs", async () => {
   await page.click('.sb-row[data-real="/octo/notes/Second note.md"]');
   await untilNote("Second note.md");
   assert.deepEqual(await tabNames(), ["Second note"]); // (a plain click: in the tab shown)
-  await page.click('.sb-row[data-real="/octo/notes/Home.md"]', { modifiers: ["Control"] });
+  await page.click('.sb-row[data-real="/octo/notes/Home.md"]', { modifiers: ["ControlOrMeta"] });
   await untilNote("Home.md");
   assert.deepEqual(await tabNames(), ["Second note", "Home"]); // (Ctrl+click: a tab of its own)
   await page.keyboard.press("Control+Tab");

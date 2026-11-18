@@ -21,6 +21,7 @@ let app, base, browser, session;
 const problems = [];
 const SHOTS = process.env.SHOT_DIR || "";
 const IPAD_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15";
+const LINUX_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
 
 const long = Array.from({ length: 30 }, (_, i) => `Paragraph ${i + 1} of the long note, with enough words in it to fill a line and wrap onto the next one.`).join("\n\n");
 const files = {
@@ -52,8 +53,8 @@ before(async () => {
 after(async () => { await browser?.close(); app?.kill(); gh.close(); });
 
 /* a browser: an iPad (Safari's agent, five touch points, a finger), or not; of that size */
-async function device(name, { ipad = true, width = 1180, height = 820, touch = true } = {}) {
-  const context = await browser.newContext({ viewport: { width, height }, hasTouch: touch, deviceScaleFactor: 2, ...(ipad ? { userAgent: IPAD_UA } : {}) });
+async function device(name, { ipad = true, width = 1180, height = 820, touch = true, ua = null } = {}) {
+  const context = await browser.newContext({ viewport: { width, height }, hasTouch: touch, deviceScaleFactor: 2, ...(ipad ? { userAgent: IPAD_UA } : ua ? { userAgent: ua } : {}) });
   await context.addCookies([{ name: "mdview", value: session.slice("mdview=".length), url: base, httpOnly: true, sameSite: "Lax" }]);
   const page = await context.newPage();
   // (Chromium's touch emulation has one touch point; an iPad has five)
@@ -584,8 +585,9 @@ test("not an iPad, or a narrow window: nothing of the iPad's layout", async () =
   await open(desk, "Home.md", "&ipad=0");
   assert.equal(await desk.page.evaluate(() => document.documentElement.hasAttribute("data-ipad")), false, "?ipad=0 takes it back");
   await desk.context.close();
-  // a touch screen that is no iPad (Chromium's own agent): as before
-  const other = await device("touch", { ipad: false });
+  // a touch screen that is no iPad: as before (Chromium's own agent on Linux — on a Mac its own says "Macintosh", and with a
+  // touch screen that is what an iPad says of itself)
+  const other = await device("touch", { ipad: false, ua: LINUX_UA });
   await open(other);
   assert.equal(await other.page.evaluate(() => document.documentElement.hasAttribute("data-ipad")), false);
   assert.equal(await shown(other.page, "#tabs"), true);

@@ -59,7 +59,16 @@ npm run build && npm test
 
 The built app is started against a GitHub of the test's own (`test/fake-github.mjs`): a
 browser's part is played through signing in, and a real Chromium (`CHROMIUM=/path`, or one on
-PATH) opens a repository and reads it.
+PATH) opens a repository and reads it. Without one every browser test fails with "no Chromium
+found" — on a Mac there is none on PATH: Playwright's own will do
+(`node node_modules/playwright-core/cli.js install --only-shell chromium`, then `CHROMIUM` =
+its `chrome-headless-shell`).
+
+On a Mac what a test presses must be what a Mac means (2026-11-18: seven tests failed there that
+hold on Linux): a click with Ctrl is a right click, so a click that opens a tab of its own, and
+the editing keys the browser itself has (cut, copy, paste), take `ControlOrMeta`; and Chromium's
+own agent says "Macintosh", which with a touch screen is what an iPad says of itself — a touch
+screen that is no iPad gets an agent of its own (`LINUX_UA`, `test/tablet.test.mjs`).
 
 ## Where things are
 

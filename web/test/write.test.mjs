@@ -182,10 +182,10 @@ test("a page's line cut and pasted in the active mode: the page keeps what was o
     MdActive.blocks.select(v, at);
   });
   assert.match(await page.evaluate(() => document.querySelector(".blk-sel")?.textContent || ""), /Meeting/);
-  await page.keyboard.press("Control+x");
+  await page.keyboard.press("ControlOrMeta+x");
   await page.waitForTimeout(800);
   await until(() => !/Meeting|Agenda/.test(text("Pages.md") || ""), "saved without it: the page is out of the file for a moment");
-  await page.keyboard.press("Control+v");
+  await page.keyboard.press("ControlOrMeta+v");
   await until(() => /Agenda item one/.test(text("Pages.md") || "") && /<!-- page: Meeting -->/.test(text("Pages.md")), "the page is back, with its text");
   assert.match(text("Pages.md"), /<!-- page: Meeting -->\n\nAgenda item one\n\n<!-- \/page -->/);
 });
