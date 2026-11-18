@@ -280,8 +280,9 @@
     e.preventDefault(); e.stopImmediatePropagation();
     run();
   }, true);
-  // the room the toolbar takes at the strip's right end
-  if (window.ResizeObserver) new ResizeObserver(() => document.documentElement.style.setProperty("--tb-w", toolbar.offsetWidth + "px")).observe(toolbar);
+  // the room the toolbar takes at the strip's right end — the strip's own (2026-11-18: set on the root, every element of
+  // the page was styled and laid out anew whenever the toolbar came or went: 60 ms of the frame after All Notes was left)
+  if (window.ResizeObserver) new ResizeObserver(() => tabbar.style.setProperty("--tb-w", toolbar.offsetWidth + "px")).observe(toolbar);
 
   // what the page's other files use of this one
   /* Back and forward (Henri, 2026-10-14), as a browser has them: one way back for each tab through what was shown in it — the

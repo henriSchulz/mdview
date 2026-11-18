@@ -126,6 +126,17 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     (`data-rest`: content-visibility). A formatter is made once (`quickWhen`: `toLocaleDateString` made one at each call,
     33 ms for 417 dates), and a diagram is drawn after the note is on the screen (`renderMermaid`). Check:
     `macos/Tests/MdViewTests/PerfTests.swift` (I: All Notes over a copy of the notes; K: the spare window).
+121. **A note chosen is drawn as it comes, and nothing that changes often is set on the root** (2026-11-18, Henri: „crispy
+    cleane Performance“ — measured, not reported). From a click to the note on the screen took 173 ms in Low Power Mode
+    (30 frames a second), from a row of All Notes 194 ms. The page waited two frames before it drew a chosen note and a
+    third before it showed it (`render` in `viewer/render.js`: now at once, and shown with the next frame; only a note
+    longer than `LONG` makes way first). The toolbar's width was set on the root (`--tb-w`, `viewer/tabs.js`), so every
+    element of the page was styled and laid out anew when the toolbar came back after All Notes: 60 ms of one frame — a
+    custom property is set on the element that uses it. A pattern run at every letter of a note (markdown-it-emoji, 1 900
+    names: 15 ms of a 35 KB note) gets a cheap test first (`emoji_skip`, `viewer/markdown.js`), and the shell's index of
+    a folder's files is made from the listing (`Resolver.swift`: 90 ms of the main thread every eight seconds before).
+    Checks: `dev/tests/going.test.mjs`, `dev/tests/emojiskip.test.mjs`, `macos/Tests/MdViewTests/SwitchTests.swift`;
+    the times: `PerfTests.swift` C2 (a click, a row of All Notes, the drawing alone).
 67. **What comes in later is drawn again everywhere it shows, not only where it was asked for.**
     Lucide's folder signs load when a folder first needs one (`folderGlyph`, `viewer/sidebar.js`);
     whoever asked, the sidebar *and* All Notes (`MdOverview.folderChanged`) are drawn again when

@@ -158,6 +158,86 @@ final class PerfTests: ShellTest {
                               "main_hangs": h.count, "main_hang_max_ms": PerfTests.r(h.max)])
     }
 
+    /// A note chosen as a click chooses it (going, then the shell asked): from the click to the frame that shows it — and where
+    /// that time goes: the way to the shell and back, the page's drawing, the frames held. Chosen among the rows of All Notes
+    /// too (tile: All Notes goes as the note comes), and drawn as the shell alone asks for it (direct: what drawing costs).
+    func testC2_NoteClick() {
+        let w = make(folder: corpus)
+        wait(20) { w.ready }
+        let list = ["Notizen/Bildschirm-Spiegel Aufbau.md", "Notizen/UI-Framework Konzept.md", "Notizen/ASUS UX31A Ladefehler.md",
+                    "Notizen/Mac + Tablet/Cast-Latenz und Strom.md", "Notizen/Current Bugs.md", "Notizen/OS Design Updates.md"].map(note)
+            .filter { Lib.isFile($0) }
+        w.on("note", ["path": list[0]])
+        wait(10) { self.drawn(w, list[0]) }
+        wait(2)
+        // (the shell calls MdView.render by its name: wrapped, it says when the shell's answer came, and — where the page
+        // draws at once — what drawing cost, and the layout after it)
+        _ = page(w, """
+        (() => { const raf = window.requestAnimationFrame.bind(window); // (whether the note came out in a frame's callback: painted in that frame)
+          window.requestAnimationFrame = (cb) => raf((ts) => { const b = document.body.hasAttribute('data-going'); try { cb(ts); } finally { if (b && !document.body.hasAttribute('data-going') && window.__sw) window.__sw.inFrame = 1; } });
+          const orig = MdView.render; MdView.render = function () { const s = window.__sw || {}; s.called = performance.now();
+          const going = document.body.hasAttribute('data-going'); const r = orig.apply(this, arguments);
+          if (!going) { s.sync = performance.now() - s.called; const t = performance.now(); document.body.getBoundingClientRect(); void document.documentElement.scrollHeight; s.layout = performance.now() - t; }
+          return r; }; return 1; })()
+        """)
+        func probe(_ p: String, mode: String) -> [String: Double] {
+            if mode == "tile" {
+                let at = String(p.dropFirst(corpus.count + 1)).split(separator: "/").dropLast().map(String.init)
+                _ = page(w, "(MdOverview.close(false), MdOverview.open(null, { scope: 'folders', at: \(jsonString(at)) }), 1)")
+                wait(5) { (self.page(w, "[...document.querySelectorAll('#overview .ov-item')].some((e) => e.dataset.path === \(jsonString(p)))") as? Bool) == true }
+                wait(0.8)
+            }
+            _ = page(w, """
+            ((p, mode) => { const s = window.__sw = { t0: performance.now(), frames: [] };
+              // shown: the start of the frame after the one that paints it — the next one where it came out in a frame's
+              // callback, the one after the next where it came between two frames
+              const mo = new MutationObserver(() => { if (!document.body.hasAttribute('data-going') && !s.arrived) { s.arrived = performance.now(); mo.disconnect();
+                if (s.inFrame) requestAnimationFrame(() => { s.shown = performance.now(); }); else requestAnimationFrame(() => requestAnimationFrame(() => { s.shown = performance.now(); })); } });
+              mo.observe(document.body, { attributes: true, attributeFilter: ['data-going'] });
+              const tick = (ts) => { s.frames.push(ts); if (!s.shown || performance.now() - s.shown < 400) requestAnimationFrame(tick); else s.done = 1; };
+              requestAnimationFrame(tick);
+              if (mode === 'click') { MdPage.going(p); MdPage.post('note', { path: p }); }
+              if (mode === 'tile') MdOverview.go([...document.querySelectorAll('#overview .ov-item')].find((e) => e.dataset.path === p));
+              return 1; })(\(jsonString(p)), \(jsonString(mode)))
+            """)
+            if mode == "direct" { w.on("note", ["path": p]); _ = page(w, "(() => { const s = window.__sw; s.arrived = performance.now(); requestAnimationFrame(() => requestAnimationFrame(() => { s.shown = performance.now(); })); return 1; })()") }
+            wait(10) { (self.page(w, "window.__sw.done || 0") as? Double) == 1 }
+            let s = page(w, """
+            (() => { const s = window.__sw; const g = []; for (let i = 1; i < s.frames.length; i++) g.push(s.frames[i] - s.frames[i - 1]);
+              return JSON.stringify({ shell: (s.called || 0) - s.t0, sync: s.sync || 0, layout: s.layout || 0, arrived: s.arrived - s.t0, shown: s.shown - s.t0,
+                gap: g.length ? Math.max(...g) : 0, over34: g.filter((x) => x > 34).length }); })()
+            """) as? String ?? "{}"
+            return (try? JSONSerialization.jsonObject(with: Data(s.utf8))) as? [String: Double] ?? [:]
+        }
+        var shown: [Double] = [], tiles: [Double] = [], shell: [Double] = [], sync: [Double] = [], layout: [Double] = []
+        var h = (count: 0, max: 0.0, total: 0.0)
+        h = hangs {
+            for round in 0..<3 {
+                for p in (round == 0 ? Array(list.dropFirst()) : list) {
+                    let r = probe(p, mode: "click")
+                    shown.append(r["shown"] ?? 0); shell.append(r["shell"] ?? 0)
+                    print("PERF C2 click \(round) \(Lib.name(p)): " + r.keys.sorted().map { "\($0)=\(PerfTests.r(r[$0]!))" }.joined(separator: " "))
+                }
+            }
+        }
+        for round in 0..<2 {
+            for p in (round == 0 ? Array(list.dropFirst()) : list) {
+                let r = probe(p, mode: "tile")
+                tiles.append(r["shown"] ?? 0)
+                print("PERF C2 tile \(round) \(Lib.name(p)): " + r.keys.sorted().map { "\($0)=\(PerfTests.r(r[$0]!))" }.joined(separator: " "))
+            }
+        }
+        for p in list {
+            let r = probe(p, mode: "direct")
+            sync.append(r["sync"] ?? 0); layout.append(r["layout"] ?? 0)
+            print("PERF C2 direct \(Lib.name(p)): " + r.keys.sorted().map { "\($0)=\(PerfTests.r(r[$0]!))" }.joined(separator: " "))
+        }
+        put("C2 note click", ["shown_median_ms": PerfTests.r(PerfTests.median(shown)), "shown_p95_ms": PerfTests.r(PerfTests.p95(shown)),
+                              "tile_median_ms": PerfTests.r(PerfTests.median(tiles)), "tile_p95_ms": PerfTests.r(PerfTests.p95(tiles)),
+                              "shell_median_ms": PerfTests.r(PerfTests.median(shell)), "draw_median_ms": PerfTests.r(PerfTests.median(sync)),
+                              "layout_median_ms": PerfTests.r(PerfTests.median(layout)), "main_hangs": h.count, "main_hang_max_ms": PerfTests.r(h.max)])
+    }
+
     /// The sidebar shown and hidden, gliding: the frames of it.
     func testD_SidebarGlide() {
         let p = note("Notizen/UI-Framework Konzept.md")
