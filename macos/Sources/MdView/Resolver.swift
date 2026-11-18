@@ -41,11 +41,16 @@ final class Resolver {
         var idx: [String: [String]] = [:]
         let deadline = Date().addingTimeInterval(2.5)
         var stack = [root], count = 0
+        // (what is needed of each entry comes with the listing — one call per folder, not two per file: the walk held the
+        // main thread 85–95 ms over a folder of 450 notes, each time the kept index was older than its while; 2026-11-18)
+        let keys: [URLResourceKey] = [.isDirectoryKey, .isSymbolicLinkKey]
         while let dir = stack.popLast(), Date() < deadline, count < 200_000 {
-            for name in (try? Lib.fm.contentsOfDirectory(atPath: dir)) ?? [] {
+            for url in (try? Lib.fm.contentsOfDirectory(at: URL(fileURLWithPath: dir, isDirectory: true), includingPropertiesForKeys: keys, options: [])) ?? [] {
+                let name = url.lastPathComponent
                 let p = Lib.join(dir, name)
-                let link = ((try? Lib.fm.attributesOfItem(atPath: p))?[.type] as? FileAttributeType) == .typeSymbolicLink
-                if Lib.isDir(p) {
+                let v = try? url.resourceValues(forKeys: Set(keys))
+                let link = v?.isSymbolicLink == true
+                if link ? Lib.isDir(p) : v?.isDirectory == true {
                     // (a link to a folder is not gone into: a loop walked until the deadline — scan.rs files_under)
                     if !link && !name.hasPrefix(".") && !Lib.skipDirs.contains(name) { stack.append(p) }
                 } else { idx[name.lowercased(), default: []].append(p); count += 1 }

@@ -26,6 +26,18 @@
     window.markdownitSub, window.markdownitSup, window.markdownitAbbr,
     window.markdownitEmoji].forEach(plugin);
   md.linkify.set({ fuzzyLink: false });
+  /* (markdown-it-emoji tries one pattern of some 1 900 names and faces at every letter of every run of text: 15 ms of the
+   * drawing of a note of 35 KB, measured 2026-11-18. Each of them is a ":name:" (a–z, 0–9, _ + -) or one of its faces, all
+   * of which MAYBE finds — a run where it finds none is kept from that pattern for the while of its rule, and the emoji are
+   * the same: dev/tests/emojiskip.test.mjs holds every name and face to it.) */
+  if (md.core.ruler.__find__("emoji") >= 0) {
+    const MAYBE = /:[\w+-]+:|[:;][-'",]*[()|*@/$DPOoSsZz]|<\\?\/?3|[xX8B]-\)/;
+    const runs = (state, from, to) => {
+      for (const t of state.tokens) if (t.type === "inline" && t.children) for (const c of t.children) if (c.type === from && (to === "text" || !MAYBE.test(c.content))) c.type = to;
+    };
+    md.core.ruler.before("emoji", "emoji_skip", (state) => runs(state, "text", "text_noemoji"));
+    md.core.ruler.after("emoji", "emoji_skip_end", (state) => runs(state, "text_noemoji", "text"));
+  }
 
   // --- math ($…$, $$…$$, ```math)
   /* What LaTeX reads and KaTeX does not: a function of KaTeX's own as a sub- or superscript without braces — "s_\max",

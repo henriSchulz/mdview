@@ -53,10 +53,16 @@
     goingTo = null;
     delete document.body.dataset.going;
   }
+  /* A note chosen (going) is drawn as the shell's answer comes and shown with the next frame: where the answer is quick,
+   * the click's frame is the note's (2026-11-18, „crispy cleane Performance“ — two frames waited for before the drawing and
+   * a third before the showing were 100 ms of every click at Low Power Mode's 30 frames a second). A long note, whose
+   * drawing holds the frames, makes way first as before: the one on screen goes at once, it comes two frames later. */
+  const LONG = 40000;
   function render(p) {
     if (!goingAt) { renderNow(p); return; }
     pendingRender = p; // (the newest, if another comes before it is drawn)
     if (renderFrame) return;
+    if (!(p.text && p.text.length > LONG)) { pendingRender = null; try { renderNow(p); } finally { arrived(); } return; }
     renderFrame = requestAnimationFrame(() => { renderFrame = requestAnimationFrame(() => {
       renderFrame = 0;
       const q = pendingRender;
