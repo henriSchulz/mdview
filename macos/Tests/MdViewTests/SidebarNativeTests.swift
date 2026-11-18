@@ -47,6 +47,21 @@ final class SidebarNativeTests: ShellTest {
         XCTAssertTrue(wait(5) { (self.page(w, "JSON.stringify(MdOverview.where())") as? String)?.contains("\"at\":[]") == true })
     }
 
+    /// A folder's row clicked while a note is shown: All Notes opens in that folder, and that folder is the marked row — not
+    /// the note's (All Notes said where it stood while it was being built, before it was open: 2026-11-18).
+    func testAFolderChosenFromANoteIsTheMarkedRow() {
+        let w = folderWindow()
+        let note = Lib.join(dir, "Notizen/A.md")
+        w.on("note", ["path": note])
+        XCTAssertTrue(wait(10) { (self.page(w, "!!(MdPage.current && MdPage.current.path === \(jsonString(note)) && !(window.MdOverview && MdOverview.isOpen))") as? Bool) == true })
+        _ = page(w, "(MdPage.showSidebar(true, false), 1)")
+        XCTAssertTrue(wait(5) { w.sidebarCard!.table.selectedRow == self.index(w, "Notizen") }, "the note's folder is not marked to begin with")
+        click(w, "Plans")
+        XCTAssertTrue(wait(5) { (self.page(w, "JSON.stringify(MdOverview.where())") as? String)?.contains("Plans") == true }, "the folder is not shown")
+        XCTAssertTrue(wait(5) { w.sidebarCard!.table.selectedRow == self.index(w, "Plans") }, "the marked row: \(w.sidebarCard!.table.selectedRow)")
+        XCTAssertEqual(page(w, "[...document.querySelectorAll('#sidebar .sb-list .sb-row.on')].map((e) => e.querySelector('.sb-label').textContent.trim()).join()") as? String, "Plans")
+    }
+
     /// What is typed in the card's search is the page's search: its rows are what is found.
     func testTheSearchIsThePages() {
         let w = folderWindow()

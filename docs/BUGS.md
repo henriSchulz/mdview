@@ -126,6 +126,11 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     (`data-rest`: content-visibility). A formatter is made once (`quickWhen`: `toLocaleDateString` made one at each call,
     33 ms for 417 dates), and a diagram is drawn after the note is on the screen (`renderMermaid`). Check:
     `macos/Tests/MdViewTests/PerfTests.swift` (I: All Notes over a copy of the notes; K: the spare window).
+    What is made once instead of twice says where it stands once it is there (2026-11-18, found by
+    `web/test/library.test.mjs`, which had not run on the Mac): a folder's row opened All Notes, built it where the note
+    lay and again in the folder; built once, the sidebar heard where All Notes stood while it was made, before it was
+    open, and marked the note's folder — All Notes' `open` tells it again (`mdoverview`). Checks:
+    `web/test/library.test.mjs`, `macos/Tests/MdViewTests/SidebarNativeTests.swift` (a folder chosen from a note).
 121. **A note chosen is drawn as it comes, and nothing that changes often is set on the root** (2026-11-18, Henri: „crispy
     cleane Performance“ — measured, not reported). From a click to the note on the screen took 173 ms in Low Power Mode
     (30 frames a second), from a row of All Notes 194 ms. The page waited two frames before it drew a chosen note and a
