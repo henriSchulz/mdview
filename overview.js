@@ -622,6 +622,9 @@
     askBoards();
     pasteWatch();
     if (scope === "paste") pasteText.focus({ preventScroll: true });
+    // (the sidebar marks where All Notes stands — it asked as the rows were made, before All Notes was open: opened at a
+    // folder's row, the note's folder stayed marked, once the row's All Notes was built only once — web/test/library.test.mjs)
+    document.dispatchEvent(new Event("mdoverview"));
   }
   /* Shut, All Notes rests once it has faded: what is in it is neither styled nor laid out again (data-rest: content-visibility)
    * — every row of a folder's 400 notes was laid out anew at each change of the window's size, unseen. */

@@ -617,18 +617,18 @@ test("Ctrl and a click opens a note, or a folder, in a tab of its own; a folder'
   const ovAt = () => page.evaluate((R) => window.MdOverview && MdOverview.isOpen ? [...document.querySelectorAll("#overview .ov-item")].map((t) => t.dataset.path.slice(R.length + 1)).sort() : null, R);
   const was = (await labels()).length;
   // a note, from the sidebar
-  await row("Beta.md").click({ modifiers: ["Control"] });
+  await row("Beta.md").click({ modifiers: ["ControlOrMeta"] });
   await untilNote("Beta.md");
   await until(async () => (await labels()).length === was + 1, "a tab more, for the note");
   assert.ok((await labels()).includes("Alpha"), "the note before keeps its tab");
   // a folder, from the sidebar: a tab named after it, All Notes in it
   await page.evaluate(() => { if (document.body.dataset.sidebar !== "open") document.querySelector('#tabs [data-act="sidebar"]').click(); });
-  await row("sub").click({ modifiers: ["Control"] });
+  await row("sub").click({ modifiers: ["ControlOrMeta"] });
   await until(async () => (await shownTab()) === "sub", "the folder's tab, shown");
   await until(async () => (await ovAt())?.includes("sub/Gamma.md"), "All Notes in the folder");
   assert.equal((await labels()).length, was + 2);
   // a folder, from its tile
-  await page.locator(`#overview .ov-item[data-path="${R}/sub/deep"]`).click({ modifiers: ["Control"] });
+  await page.locator(`#overview .ov-item[data-path="${R}/sub/deep"]`).click({ modifiers: ["ControlOrMeta"] });
   await until(async () => (await shownTab()) === "deep", "the deeper folder's tab");
   await until(async () => (await ovAt())?.includes("sub/deep/Delta.md"), "All Notes in it");
   assert.deepEqual((await labels()).slice(-2), ["sub", "deep"]);
@@ -659,12 +659,12 @@ test("Ctrl and a click in the sidebar's sheets, in Velum Refined: a note and a f
   await page.waitForTimeout(400);
   const labels = () => page.evaluate(() => [...document.querySelectorAll("#tabs .tab:not(.leaving) .tab-label")].map((e) => e.textContent));
   const was = (await labels()).length;
-  await page.locator(`#sidebar .sb-item[data-key="${R}/Beta.md"] .sb-row`).first().click({ modifiers: ["Control"] });
+  await page.locator(`#sidebar .sb-item[data-key="${R}/Beta.md"] .sb-row`).first().click({ modifiers: ["ControlOrMeta"] });
   await untilNote("Beta.md");
   await until(async () => (await labels()).length === was + 1, "a tab more, for the note");
   await page.evaluate(() => { if (document.body.dataset.sidebar !== "open") document.querySelector('#tabs [data-act="sidebar"]').click(); });
   await page.waitForTimeout(400);
-  await page.locator(`#sidebar .sb-item[data-key="${R}/sub"] .sb-row`).first().click({ modifiers: ["Control"] });
+  await page.locator(`#sidebar .sb-item[data-key="${R}/sub"] .sb-row`).first().click({ modifiers: ["ControlOrMeta"] });
   await until(async () => (await labels()).length === was + 2 && (await labels()).includes("sub"), "a tab more, for the folder");
   for (const name of ["sub", "Beta"]) {
     await page.click(`#tabs .tab:has(.tab-label:text-is("${name}"))`);
