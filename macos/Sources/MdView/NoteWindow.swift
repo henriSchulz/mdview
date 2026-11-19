@@ -488,7 +488,7 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         switch type {
         case "startcovered": startCovered(truthy(msg["on"]))
         case "macbar": chrome?.update(msg)
-        case "macsb": sidebarCard?.update(msg)
+        case "macsb": sidebarCard?.update(msg); chrome?.sidebar(msg)
         case "link": link(str("href"), tab: truthy(msg["tab"]), own: (msg["tab"] as? String) == "own")
         case "wikilink": wikilink(str("target"), tab: truthy(msg["tab"]), own: (msg["tab"] as? String) == "own")
         case "tab": tabOp(msg)

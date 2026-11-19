@@ -11,7 +11,7 @@ import WebKit
 extension NSToolbarItem.Identifier {
     static let mdSidebar = Self("md.sidebar"), mdNav = Self("md.nav"), mdOverview = Self("md.overview")
     static let mdSync = Self("md.sync"), mdFolder = Self("md.notefolder"), mdOutline = Self("md.outline"), mdFind = Self("md.find")
-    static let mdShare = Self("md.share"), mdMode = Self("md.mode")
+    static let mdShare = Self("md.share"), mdMode = Self("md.mode"), mdGap = Self("md.gap")
 }
 
 final class MacChrome: NSObject, NSToolbarDelegate {
@@ -38,7 +38,7 @@ final class MacChrome: NSObject, NSToolbarDelegate {
     // MARK: the items
 
     func toolbarDefaultItemIdentifiers(_ t: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.mdSidebar, .mdNav, .mdOverview, .mdSync, .mdFolder, .flexibleSpace, .mdOutline, .mdFind, .mdShare, .mdMode]
+        [.mdSidebar, .mdGap, .mdNav, .mdOverview, .mdSync, .mdFolder, .flexibleSpace, .mdOutline, .mdFind, .mdShare, .mdMode]
     }
     func toolbarAllowedItemIdentifiers(_ t: NSToolbar) -> [NSToolbarItem.Identifier] { toolbarDefaultItemIdentifiers(t) }
 
@@ -47,6 +47,12 @@ final class MacChrome: NSObject, NSToolbarDelegate {
         let item: NSToolbarItem
         switch id {
         case .mdSidebar: item = button(id, "sidebar.left", T("Sidebar", "Seitenleiste"), "sidebar"); item.visibilityPriority = .high
+        case .mdGap:
+            item = NSToolbarItem(itemIdentifier: id)
+            item.view = gap
+            item.isBordered = false
+            item.visibilityPriority = .low
+            if #available(macOS 15, *) { item.isHidden = true }
         case .mdNav:
             let g = NSToolbarItemGroup(itemIdentifier: id, images: [symbol("chevron.left"), symbol("chevron.right")], selectionMode: .momentary,
                                        labels: [T("Back", "Zurück"), T("Forward", "Vor")], target: self, action: #selector(navigate(_:)))
@@ -104,6 +110,62 @@ final class MacChrome: NSObject, NSToolbarDelegate {
         w.web.evaluateJavaScript("window.__macAct && __macAct(\(jsonString(a)), \(mode.map(jsonString) ?? "null"))", completionHandler: nil)
     }
 
+    // MARK: the sidebar's edge
+
+    /* What stands after the sidebar's button — back and forward, All Notes, the sync sign — stands beside the sidebar, not
+     * over its edge (Henri, 2026-11-19: "bug überlappt" — the window's buttons and the bar's first ones are wider together
+     * than the sidebar, and the last capsule lay half on the card, half beside it). A gap after the sidebar's button, as wide
+     * as it takes to reach the card's edge: the sidebar's button stays over the card, the rest begins beside it, as in the
+     * Finder and Notes. No gap while the sidebar is shut or only peeks out. */
+    final class Gap: NSView {
+        var moved: (() -> Void)?
+        override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); if window != nil { moved?() } }
+    }
+    let gap: Gap = {
+        let v = Gap()
+        v.translatesAutoresizingMaskIntoConstraints = false
+        return v
+    }()
+    private lazy var gapWidth: NSLayoutConstraint = {
+        let c = gap.widthAnchor.constraint(equalToConstant: 0)
+        c.isActive = true
+        gap.heightAnchor.constraint(equalToConstant: 1).isActive = true
+        return c
+    }()
+    private var edge: CGFloat? // (the sidebar's right edge in the window, while it is pinned open)
+    /// Where the gap ends in the window (from its left), while there is one: what stands after it begins there.
+    var gapEnd: CGFloat? {
+        guard edge != nil, gap.window != nil else { return nil }
+        return gap.convert(gap.bounds, to: nil).maxX
+    }
+
+    /// The page's word on its sidebar (`macsb`): pinned open, and how wide.
+    func sidebar(_ s: [String: Any]) {
+        let open = (s["state"] as? String) == "open" && (state["focus"] as? Bool) != true
+        let now: CGFloat? = open ? max(180, CGFloat((s["sbw"] as? NSNumber)?.doubleValue ?? 260)) : nil
+        if now == edge { return }
+        edge = now
+        fit()
+    }
+
+    /// The gap as wide as it takes from where it begins to the sidebar's edge (and a little: the bar's own space between two).
+    /// Where it begins is the bar's to say, and the bar lays itself out when it likes — after an item is shown, after the
+    /// window's buttons went (full screen): looked at now, and again a little later.
+    func fit() {
+        gap.moved = { [weak self] in self?.fitNow() }
+        fitNow()
+        for after in [0.0, 0.06, 0.3] { DispatchQueue.main.asyncAfter(deadline: .now() + after) { [weak self] in self?.fitNow() } }
+    }
+    private func fitNow() {
+        guard let item = items[.mdGap] else { return }
+        if #available(macOS 15, *), item.isHidden != (edge == nil) { item.isHidden = edge == nil }
+        guard let edge else { gapWidth.constant = 0; return }
+        guard gap.window != nil else { return } // (not in the bar yet: `moved` says when)
+        let from = gap.convert(gap.bounds, to: nil).minX
+        let wide = max(0, (edge + 4 - from).rounded())
+        if abs(gapWidth.constant - wide) > 0.5 { gapWidth.constant = wide }
+    }
+
     // MARK: how the page's buttons stand (macbar)
 
     func update(_ s: [String: Any]) {
@@ -113,7 +175,7 @@ final class MacChrome: NSObject, NSToolbarDelegate {
         // (a spare has its bar already: what it is taken for is mostly a note or a folder, and a bar that comes then lays the
         // window out anew — 55 ms of the 70 the shell took to show a spare's note)
         let shown = (w.path != nil || w.folder != nil || w.isSpare) && !b("focus")
-        if toolbar.isVisible != shown { toolbar.isVisible = shown; tellHeight() }
+        if toolbar.isVisible != shown { toolbar.isVisible = shown; tellHeight(); fit() }
         let note = !b("nonote"), folder = b("folder")
         items[.mdOutline]?.isEnabled = note
         items[.mdFind]?.isEnabled = note || b("overview")
@@ -208,9 +270,10 @@ final class MacChrome: NSObject, NSToolbarDelegate {
 extension NoteWindow {
     // (full screen: the bar's height changes with it — and left by the window's own button, the page's focus ends too,
     // which it did not hear of before)
-    func windowDidEnterFullScreen(_ n: Notification) { chrome?.tellHeight() }
+    func windowDidEnterFullScreen(_ n: Notification) { chrome?.tellHeight(); chrome?.fit() } // (… and the window's buttons are gone: the gap begins further left)
     func windowDidExitFullScreen(_ n: Notification) {
         chrome?.tellHeight()
+        chrome?.fit()
         if ready { web.evaluateJavaScript("document.body.hasAttribute('data-focus') && window.MdPage && MdPage.setFocus && MdPage.setFocus(false)", completionHandler: nil) }
     }
 }
