@@ -67,5 +67,12 @@ final class HtmlBlockTests: ShellTest {
         let e = NSEvent.mouseEvent(with: .rightMouseDown, location: NSPoint(x: 50, y: 50), modifierFlags: [], timestamp: 0, windowNumber: w.window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
         w.web.willOpenMenu(menu, with: e)
         XCTAssertEqual(menu.items.count, 0, "the web view's menu would open with: \(menu.items.map(\.title))")
+        // the app's own menu opens over the same view, and keeps its rows
+        let own = NSMenu()
+        own.addItem(withTitle: "Copy", action: nil, keyEquivalent: "")
+        NativeMenu.shown = own
+        defer { NativeMenu.shown = nil }
+        w.web.willOpenMenu(own, with: e)
+        XCTAssertEqual(own.items.map(\.title), ["Copy"])
     }
 }
