@@ -262,16 +262,19 @@ final class BoardTests: ShellTest {
         XCTAssertEqual(page(w, kind) as? String, pen, "switch to previous did not go back to the pen")
         page(w, "MdBoard.pencil({ action: 'tap', preferred: 'ignore' })")
         XCTAssertEqual(page(w, kind) as? String, pen, "ignore changed the tool")
-        // a squeeze: the bar at the Pencil (measured as laid out: it grows into place)
+        // a squeeze: the dial round the Pencil's tip (Henri: "wie bei Apple Notes oder Freeform") — its middle where the Pencil
+        // hovers, its buttons on a ring round it (measured as laid out: they grow into place)
         page(w, "MdBoard.pencil({ action: 'squeeze', phase: 'began', preferred: 'showContextualPalette', x: 400, y: 380 })")
-        let open = "(() => { const b = document.querySelector('#board .bd-squeeze'); if (!b || b.dataset.open == null) return null; const q = document.getElementById('board').getBoundingClientRect(); return [q.left + b.offsetLeft, q.top + b.offsetTop + b.offsetHeight, b.offsetWidth, b.querySelectorAll('[data-tool], [data-kind]').length, b.querySelectorAll('[data-ink]').length]; })()"
+        let open = "(() => { const b = document.querySelector('#board .bd-squeeze'); if (!b || b.dataset.open == null) return null; const q = document.getElementById('board').getBoundingClientRect(), r = [...b.querySelectorAll('button')].map((x) => Math.hypot(parseFloat(x.style.getPropertyValue('--x')), parseFloat(x.style.getPropertyValue('--y')))); return [q.left + b.offsetLeft, q.top + b.offsetTop, Math.min(...r), Math.max(...r), b.querySelectorAll('[data-tool], [data-kind]').length, b.querySelectorAll('[data-ink]').length]; })()"
         let bar = (page(w, open) as? [NSNumber])?.map(\.doubleValue) ?? []
-        XCTAssertEqual(bar.count, 5, "no bar at the Pencil after a squeeze")
-        guard bar.count == 5 else { return }
-        XCTAssertLessThan(bar[1], 380, "the bar is not above the Pencil")
-        XCTAssertLessThan(abs(bar[0] + bar[2] / 2 - 400), 2, "the bar is not over the Pencil")
-        XCTAssertEqual(bar[3], 6, "pens, eraser and lasso")
-        XCTAssertEqual(bar[4], 3, "the pen's three colours")
+        XCTAssertEqual(bar.count, 6, "no dial at the Pencil after a squeeze")
+        guard bar.count == 6 else { return }
+        XCTAssertEqual(bar[0], 400, accuracy: 1, "the dial's middle is not at the Pencil")
+        XCTAssertEqual(bar[1], 380, accuracy: 1, "the dial's middle is not at the Pencil")
+        XCTAssertGreaterThan(bar[2], 70, "a button is not out on the ring")
+        XCTAssertLessThan(bar[3] - bar[2], 2, "the buttons are not on one ring")
+        XCTAssertEqual(bar[4], 6, "pens, eraser and lasso")
+        XCTAssertEqual(bar[5], 3, "the pen's three colours")
         page(w, "MdBoard.pencil({ action: 'squeeze', phase: 'ended', preferred: 'showContextualPalette', x: 400, y: 380 })")
         XCTAssertEqual(page(w, "document.querySelector('#board .bd-squeeze').dataset.open != null") as? Bool, true, "the end of the squeeze shut the bar")
         page(w, "(document.querySelector('#board .bd-squeeze [data-tool=\"eraser\"]').click(), 1)")

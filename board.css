@@ -456,11 +456,27 @@ body[data-flat] .bd-ruler { background-color: color-mix(in srgb, var(--bd-tool-b
 }
 .bd-said { position: absolute; left: 50%; top: 38%; translate: -50% 0; padding: 8px 16px; border-radius: var(--radius-pill); background: var(--glass); backdrop-filter: var(--glass-filter); -webkit-backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-capsule); font-weight: 600; pointer-events: none; opacity: 0; scale: 0.94; transition: opacity var(--dur-fast) var(--ease-exit), scale var(--dur-fast) var(--ease-exit); }
 .bd-said[data-on] { opacity: 1; scale: 1; transition: opacity var(--dur-fast) var(--ease-out), scale var(--spring-snappy-dur) var(--spring-snappy); }
-/* a squeeze of the Pencil (ipad-cast): the pens, the eraser, the lasso and the pen's colours in a small bar at the Pencil */
-.bd-squeeze { position: absolute; z-index: 6; --bd-well: 24px; gap: 4px; opacity: 0; scale: 0.92; pointer-events: none; transition: opacity var(--dur-fast) var(--ease-exit), scale var(--dur-fast) var(--ease-exit); }
-.bd-squeeze[data-open] { opacity: 1; scale: 1; pointer-events: auto; transition: opacity var(--dur-fast) var(--ease-out), scale var(--spring-snappy-dur) var(--spring-snappy); }
-.bd-squeeze .bd-sep { width: 1px; align-self: stretch; margin: 6px 4px; background: var(--line); }
-.bd-squeeze .bd-well { margin: 0 3px; }
+/* a squeeze of the Pencil (ipad-cast): a dial around its tip, as Apple's Notes and Freeform have it — one disc of glass that
+   opens out of the tip, its tools and colours round its rim, each coming in turn (--i) to its place (--x, --y) */
+.bd-squeeze { position: absolute; z-index: 6; width: 0; height: 0; pointer-events: none; --dial: 224px; }
+.bd-squeeze::after { content: ""; position: absolute; z-index: -1; left: calc(var(--dial) / -2); top: calc(var(--dial) / -2); width: var(--dial); height: var(--dial); border-radius: 50%;
+  background: var(--glass); backdrop-filter: var(--glass-filter); -webkit-backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-capsule), inset 0 0 0 0.5px var(--line);
+  opacity: 0; transform: scale(0.2); transition: transform var(--dur-fast) var(--ease-exit), opacity var(--dur-fast) var(--ease-exit); }
+.bd-squeeze[data-open]::after { opacity: 1; transform: none; transition: transform var(--spring-snappy-dur) var(--spring-snappy), opacity var(--dur-fast) var(--ease-out); }
+.bd-squeeze::before { content: ""; position: absolute; left: -7px; top: -7px; width: 14px; height: 14px; box-sizing: border-box; border-radius: 50%; border: 1.5px solid var(--fg2); opacity: 0; transition: opacity var(--dur-fast) var(--ease-exit); }
+.bd-squeeze[data-open]::before { opacity: 0.7; transition: opacity var(--dur-fast) var(--ease-out); }
+.bd-rad { position: absolute; left: -22px; top: -22px; width: 44px; height: 44px; box-sizing: border-box; padding: 0; border: 0; border-radius: 50%; display: grid; place-items: center; color: var(--fg); background: transparent; cursor: default;
+  opacity: 0; transform: translate(0, 0) scale(0.3); pointer-events: none;
+  transition: transform var(--dur-fast) var(--ease-exit), opacity var(--dur-fast) var(--ease-exit), background-color var(--dur-fast) var(--ease-out); }
+.bd-squeeze[data-open] .bd-rad { opacity: 1; transform: translate(var(--x), var(--y)) scale(1); pointer-events: auto;
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy), opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+  transition-delay: calc(var(--i) * 16ms); }
+.bd-rad svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.bd-squeeze[data-open] .bd-rad:hover { background: var(--fill-hover); transition-delay: 0s; }
+.bd-squeeze[data-open] .bd-rad:active { transform: translate(var(--x), var(--y)) scale(var(--press-scale)); transition-delay: 0s; }
+.bd-rad[aria-pressed="true"], .bd-squeeze[data-open] .bd-rad[aria-pressed="true"]:hover { background: var(--accent); color: var(--bd-on-accent); }
+.bd-rad.bd-ink span { width: 24px; height: 24px; border-radius: 50%; box-shadow: inset 0 0 0 0.5px var(--line-strong); }
+.bd-rad.bd-ink[aria-checked="true"] span { outline: 2px solid var(--fg); outline-offset: 3px; }
 /* a board of pages (a notebook, a PDF): the page in sight while it is moved, as GoodNotes says it — at the top, between the bars */
 .bd-pageno { position: absolute; left: 50%; top: calc(var(--bd-inset) + env(safe-area-inset-top, 0px) + (var(--bd-bar-h) - 28px) / 2); translate: -50% 0; height: 28px; box-sizing: border-box; padding: 0 12px; display: flex; align-items: center; border-radius: var(--radius-pill); background: var(--glass); backdrop-filter: var(--glass-filter); -webkit-backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-capsule); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; pointer-events: none; opacity: 0; transition: opacity var(--dur-base) var(--ease-exit); }
 .bd-pageno[data-on] { opacity: 1; transition: opacity var(--dur-fast) var(--ease-out); }

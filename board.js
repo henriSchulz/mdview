@@ -2035,29 +2035,43 @@
     if (what === "showContextualPalette") { squeezePalette(a); return true; }
     return false; // (ignore, a shortcut of the system's: the iPad's own)
   };
-  /* A squeeze's own (iPadOS' "Show Contextual Palette", as GoodNotes shows it): the pens, the eraser and the lasso, and the pen's
-   * three colours, in a small bar at the Pencil — above where it hovers, else in the middle. A tool or a colour taken, a press
-   * beside it, or a squeeze again, shuts it. */
+  /* A squeeze's own (iPadOS' "Show Contextual Palette"), as Apple's Notes and Freeform show it (Henri, 2026-11-19: "das
+   * Drück-Menü soll so ein Kreis sein wie bei Apple Notes oder Freeform"): a ring of round buttons around the Pencil's tip —
+   * clockwise from the top the pens, the pen's three colours at the foot, the eraser and the lasso coming up again — that grow
+   * out of the tip one after the other and go back into it. Where the Pencil hovers, else in the middle; moved in from the
+   * window's edges as far as the ring needs. A tool or a colour taken, a press beside it, or a squeeze again, shuts it. */
+  const RING = 82, KNOB = 44; // (the radius the buttons stand on and a button's size, in the window's pixels; the disc: board.css --dial)
   function squeezePalette(a) {
-    let bar = el.querySelector(".bd-squeeze");
-    if (bar && bar.dataset.open != null) return squeezeShut();
-    if (!bar) {
-      bar = document.createElement("div");
-      bar.className = "bd-bar bd-squeeze";
-      bar.setAttribute("role", "toolbar");
-      bar.addEventListener("click", (e) => { if (e.target.closest("button")) setTimeout(squeezeShut, 0); });
-      el.appendChild(bar);
+    let ring = el.querySelector(".bd-squeeze");
+    if (ring && ring.dataset.open != null) return squeezeShut();
+    if (!ring) {
+      ring = document.createElement("div");
+      ring.className = "bd-squeeze";
+      ring.setAttribute("role", "toolbar");
+      ring.addEventListener("click", (e) => { if (e.target.closest("button")) setTimeout(squeezeShut, 0); });
+      el.appendChild(ring);
     }
+    ring.setAttribute("aria-label", T("board.tools"));
     const on = (k) => (k === "lasso" ? S.kind === "lasso" : k === "eraser" ? S.kind === "eraser" : S.kind === "pen" && S.pen === k);
-    const tool = (t, attr) => `<button type="button" class="bd-btn" ${attr}="${t}" aria-pressed="${on(t)}" title="${esc(T(ALL.includes(t) ? "board.tool." + t : "board.kind." + t))}" aria-label="${esc(T(ALL.includes(t) ? "board.tool." + t : "board.kind." + t))}">${I[t] || ""}</button>`;
+    const name = (t) => esc(T(ALL.includes(t) ? "board.tool." + t : "board.kind." + t));
     const fg = auto(), now = (S.tools[S.pen] || {}).c;
-    const inks = favs[S.pen].map((c) => `<button type="button" class="bd-well" data-ink="${esc(c)}" style="--ink:${esc(c === "auto" ? fg : c)}" aria-checked="${c === now}" aria-label="${esc(T("board.color"))}"></button>`).join("");
-    bar.innerHTML = DRAWS.map((t) => tool(t, "data-tool")).join("") + tool("eraser", "data-tool") + tool("lasso", "data-kind") + `<span class="bd-sep"></span>` + inks;
-    const box = el.getBoundingClientRect(), w = bar.offsetWidth, h = bar.offsetHeight;
+    const items = [
+      ...DRAWS.map((t) => `data-tool="${t}" aria-pressed="${on(t)}" title="${name(t)}" aria-label="${name(t)}">${I[t] || ""}`),
+      ...favs[S.pen].map((c) => `data-ink="${esc(c)}" class="bd-ink" aria-checked="${c === now}" aria-label="${esc(T("board.color"))}"><span style="background:${esc(c === "auto" ? fg : c)}"></span>`),
+      `data-tool="eraser" aria-pressed="${on("eraser")}" title="${name("eraser")}" aria-label="${name("eraser")}">${I.eraser}`,
+      `data-kind="lasso" aria-pressed="${on("lasso")}" title="${name("lasso")}" aria-label="${name("lasso")}">${I.lasso}`,
+    ];
+    ring.innerHTML = items.map((attrs, i) => {
+      const t = -Math.PI / 2 + (i * 2 * Math.PI) / items.length, x = Math.round(RING * Math.cos(t)), y = Math.round(RING * Math.sin(t));
+      const own = attrs.startsWith('data-ink') ? "" : ' class="bd-rad"';
+      return `<button type="button"${own} style="--x:${x}px;--y:${y}px;--i:${i}" ${attrs.replace('class="bd-ink"', 'class="bd-rad bd-ink"')}</button>`;
+    }).join("");
+    const box = el.getBoundingClientRect(), keep = 112 + 8; // (half the disc, and a little room: it is whole in the window)
     const x = Number.isFinite(a.x) ? a.x - box.left : box.width / 2, y = Number.isFinite(a.y) ? a.y - box.top : box.height / 2;
-    bar.style.left = Math.max(8, Math.min(box.width - w - 8, x - w / 2)) + "px";
-    bar.style.top = (y - h - 32 >= 8 ? y - h - 32 : Math.min(box.height - h - 8, y + 32)) + "px";
-    bar.dataset.open = "";
+    ring.style.left = Math.max(keep, Math.min(box.width - keep, x)) + "px";
+    ring.style.top = Math.max(keep, Math.min(box.height - keep, y)) + "px";
+    void ring.offsetWidth; // (laid out shut first: the buttons grow out of the tip)
+    ring.dataset.open = "";
     addEventListener("pointerdown", squeezeAway, true);
   }
   function squeezeAway(e) { if (!(e.target.closest && e.target.closest(".bd-squeeze"))) squeezeShut(); }

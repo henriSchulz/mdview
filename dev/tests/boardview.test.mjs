@@ -90,3 +90,15 @@ test("an endless board has no edges", () => {
   assert.equal(v.x, -5000);
   assert.ok(!v.bent());
 });
+
+test("pinched where the page is narrower than the window, what is under the fingers stays under them; let go, it goes to the middle", () => {
+  const v = book(), least = Math.min(across, whole);
+  v.zoomAt(W / 2, H / 2, least); // (smaller than across: the page narrower than the room)
+  v.settle(true);
+  const cx = W - 200, cy = H / 2, [bx] = v.toBoard(cx, cy); // (the fingers near the page's right edge)
+  v.zoomAt(cx, cy, v.z * 1.15);
+  const [after] = v.toBoard(cx, cy);
+  assert.ok(Math.abs(after - bx) * v.z < 40, `the place under the fingers slid ${Math.round((after - bx) * v.z)} px away`);
+  v.settle(true);
+  if (v.z * PW <= W - room.left - room.right) assert.ok(Math.abs((-PW / 2 - v.x) * v.z - (room.left + (W - room.left - room.right - PW * v.z) / 2)) < 0.5, "not in the middle after it was let go");
+});

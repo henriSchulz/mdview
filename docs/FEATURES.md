@@ -799,8 +799,9 @@ and shut back into it — or a file of the folder, of its own.
   Mac's own mouse and trackpad stay what they are. The Pencil held over the iPad's glass shows its tip on the board as
   on an iPad, and goes when it is taken away. Its double tap and its squeeze (Apple Pencil Pro) do what the iPad's own
   setting says (Settings › Apple Pencil), as GoodNotes does: the eraser and back (the default), the tool before, the
-  colours, the widths; a squeeze's "Show Contextual Palette" puts a small bar of the pens, the eraser, the lasso and the
-  pen's three colours above the Pencil — a tool or a colour taken, a press beside it, or another squeeze, shuts it.
+  colours, the widths; a squeeze's "Show Contextual Palette" opens a dial round the Pencil's tip, as Apple's Notes and
+  Freeform have it — one disc of glass with the pens, the pen's three colours, the eraser and the lasso round its rim,
+  growing out of the tip — a tool or a colour taken, a press beside it, or another squeeze, shuts it.
 - **Pen and fingers together**: what is chosen is moved by a finger laid on it, anywhere in
   its frame. A finger's tap on a thing chooses it, whatever tool is in hand, and the tool
   stays in hand: the finger moves the thing, the pen takes hold of it too — at its dots it
@@ -894,8 +895,11 @@ them is not there).
   never made smaller than the page in sight whole between the bars (pinched smaller, they come back to that), and a size
   let go within a tenth of the page across the window, or whole in it, becomes it. Narrower than the window, the pages
   stand in its middle; zoomed in, they move to their own edges and no further. The bars' room counts: the page's top
-  stops under the name and the actions, its side beside the tray where it stands upright. The same holds over a PDF's
-  pages on a whiteboard.
+  stops under the name and the actions, its side beside the tray where it stands upright. The way the pages fit whole
+  a push moves nothing (no sway sideways at the page's width); a pinch keeps what lies under the fingers under them and
+  puts the pages in the middle when let go. On a Mac the board follows a trackpad's (and an iPad's finger through
+  ipad-cast) steps as they come and adds no glide of its own — the system glides; only a mouse wheel's notch glides.
+  The same holds over a PDF's pages on a whiteboard.
 - **The page in sight** is said at the top, between the bars ("3 / 12"), while the pages move, and fades a moment after.
 - **The file**: a whiteboard's file whose first line says it is a notebook — its paper, its colour,
   its size, how many pages (`"paper":{"bg":"grid","color":"white","size":"a4","n":2}`). Its

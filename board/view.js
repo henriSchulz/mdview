@@ -30,7 +30,7 @@
 
   function make(size, changed) {
     // While a hand pulls beyond the edges: where the view would be without them (x, y on the board, z) — the rubber follows that.
-    let raw = null, settling = null;
+    let raw = null, settling = null, sized = -1e9; // (sized: when the size was last changed by a hand — a pinch moves too)
     const stop = () => { if (settling) settling(); settling = null; };
     const v = {
       x: 0, y: 0, z: 1,
@@ -46,7 +46,7 @@
         stop();
         if (!v.limit) { v.x -= dx / v.z; v.y -= dy / v.z; return changed(); }
         const from = raw || v.unbent();
-        place(from.x - dx / v.z, from.y - dy / v.z, v.z);
+        place(from.x - dx / v.z, from.y - dy / v.z, v.z, v.z, performance.now() - sized > 150);
         changed();
       },
       // the point under (cx, cy) stays under it
@@ -64,7 +64,8 @@
         const want = Math.min(v.max, from.z * (z / v.z)); // (the size the hand has, the rubber taken off)
         const shown = want >= L.least ? want : L.least * Math.pow(want / L.least, 0.35);
         const bx = from.x + cx / v.z, by = from.y + cy / v.z; // (the point under the hand)
-        place(bx - cx / shown, by - cy / shown, shown, want);
+        sized = performance.now();
+        place(bx - cx / shown, by - cy / shown, shown, want, false);
         changed();
       },
       step(dir) { // the next of the fixed sizes, around the window's middle
@@ -137,12 +138,14 @@
     /* The view put where the hand has it — x, y at the size shown (z); hz: the size the hand asks, where the rubber shows less —
      * within the edges as far as that goes, and beyond them by the rubber. What the hand has is kept while it is beyond them:
      * the next step goes on from there, not from what is shown. */
-    function place(x, y, z, hz = z) {
+    function place(x, y, z, hz = z, pan = true) {
       const { w, h } = size(), f = v.fits(x, y, z), [ix, iy] = f.at;
-      // (how far beyond, in screen pixels — none the way the pages fit whole: there the hand moves nothing, as an iPad's list
-      // that is not wider than the window does not move sideways at all; the side of every push down a notebook at the page's
-      // width made it sway, Henri: "fühlt sich nicht flüssig an")
-      const ox = f.across ? 0 : (x - ix) * z, oy = f.down ? 0 : (y - iy) * z;
+      // (how far beyond, in screen pixels — none the way the pages fit whole while they are pushed: there a push moves nothing,
+      // as an iPad's list that is not wider than the window does not move sideways at all — the side of every push down a
+      // notebook at the page's width made it sway, Henri: "fühlt sich nicht flüssig an". A pinch is different: what lies under
+      // the fingers stays under them, the rubber pulling it toward the middle, and the pages go there when let go — put in the
+      // middle at once, the place pinched slid away from under the fingers: "ich komme oft nicht an Stellen, wo ich hin will")
+      const ox = pan && f.across ? 0 : (x - ix) * z, oy = pan && f.down ? 0 : (y - iy) * z;
       v.z = z;
       v.x = ix + (Math.abs(ox) > 1e-3 ? rubber(ox, w) / z : 0);
       v.y = iy + (Math.abs(oy) > 1e-3 ? rubber(oy, h) / z : 0);

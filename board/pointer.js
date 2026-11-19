@@ -72,6 +72,12 @@
     // A wheel's large step — a mouse's notch, a hard push on a touchpad — is not taken at once: the board goes there as a glide,
     // and a step more while it goes only adds to the way. (Small steps, a touchpad's stream of them, are taken as they come.)
     const BIG = 30;
+    // On a Mac a wheel's notch says itself as forty pixels a notch (WebKit, measured 2026-11-19); a trackpad's steps, and an iPad's
+    // finger through ipad-cast, are whatever they are — a quick finger goes more than BIG a step at 60 Hz — and are followed as
+    // they come, never glided to: glided, the page lagged behind the finger (Henri: "das Scroll-Verhalten ist immer noch
+    // unintuitiv"). And a Mac glides a flick on itself — the trackpad's momentum, ipad-cast's glide —: the board adds none.
+    const MAC = /^Mac/.test(navigator.platform || "");
+    const notch = (dx, dy) => !MAC || ((Math.abs(dx) % 40 === 0) && (Math.abs(dy) % 40 === 0));
     let slide = null, lifted = 0;
     function slideBy(dx, dy) {
       if (calm.matches) return on.pan(dx, dy);
@@ -273,20 +279,21 @@
       // reagiert zu langsam wenn man sich weg von der Seite bewegt"). Shrinking steps beyond the edge are that glide: the
       // board is let go, and the rest of the glide is not taken — until steps grow again, or stop a moment (a hand again).
       const step = Math.hypot(dx, dy), t = performance.now();
-      if (glided && (t - glided.t > 120 || step > glided.step * 1.15)) glided = null;
+      // (only the glide's own way is let go: a step back — the hand going where it wants — is taken, and ends it)
+      if (glided && (t - glided.t > 120 || step > glided.step * 1.15 || dx * glided.dx + dy * glided.dy < 0)) glided = null;
       if (glided) { glided.t = t; glided.step = step; return; }
       if (on.beyond && on.beyond() && step > 0) {
         shrinking = lastStep > 0 && step < lastStep * 0.97 ? shrinking + 1 : 0;
         lastStep = step;
-        if (shrinking >= 2) { glided = { t, step }; shrinking = 0; clearTimeout(lifted); return rest(); }
+        if (shrinking >= 2) { glided = { t, step, dx, dy }; shrinking = 0; clearTimeout(lifted); return rest(); }
       } else { shrinking = 0; lastStep = step; }
-      if (step >= BIG) return slideBy(dx, dy);
+      if (step >= BIG && notch(dx, dy)) return slideBy(dx, dy);
       if (slide) { slide.x += dx; slide.y += dy; } else on.pan(dx, dy);
       restSoon();
       // Two fingers lifted off a touchpad while the board was moving: where the host says so (coasts — pages are read by pushing them
       // on) it runs on, ever slower, as under a finger. The steps just stop coming; had the system run them out itself they would
       // have slowed to nothing first, and nothing is added.
-      if (!on.coasts || !on.coasts()) return;
+      if (MAC || !on.coasts || !on.coasts()) return; // (a Mac glides itself: one glide more went too far — Henri: "geht teilweise zu weit")
       const now = performance.now();
       pushed(dx, dy, now);
       lifted = setTimeout(() => coast(performance.now()), 45);

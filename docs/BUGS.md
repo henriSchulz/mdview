@@ -345,6 +345,11 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     last step (`glided` in board/pointer.js: shrinking steps beyond the edge); and nothing asked at every step measures the
     window anew (`size` in board.js is kept per size). WebKit at the cast's size gave 60 frames a second with 200 strokes
     both before and after: what was felt was the sway and the hang, not the drawing.
+    And (Henri: „geht teilweise zu weit" … „ich komme oft nicht an Stellen, wo ich hin will"): on a Mac the board added a
+    glide of its own after the system's (or ipad-cast's) — the board's wheel coast is for WebKitGTK, which gets no momentum —,
+    and took any step over 30 px for a mouse's notch and glided to it, lagging behind a quick finger (WebKit says a notch as
+    40 px exactly: `notch`); a pinch where the pages fit across put them in the middle at once, so the place pinched slid
+    from under the fingers (66 px a step: `place(…, pan)`); and after a glide's bounce a step back was thrown away too.
 125. **What WebKit on the Mac says of a pointer is not what it is** (2026-11-19, the Pencil over ipad-cast). A tablet's
     events — the system's mouse events of the tablet-point kind, with the pen's pressure and tilt in their own fields —
     reach a page in WKWebView as `pointerType: "mouse"`, `pressure: 0`, no tilt; a finger the cast turns into a click is a
