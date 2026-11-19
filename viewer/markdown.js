@@ -637,6 +637,13 @@
     const fit = () => { const h = Math.ceil(d.documentElement.getBoundingClientRect().height); if (h > 0 && frame.style.height !== h + "px") frame.style.height = h + "px"; };
     fit();
     if (typeof ResizeObserver === "function") new ResizeObserver(fit).observe(d.documentElement);
+    // A secondary click in it is the note's at that place: the app's own menu, never the web view's ("Open Frame in New
+    // Window", "Inspect Element" — Henri, 2026-11-19: "was ist das für ein menu … inspect soll es nicht geben").
+    d.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      const r = frame.getBoundingClientRect();
+      frame.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, view: window, button: 2, buttons: 2, clientX: r.left + e.clientX, clientY: r.top + e.clientY, ctrlKey: e.ctrlKey, shiftKey: e.shiftKey, altKey: e.altKey, metaKey: e.metaKey }));
+    });
     d.addEventListener("click", (e) => {
       const a = e.target && e.target.closest ? e.target.closest("a[href]") : null;
       if (!a) return;

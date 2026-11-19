@@ -25,6 +25,15 @@ final class FilesWebView: WKWebView {
     })();
     """
 
+    /// The web view's own menu is never shown: every menu here is the app's (the page's, as the system's — NativeMenu.swift),
+    /// and where the page did not take a secondary click — inside an HTML block's frame, whose document it cannot listen
+    /// in — WebKit's came, "Open Frame in New Window" and "Inspect Element" (Henri, 2026-11-19: "was ist das für ein menu …
+    /// inspect soll es nicht geben"). Emptied, nothing opens.
+    override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
+        menu.removeAllItems()
+        menu.cancelTrackingWithoutAnimation()
+    }
+
     override init(frame: CGRect, configuration: WKWebViewConfiguration) {
         configuration.userContentController.addUserScript(WKUserScript(source: FilesWebView.script, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         super.init(frame: frame, configuration: configuration)

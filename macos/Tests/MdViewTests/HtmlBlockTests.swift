@@ -56,4 +56,16 @@ final class HtmlBlockTests: ShellTest {
         wait(1)
         XCTAssertEqual(read(Lib.join(dir, "H.md")), note)
     }
+
+    /// The web view's own menu never opens (inside an HTML block's frame it came: "Open Frame in New Window", "Inspect
+    /// Element" — Henri, 2026-11-19).
+    func testTheWebViewsOwnMenuIsNotShown() {
+        let w = open(write("M.md", "# M\n"))
+        let menu = NSMenu()
+        menu.addItem(withTitle: "Open Frame in New Window", action: nil, keyEquivalent: "")
+        menu.addItem(withTitle: "Inspect Element", action: nil, keyEquivalent: "")
+        let e = NSEvent.mouseEvent(with: .rightMouseDown, location: NSPoint(x: 50, y: 50), modifierFlags: [], timestamp: 0, windowNumber: w.window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+        w.web.willOpenMenu(menu, with: e)
+        XCTAssertEqual(menu.items.count, 0, "the web view's menu would open with: \(menu.items.map(\.title))")
+    }
 }
