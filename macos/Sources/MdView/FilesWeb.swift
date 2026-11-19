@@ -36,6 +36,16 @@ final class FilesWebView: WKWebView {
         menu.cancelTrackingWithoutAnimation()
     }
 
+    // From the iPhone or iPad (FromDevice.swift): the system asks the first responder whether it takes a picture or a PDF —
+    // yes, where the window has a note or a folder to put it —, and hands it over here.
+    override func validRequestor(forSendType sendType: NSPasteboard.PasteboardType?, returnType: NSPasteboard.PasteboardType?) -> Any? {
+        if sendType == nil, FromDevice.takes(returnType), (window?.delegate as? NoteWindow)?.takesFromDevice == true { return self }
+        return super.validRequestor(forSendType: sendType, returnType: returnType)
+    }
+    @objc func readSelection(from pboard: NSPasteboard) -> Bool {
+        (window?.delegate as? NoteWindow)?.takeFromDevice(pboard) ?? false
+    }
+
     override init(frame: CGRect, configuration: WKWebViewConfiguration) {
         configuration.userContentController.addUserScript(WKUserScript(source: FilesWebView.script, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         super.init(frame: frame, configuration: configuration)

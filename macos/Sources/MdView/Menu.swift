@@ -108,6 +108,12 @@ extension AppDelegate {
             rItem.submenu = recent
             m.addItem(rItem)
             m.addItem(.separator())
+            // (the system's own: under it the devices near by, each with Take Photo, Scan Documents, Add Sketch — FromDevice.swift)
+            let device = NSMenuItem(title: "Import from iPhone or iPad", action: nil, keyEquivalent: "")
+            device.identifier = NSMenuItem.importFromDeviceIdentifier
+            device.submenu = NSMenu(title: device.title)
+            m.addItem(device)
+            m.addItem(.separator())
             page(m, "Close Tab", "w")
             add(m, "Close Window", "w", [.command, .shift]) { [unowned self] in self.keyNote?.window.performClose(nil) }
             page(m, "Reopen Closed Tab", "t", [.command, .shift])

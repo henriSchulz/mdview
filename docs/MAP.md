@@ -235,6 +235,7 @@ or the tests see the old ones.
 | `macos/Sources/MdView/FilesStores.swift` | What the folder says about itself and what the application keeps for notes (area A) — hidden.rs … |
 | `macos/Sources/MdView/FilesWeb.swift` | The web view that takes files dropped from Finder (their addresses go to the page as text/uri-list, as the … |
 | `macos/Sources/MdView/Folder.swift` | A folder window's folder: its notes sent to the sidebar, a note or a folder made, renamed, moved, put in the … |
+| `macos/Sources/MdView/FromDevice.swift` | From the iPhone or iPad (Continuity Camera): Take Photo, Scan Documents, Add Sketch — the system's own … |
 | `macos/Sources/MdView/History.swift` | A folder's history, its other side, and sharing (area C). |
 | `macos/Sources/MdView/HistoryCore.swift` | A folder's history: a project is a folder that holds both the app's marker (.mdview/project.json) and a Git … |
 | `macos/Sources/MdView/HistoryGit.swift` | The git command line, as the history reaches a repository (the Rust shell links libgit2; |

@@ -38,6 +38,14 @@ in `NoteWindow.on` or handed to the area's `handleFiles` / `handleSearch` / `han
 
 ## What differs from the other shells
 
+- **From the iPhone or iPad** (Continuity Camera; `FromDevice.swift`, 2026-11-19): File › Import from iPhone or iPad is
+  the system's own entry — under it each device near by with Take Photo, Scan Documents, Add Sketch. With a note on
+  screen what comes goes into the note as a pasted picture or a dropped file does: kept where the note's pictures are
+  (`Photo 2026-11-19 13.05.07.jpg`, `Scan ….pdf`), at the caret while the note is written in, at its end while it is
+  read; a scan (a PDF) stands as a file block. In All Notes it is a file of the folder shown. The web view answers the
+  system (`validRequestor`, `readSelection`); checked with pasteboards made up (`FromDeviceTests`), not with a phone.
+- **The web view's own menu never opens** (`FilesWebView.willOpenMenu`): every menu is the app's; WebKit's came only
+  inside an HTML block's frame (Open Frame in New Window, Inspect Element).
 - **Colours** follow the system's light/dark appearance (live), or Velum's colours if `~/.local/state/velum`
   exists (`Theme.swift`; the Omarchy theme is Linux's).
 - **Keys.** The page reads `Ctrl` and `Cmd` alike. Its `Ctrl+Alt+…` keys arrive on a Mac as composed characters

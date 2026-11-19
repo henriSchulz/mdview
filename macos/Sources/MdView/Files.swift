@@ -503,24 +503,33 @@ extension NoteWindow {
     /// the end of the note (reading).
     func pasteImage(path at: String?, append: Bool) {
         guard let note = path, at == note, let (data, ext) = Clip.image() else { return }
+        let df = DateFormatter()
+        df.dateFormat = resolver?.vault != nil ? "'Pasted image 'yyyyMMddHHmmss" : "'pasted-'yyyyMMdd-HHmmss"
+        putInNote(data, stem: df.string(from: Date()), ext: ext, append: append)
+    }
+
+    /// A file's bytes kept where the note's pictures go and put into the note — a picture as a picture, any other file as a
+    /// block that names it: at the caret (the page inserts it), or, `append`, at the note's end. → whether it was done
+    @discardableResult func putInNote(_ data: Data, stem: String, ext: String, append: Bool) -> Bool {
+        guard let note = path else { return false }
         var old = Data()
         if append {
-            guard let o = Lib.fm.contents(atPath: note) else { return toast("Couldn't add image: can't read the note") }
+            guard let o = Lib.fm.contents(atPath: note) else { toast("Couldn't add image: can't read the note"); return false }
             old = o
-            if !Lib.fm.isWritableFile(atPath: note) { return toast("Can't edit: file is read-only") }
+            if !Lib.fm.isWritableFile(atPath: note) { toast("Can't edit: file is read-only"); return false }
         }
         let vault = resolver?.vault
-        let df = DateFormatter()
-        df.dateFormat = vault != nil ? "'Pasted image 'yyyyMMddHHmmss" : "'pasted-'yyyyMMdd-HHmmss"
-        let stem = df.string(from: Date())
         let dir = attachmentDir(note, vault: vault)
         let target: String
         do { target = try Lib.writeNew(dir, tries: 100, data: data) { $0 == 1 ? "\(stem)\(ext)" : "\(stem)-\($0)\(ext)" } }
-        catch { return toast("Couldn't save image: \(error.localizedDescription)") }
-        let markup = imageMarkup(target, note, vault: vault != nil)
+        catch { toast("Couldn't save image: \(error.localizedDescription)"); return false }
+        let picture = imageExt.contains(Lib.ext(target))
+        let markup = picture ? imageMarkup(target, note, vault: vault != nil)
+            : "[\(Lib.name(target).replacingOccurrences(of: "[", with: "\\[").replacingOccurrences(of: "]", with: "\\]"))](\(quotePath(wayTo(target, note))))"
         if !append {
             attachments().own(target, note)
-            return js("MdView.insertImage", [["path": note, "markup": markup]])
+            if picture { js("MdView.insertImage", [["path": note, "markup": markup]]) } else { js("MdView.insertDropped", [["path": note, "markups": [markup]]]) }
+            return true
         }
         let crlf = old.range(of: Data("\r\n".utf8)) != nil
         let nl = Data((crlf ? "\r\n" : "\n").utf8)
@@ -532,11 +541,12 @@ extension NoteWindow {
         do { try Lib.writeWhole(note, new) } catch {
             toast("Couldn't save: \(error.localizedDescription)")
             try? Lib.fm.removeItem(atPath: target)
-            return
+            return false
         }
         ownWrite = new
         newResolver()
         render(toEnd: true)
+        return true
     }
 
     /// Files dropped on the document: one inside the note's folder is linked where it is, any other is copied where pasted
