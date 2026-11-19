@@ -560,6 +560,7 @@
   }
   /* Everything the window shows, from what is so. */
   function paint(added = null) {
+    if (drawing) drawSaid(); // (the pen's breadth on the screen follows the view's size; the bars may have moved)
     if (!S) return;
     const fgInk = S.book ? B.paper.ink(S.model.board.paper) : "var(--fg)"; // (what "auto" is drawn in, shown in the wells: on a notebook's dark paper light)
     clearTimeout(rested); cancelAnimationFrame(slideFrame); slideFrame = 0;
@@ -755,11 +756,25 @@
    * trackpad's (an iPad that is its screen, through ipad-cast), one finger scrolls and only a held one drags — "man muss beim
    * zeichnen lange drücken, bis erst der touch ankommt" (Henri, 2026-11-19). The macOS shell says on where the board is, and
    * a finger there draws at once. With the pointer in hand a finger moves the board, as before. */
-  let drawing = false;
+  let drawing = false, drawWas = "";
+  /* … and what the pen in hand draws there — its colour, its breadth on the screen (as large as the view shows it), its
+   * opacity — and where the board's bars lie, where a pen presses buttons: an iPad that is the Mac's screen (ipad-cast) draws
+   * the newest bit of a stroke itself, at once, until the Mac's picture of it comes (Henri, 2026-11-19: "so viel wie möglich
+   * aus der Latenz rausholen"). Said again whenever any of it changes (the tool, its colour or width, the size of the view). */
+  function penLook() {
+    if (!S || S.readonly || S.mode !== "draw" || S.kind !== "pen") return null; // (the eraser draws nothing)
+    const t = S.tools[S.pen] || {}, look = B.ink.TOOLS[S.pen] || {};
+    return { c: !t.c || t.c === "auto" ? auto() : t.c, w: Math.round((t.w || look.w || 2) * S.view.z * 10) / 10, o: t.o ?? look.o ?? 1, tool: S.pen };
+  }
+  const barRects = () => [...el.querySelectorAll(".bd-bar, .bd-squeeze[data-open], .bd-pop[data-open], .bd-vpop[data-open]")].filter((b) => b.offsetWidth)
+    .map((b) => { const r = b.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]; });
   function drawSaid(on = !!S && S.mode === "draw" && !S.readonly) {
-    if (on === drawing) return;
+    const ink = on ? penLook() : null, holes = on ? barRects() : [];
+    const key = JSON.stringify([on, ink, holes]);
+    if (key === drawWas) return;
+    drawWas = key;
     drawing = on;
-    post("board-draw", { on });
+    post("board-draw", { on, ink, holes });
   }
   const setMode = (m) => { if (m === "draw") { if (S.mode !== "draw") setKind("pen"); } else if (S.kind !== "lasso" || S.back) setKind("lasso"); };
   function setTool(t) {

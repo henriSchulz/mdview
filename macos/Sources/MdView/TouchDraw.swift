@@ -18,14 +18,35 @@ enum TouchDraw {
         return [Double(r.minX), Double(top - r.maxY), Double(r.width), Double(r.height)]
     }
 
-    /// What is said: whose windows, which one, and its areas (none: a finger there is a trackpad's again).
-    static func word(window: NSWindow, on: Bool) -> [String: Any] {
-        ["pid": Int(ProcessInfo.processInfo.processIdentifier), "window": window.windowNumber, "rects": on ? [area(of: window)] : [[Double]]()]
+    /// What is said: whose windows, which one, and its areas (none: a finger there is a trackpad's again) — and, for an iPad
+    /// that draws the newest bit of a stroke itself until the Mac's picture of it comes (ipad-cast's ink tip): what the pen in
+    /// hand draws (colour "c", breadth on the screen "w" in points, opacity "o", tool), and the board's bars, where a pen
+    /// presses buttons ("holes", in the screen's coordinates as the rects are).
+    static func word(window: NSWindow, on: Bool, ink: [String: Any]? = nil, holes: [[Double]] = [], web: WKWebView? = nil) -> [String: Any] {
+        var w: [String: Any] = ["pid": Int(ProcessInfo.processInfo.processIdentifier), "window": window.windowNumber, "rects": on ? [area(of: window)] : [[Double]]()]
+        guard on, let ink else { return w }
+        let z = max(0.01, (web?.pageZoom ?? 1) * (web?.magnification ?? 1))
+        var look = ink
+        if let b = (ink["w"] as? NSNumber)?.doubleValue { look["w"] = b * Double(z) }
+        w["ink"] = look
+        if let web { w["holes"] = holes.map { screen(of: $0, in: web, zoom: z) } }
+        return w
+    }
+
+    /// A rect of the page (CSS pixels: x, y, width, height) on the screen, from its top left (as events are placed).
+    static func screen(of r: [Double], in web: WKWebView, zoom z: CGFloat) -> [Double] {
+        guard let window = web.window else { return r }
+        let top = NSScreen.screens.first?.frame.maxY ?? 0
+        let x = CGFloat(r[0]) * z, y = CGFloat(r[1]) * z, wd = CGFloat(r[2]) * z, ht = CGFloat(r[3]) * z
+        let inView = NSRect(x: x, y: web.isFlipped ? y : web.bounds.height - y - ht, width: wd, height: ht)
+        let s = window.convertToScreen(web.convert(inView, to: nil))
+        return [Double(s.minX), Double(top - s.maxY), Double(s.width), Double(s.height)]
     }
 
     static var said: [Int: String] = [:] // (per window, what was said last: said once)
-    static func say(window: NSWindow, on: Bool) {
-        let w = word(window: window, on: on), key = String(describing: w["rects"]!)
+    static func say(window: NSWindow, on: Bool, ink: [String: Any]? = nil, holes: [[Double]] = [], web: WKWebView? = nil) {
+        let w = word(window: window, on: on, ink: ink, holes: holes, web: web)
+        let key = String(describing: w["rects"]!) + String(describing: w["ink"] ?? "") + String(describing: w["holes"] ?? "")
         if said[window.windowNumber] == key || (!on && said[window.windowNumber] == nil) { return }
         said[window.windowNumber] = on ? key : nil
         DistributedNotificationCenter.default().postNotificationName(name, object: "mdview", userInfo: w, deliverImmediately: true)
@@ -33,7 +54,7 @@ enum TouchDraw {
 }
 
 extension NoteWindow {
-    func tellDrawArea() { TouchDraw.say(window: window, on: boardDraws && window.isKeyWindow && !window.isMiniaturized) }
+    func tellDrawArea() { TouchDraw.say(window: window, on: boardDraws && window.isKeyWindow && !window.isMiniaturized, ink: boardInk, holes: boardHoles, web: web) }
     func windowDidMove(_ n: Notification) { tellDrawArea() }
     func windowDidResize(_ n: Notification) { tellDrawArea() }
     func windowDidBecomeKey(_ n: Notification) { tellDrawArea() }

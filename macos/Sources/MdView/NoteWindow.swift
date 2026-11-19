@@ -51,6 +51,8 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
     var boardOpen = false
     var boardFull = false // (… and over the whole window, its own bars at the top: the system's bar goes meanwhile — MacChrome)
     var boardDraws = false // (a pen or the eraser in hand on an open board: TouchDraw.swift)
+    var boardInk: [String: Any]? // (what the pen in hand draws: colour, breadth on the screen, opacity — TouchDraw.swift)
+    var boardHoles: [[Double]] = [] // (the board's bars, in the page's pixels: no ink is drawn there)
     var keptDirs: Set<String> = []
     var dirWatch: Set<String> = []
     let scanner = Scanner()
@@ -521,7 +523,11 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
             boardOpen = truthy(msg["on"])
             boardFull = boardOpen && truthy(msg["full"])
             chrome?.again()
-        case "board-draw": boardDraws = truthy(msg["on"]); tellDrawArea()
+        case "board-draw":
+            boardDraws = truthy(msg["on"])
+            boardInk = msg["ink"] as? [String: Any]
+            boardHoles = (msg["holes"] as? [[Any]] ?? []).compactMap { r in let v = r.compactMap { ($0 as? NSNumber)?.doubleValue }; return v.count == 4 ? v : nil }
+            tellDrawArea()
         case "board-watch":
             boardDirs = Set((msg["paths"] as? [String] ?? []).prefix(16).map { foundAsset(Lib.resolve($0)) }.filter { Lib.isBoard($0) && Lib.isFile($0) }.map { Lib.dir($0) })
             watch()

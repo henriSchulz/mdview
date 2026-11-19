@@ -289,5 +289,31 @@ final class BoardTests: ShellTest {
         XCTAssertEqual((word["y"] as? Double) ?? 0, 90, accuracy: 0.5)
         XCTAssertEqual(word["preferred"] as? String, "switchEraser")
     }
+
+    /// With a pen in hand the shell also knows what it draws — colour, breadth on the screen, opacity — and where the board's
+    /// bars are, so an iPad that is the Mac's screen can draw the newest bit of a stroke itself (ipad-cast's ink tip); the
+    /// eraser draws nothing.
+    func testThePensLookIsSaid() throws {
+        let sample = Lib.join(ShellTest.checkout, "web/public/welcome/samples/Empty.board.svg")
+        let board = write("assets/I.board.svg", read(sample))
+        let w = open(write("I.md", "# Ink\n\n![](assets/I.board.svg)\n"))
+        page(w, "(MdPage.openBoardFile(\(jsonString(board))), 1)")
+        XCTAssertTrue(wait(10) { (self.page(w, "!!(window.MdBoard && MdBoard.state && MdBoard.state() && document.querySelector('#board[data-ready]'))") as? Bool) == true }, "the board did not open")
+        page(w, "(document.querySelector('#board [data-kind=\"pen\"]').click(), 1)")
+        XCTAssertTrue(wait(5) { w.boardDraws && w.boardInk != nil }, "a pen in hand, and the shell does not know its look")
+        let ink = w.boardInk ?? [:]
+        XCTAssertTrue(((ink["c"] as? String) ?? "").hasPrefix("#") || ((ink["c"] as? String) ?? "").hasPrefix("rgb"), "no colour: \(ink)")
+        XCTAssertGreaterThan((ink["w"] as? NSNumber)?.doubleValue ?? 0, 0.5, "no breadth: \(ink)")
+        XCTAssertGreaterThan((ink["o"] as? NSNumber)?.doubleValue ?? 0, 0, "no opacity: \(ink)")
+        XCTAssertGreaterThan(w.boardHoles.count, 1, "the bars are not said")
+        let word = TouchDraw.word(window: w.window, on: true, ink: w.boardInk, holes: w.boardHoles, web: w.web)
+        XCTAssertNotNil(word["ink"], "the word to the cast has no ink")
+        let holes = word["holes"] as? [[Double]] ?? []
+        XCTAssertEqual(holes.count, w.boardHoles.count)
+        let screen = NSScreen.screens[0].frame
+        XCTAssertTrue(holes.allSatisfy { $0.count == 4 && $0[2] > 0 && $0[3] > 0 && $0[0] >= -1 && $0[1] >= -1 && $0[0] < screen.width + 1 }, "a bar is no place on the screen: \(holes)")
+        page(w, "(document.querySelector('#board [data-kind=\"eraser\"]').click(), 1)")
+        XCTAssertTrue(wait(5) { w.boardDraws && w.boardInk == nil }, "the eraser in hand, and ink is still said")
+    }
 }
 

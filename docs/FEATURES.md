@@ -802,6 +802,9 @@ and shut back into it — or a file of the folder, of its own.
   colours, the widths; a squeeze's "Show Contextual Palette" opens a dial round the Pencil's tip, as Apple's Notes and
   Freeform have it — one disc of glass with the pens, the pen's three colours, the eraser and the lasso round its rim,
   growing out of the tip — a tool or a colour taken, a press beside it, or another squeeze, shuts it.
+  While a pen is in hand the app also tells ipad-cast what it draws (its colour, breadth on the screen and opacity) and
+  where the board's bars are: the iPad draws the newest bit of a stroke itself at once, until the Mac's picture of it
+  comes — the ink keeps up with the Pencil.
 - **Pen and fingers together**: what is chosen is moved by a finger laid on it, anywhere in
   its frame. A finger's tap on a thing chooses it, whatever tool is in hand, and the tool
   stays in hand: the finger moves the thing, the pen takes hold of it too — at its dots it
