@@ -165,7 +165,7 @@
     "board.duplicate": "duplicate", "board.front": "front", "board.toBack": "back", "board.link": "connect",
     "board.group": "group", "board.ungroup": "ungroup", "board.lock": "lock", "board.unlock": "unlock",
     "board.copyStyle": "brush", "board.pasteStyle": "brush", "board.improve": "spark", "board.claude": "chat",
-    "board.delete": "trash", "board.page.before": "pageBefore", "board.page.after": "pageAfter", "board.page.delete": "trash",
+    "board.delete": "trash", "board.page.before": "pageBefore", "board.page.after": "pageAfter", "board.page.duplicate": "duplicate", "board.page.delete": "trash",
   };
   const sign = (key) => ICON[SIGN[key]] || "";
   // Code in languages the bundle has under another name, or not at all. SystemVerilog is what

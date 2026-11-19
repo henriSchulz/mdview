@@ -47,6 +47,7 @@
     solve: svg('<path d="M4.5 9.5h7M4.5 14.5h7"/><path d="M15 8l4 4-4 4"/>'),
     explain: svg('<circle cx="12" cy="12" r="8.5"/><path d="M9.7 9.6a2.4 2.4 0 1 1 3.3 2.2c-.6.3-1 .8-1 1.5v.3"/><circle cx="12" cy="16.4" r=".5" fill="currentColor"/>'),
     latex: svg('<path d="M17.5 5.5h-11l5.5 6.5-5.5 6.5h11"/>'),
+    pages: svg('<rect x="4" y="3.5" width="7" height="8" rx="1.5"/><rect x="13" y="3.5" width="7" height="8" rx="1.5"/><rect x="4" y="13.5" width="7" height="8" rx="1.5"/><rect x="13" y="13.5" width="7" height="8" rx="1.5"/>'),
     tonote: svg('<path d="M13.5 3.5H7.5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V8.5z"/><path d="M13.5 3.5v5h5M12 10.5v6.5M9.3 14.3 12 17l2.7-2.7"/>'),
     send: svg('<path d="M12 19V5M6 11l6-6 6 6"/>'),
     chat: svg('<path d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v7a2.5 2.5 0 0 1-2.5 2.5H11l-4 3.5V16A2.5 2.5 0 0 1 5 13.5z"/>'),
@@ -283,7 +284,7 @@
         `<button type="button" class="bd-btn bd-shrink" data-do="tray-min" title="${esc(T("board.tray.min"))}" aria-label="${esc(T("board.tray.min"))}">${I.shrink}</button></div>` +
       `<button type="button" class="bd-shrunk" data-do="tray-max" title="${esc(T("board.tray.max"))}" aria-label="${esc(T("board.tray.max"))}"></button>` +
       `<div class="bd-pop ui-menu ui-popover" role="dialog" aria-label="${esc(T("board.options"))}"></div>` +
-      `<div class="bd-bar bd-zoom" role="toolbar"><button type="button" class="bd-btn bd-wide" data-do="zoom" title="${esc(T("board.zoom"))}"></button>${button("fit", "board.fit")}<span class="bd-sep"></span>${button("prev", "board.scene.prev")}${button("scenes", "board.scenes")}${button("next", "board.scene.next")}</div>` +
+      `<div class="bd-bar bd-zoom" role="toolbar"><button type="button" class="bd-btn bd-wide" data-do="zoom" title="${esc(T("board.zoom"))}"></button>${button("fit", "board.fit")}${button("pages", "board.pages")}<span class="bd-sep"></span>${button("prev", "board.scene.prev")}${button("scenes", "board.scenes")}${button("next", "board.scene.next")}</div>` +
       `<div class="bd-bar bd-viewbar" role="toolbar">${button("connect", "board.connect")}${button("grid", "board.grid")}${button("paper", "board.paper")}</div>` +
       `<div class="bd-cpop ui-menu ui-popover" role="menu" aria-label="${esc(T("board.insert.shape"))}">${B.items.SHAPES.map((k) => `<button type="button" class="bd-tile" data-next="${k}" title="${esc(T("board.shape." + k))}" aria-label="${esc(T("board.shape." + k))}"><svg viewBox="-2 -2 32 32"><path d="${B.items.shapePath(k, 28, k === "rect" || k === "round" ? 20 : 28)}" transform="translate(0 ${k === "rect" || k === "round" ? 4 : 0})"/></svg></button>`).join("")}</div>`;
     document.body.appendChild(el);
@@ -296,6 +297,7 @@
       if (["zoom", "more", "scenes", "plus", "paper"].includes(b.dataset.do)) return menu(b.dataset.do, b);
       if (b.dataset.do === "claude") return claude.open(b);
       if (b.dataset.do === "chat") return chatToggle();
+      if (b.dataset.do === "pages") return pagesOpen();
       if (b.dataset.do === "claude-stop") return claude.stop();
       if (b.dataset.kind) return setKind(b.dataset.kind);
       if (b.dataset.do === "hues") return options(b, false, "hues");
@@ -437,6 +439,9 @@
         core.menuAt(e.clientX, e.clientY, on < 0 ? rows : [...rows, null, ...pageRows(on)]);
       },
       // two fingers tapped: the last step is taken back; three: done again (as drawing on a tablet has it)
+      // a finger's double tap on a board of pages: the page under it across the window — or, so already, whole in it (GoodNotes);
+      // not where the finger drew (Draw with Finger: two dots, not a size)
+      doubleTap: (pt, drew) => { if (!S || (drew && S.mode === "draw")) return; fitPage(pt); },
       taps: (n) => { if (!S || S.readonly || S.act || sel.busy || sel.editing) return; const list = n === 2 ? S.undo : S.redo; if (!list.length) return; step(n === 2 ? -1 : 1); said(T(n === 2 ? "board.undo" : "board.redo")); },
       pan: (dx, dy) => { if (S) { fast = true; S.view.panBy(dx, dy); fast = false; } },
       rest: () => { if (S && S.view.limit) S.view.settle(); }, // (the hand let go: a notebook's pages go back within its edges)
@@ -485,6 +490,33 @@
     };
     B.pointer.frame(frame);
   }
+  /* A finger's double tap on a board of pages (Henri, 2026-11-19: „Doppeltipp = Seite einpassen“): the page under it across the
+   * room between the bars, the place tapped staying at its height — or, across already, the page whole in the window, in its
+   * middle. A glide there, as a wheel's notch glides. */
+  function fitPage(pt) {
+    const on = paged();
+    if (!on) return;
+    const v = S.view, L = edges(), [across, whole] = L.sizes, small = Math.min(across, whole), { w, h } = size(), [, by] = v.toBoard(pt.x, pt.y);
+    const p = on.pages.find((q) => by >= q.y - B.pdf.GAP && by <= q.y + q.h) || B.pdf.near(on.pages, v, size());
+    if (Math.abs(Math.log(v.z / across)) > 0.02 || Math.abs(Math.log(across / small)) < 0.02) return glideView(p.x - L.left / across, by - pt.y / across, across);
+    const z = small;
+    glideView(p.x + p.w / 2 - (L.left + (w - L.left - L.right) / 2) / z, p.y - (L.top + Math.max(0, h - L.top - L.bottom - p.h * z) / 2) / z, z);
+  }
+  /* The view glides to x, y at size z (the window's middle going straight there, the size by its ratio), and is put within the
+   * edges at its end. At once where motion is reduced. */
+  function glideView(x, y, z) {
+    const s = S, v = s.view, { w, h } = size(), from = { x: v.x + w / 2 / v.z, y: v.y + h / 2 / v.z, z: v.z }, to = { x: x + w / 2 / z, y: y + h / 2 / z };
+    const calm = !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches, t0 = performance.now(), ms = 320;
+    gliding = null; // (a wheel's glide is over)
+    const g = (glideView.now = {});
+    const frame = (t) => {
+      if (S !== s || glideView.now !== g) return;
+      const k = calm ? 1 : Math.min(1, (t - t0) / ms), e = 1 - Math.pow(1 - k, 3), zz = from.z * Math.pow(z / from.z, e);
+      fast = k < 1; v.set(from.x + (to.x - from.x) * e - w / 2 / zz, from.y + (to.y - from.y) * e - h / 2 / zz, zz); fast = false;
+      if (k < 1) B.pointer.frame(frame); else { glideView.now = null; if (v.limit) v.settle(true); paint(); }
+    };
+    B.pointer.frame(frame);
+  }
   function boundsOf(items) {
     let b = null;
     for (const it of items) {
@@ -512,7 +544,7 @@
     const on = paged();
     if (!on || on.pages.length < 2) return;
     let tag = el.querySelector(".bd-pageno");
-    if (!tag) { tag = document.createElement("div"); tag.className = "bd-pageno"; tag.setAttribute("aria-hidden", "true"); el.appendChild(tag); }
+    if (!tag) { tag = document.createElement("button"); tag.type = "button"; tag.className = "bd-pageno"; tag.title = T("board.pages"); tag.addEventListener("click", pagesOpen); el.appendChild(tag); } // (pressed: the pages at a glance)
     const text = `${B.pdf.near(on.pages, S.view, size()).n} / ${on.pages.length}`;
     if (tag.textContent !== text) tag.textContent = text;
     if (!tag.hasAttribute("data-on")) tag.dataset.on = ""; // (set once: set at every step, the page's styles were worked out anew each time)
@@ -1023,6 +1055,11 @@
     did({ undo: to(n), redo: to(n + 1) });
     paint();
   }
+  /* Whether a stroke lies at the foot of a notebook's last page — reaching into its lowest fifth — and one more page may come. */
+  function footOfLast(it) {
+    const pages = S.book.pages, last = pages[pages.length - 1], b = B.format.boundsOf(it);
+    return !!b && pages.length < B.paper.MAX && (b[1] + b[3]) / 2 >= last.y && b[1] <= last.y + last.h && b[3] >= last.y + last.h * 0.8;
+  }
   /* Which page a place on the board belongs to (y in the board's pixels): the page it lies on, or the one the gap above belongs to. */
   function pageAt(y) {
     const pages = S.book.pages;
@@ -1061,8 +1098,141 @@
     if (S.view.y > last.y + last.h) showPage(pages.length - 1); // (the last page was taken out under the view: the one before it)
     else S.view.settle(true); // (fewer pages: the view within their edges)
   }
+  // ---------------------------------------------------------------- a notebook's pages at a glance (Henri, 2026-11-19:
+  // „Seitenübersicht“, as GoodNotes has it): every page as a small picture — pressed, the notebook goes there; pulled, the page
+  // goes to another place; its ⋯: a page before or after it, a copy of it, away with it. Opened from the bar at the lower left,
+  // or the page in sight said at the top.
+  const pageStep = () => (S.book.pages.length > 1 ? S.book.pages[1].y - S.book.pages[0].y : S.book.pages[0].h + B.pdf.GAP);
+  const pageOf = (it) => { const b = B.format.boundsOf(it); return b ? pageAt((b[1] + b[3]) / 2) : -1; };
+  const shiftBy = (it, dy) => { if (it.k === "ink") B.ink.moved(it, ([x, y]) => [x, y + dy]); else B.items.moveBy(it, 0, dy); };
+  /* Page i as a small picture: its paper and what lies on it. */
+  function pageSvg(i) {
+    const p = S.book.pages[i], paper = S.model.board.paper, items = S.model.items.filter((it) => pageOf(it) === i);
+    const body = items.length ? B.render.picture({ ...S.model, items }, { bare: true }).body : "";
+    return `<svg viewBox="${p.x} ${p.y} ${p.w} ${p.h}" aria-hidden="true">${B.paper.svg(p, paper.bg, paper.color, 2)}${body}</svg>`;
+  }
+  const pagesShown = () => !!el.querySelector(".bd-pages[data-open]");
+  function pagesOpen() {
+    if (!S || !S.book) return;
+    menu(null); options(null);
+    let ov = el.querySelector(".bd-pages");
+    if (!ov) {
+      ov = document.createElement("div");
+      ov.className = "bd-pages";
+      ov.setAttribute("role", "dialog");
+      el.appendChild(ov);
+      pagesWire(ov);
+    }
+    ov.setAttribute("aria-label", T("board.pages"));
+    pagesDraw();
+    ov.dataset.open = "";
+    ov.querySelector(".bd-pg[data-now]")?.scrollIntoView({ block: "center" });
+  }
+  function pagesClose() { const ov = el.querySelector(".bd-pages"); if (ov) delete ov.dataset.open; }
+  function pagesDraw() {
+    const ov = el.querySelector(".bd-pages");
+    if (!ov || !S || !S.book) return;
+    const pages = S.book.pages, now = B.pdf.near(pages, S.view, size()).n - 1, keep = ov.querySelector(".bd-pages-grid")?.scrollTop || 0;
+    ov.innerHTML = `<div class="bd-pages-head"><b>${esc(T("board.pages"))}</b><span class="bd-pages-n">${pages.length}</span><button type="button" class="bd-pages-done" data-pg="done">${esc(T("board.pages.done"))}</button></div>` +
+      `<div class="bd-pages-grid">${pages.map((p, i) => `<div class="bd-pg" data-i="${i}"${i === now ? " data-now" : ""}><button type="button" class="bd-pg-go" data-pg="go" data-i="${i}" aria-label="${esc(T("board.page.n", i + 1))}">${pageSvg(i)}</button>` +
+        `<span class="bd-pg-foot"><span>${i + 1}</span>${S.readonly ? "" : `<button type="button" class="bd-pg-more" data-pg="more" data-i="${i}" title="${esc(T("board.more"))}" aria-label="${esc(T("board.more"))}">${I.more}</button>`}</span></div>`).join("")}` +
+      (S.readonly || pages.length >= B.paper.MAX ? "" : `<button type="button" class="bd-pg-add" data-pg="add">${I.plus}<span>${esc(T("board.page.add"))}</span></button>`) + `</div>`;
+    ov.querySelector(".bd-pages-grid").scrollTop = keep;
+  }
+  /* A press on a page goes there; one on its ⋯ opens its menu; a page pulled goes where it is let go. */
+  function pagesWire(ov) {
+    let pull = null; // { i, id, x, y, tile, moved }
+    ov.addEventListener("wheel", (e) => e.stopPropagation(), { passive: true }); // (the wheel over the pages is theirs: rule 2)
+    ov.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-pg]");
+      if (!b || !S || !S.book) return;
+      const i = Number(b.dataset.i), what = b.dataset.pg;
+      if (what === "done") return pagesClose();
+      if (what === "go") { if (pull && pull.moved) return; pagesClose(); return showPage(i); }
+      if (what === "add") { pagesShift(S.book.pages.length, 1); pagesDraw(); return ov.querySelector(".bd-pg:last-of-type")?.scrollIntoView({ block: "nearest" }); }
+      if (what === "more") {
+        const r = b.getBoundingClientRect(), row = (key, on, run, more = "") => [esc(T(key)), "", on, () => { run(); pagesDraw(); }, more, core.sign(key)];
+        core.menuAt(r.left, r.bottom, [row("board.page.before", true, () => pagesShift(i, 1)), row("board.page.after", true, () => pagesShift(i + 1, 1)), row("board.page.duplicate", S.book.pages.length < B.paper.MAX, () => pageDup(i)),
+          null, row("board.page.delete", S.book.pages.length > 1, () => pageGone(i), "danger")]);
+      }
+    });
+    ov.addEventListener("pointerdown", (e) => {
+      const go = e.target.closest(".bd-pg-go");
+      if (!go || S.readonly || e.button !== 0) return;
+      pull = { i: Number(go.dataset.i), id: e.pointerId, x: e.clientX, y: e.clientY, tile: go.closest(".bd-pg"), moved: false };
+    });
+    ov.addEventListener("pointermove", (e) => {
+      if (!pull || e.pointerId !== pull.id) return;
+      const dx = e.clientX - pull.x, dy = e.clientY - pull.y;
+      if (!pull.moved && Math.hypot(dx, dy) < 8) return;
+      if (!pull.moved) { pull.moved = true; pull.tile.dataset.lifted = ""; try { ov.setPointerCapture(e.pointerId); } catch (x) { /* (made up) */ } }
+      pull.tile.style.translate = `${dx}px ${dy}px`;
+      // where it would go: the tile under the pointer — before it, or after it past its middle
+      const grid = ov.querySelector(".bd-pages-grid"), tiles = [...grid.querySelectorAll(".bd-pg")];
+      let to = pull.i;
+      for (const t of tiles) {
+        if (t === pull.tile) continue; // (the page pulled lies under the pointer itself)
+        const r = t.getBoundingClientRect();
+        if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) to = Number(t.dataset.i);
+      }
+      for (const t of tiles) t.toggleAttribute("data-target", Number(t.dataset.i) === to && to !== pull.i);
+      pull.to = to;
+    });
+    const done = (e) => {
+      if (!pull || e.pointerId !== pull.id) return;
+      const p = pull;
+      setTimeout(() => { if (pull === p) pull = null; }, 0); // (the click that follows a pull is no press)
+      if (!p.moved) { pull = null; return; }
+      p.tile.style.translate = ""; delete p.tile.dataset.lifted;
+      if (p.to != null && p.to !== p.i) { pageMove(p.i, p.to); pagesDraw(); }
+      else for (const t of ov.querySelectorAll("[data-target]")) t.removeAttribute("data-target");
+    };
+    ov.addEventListener("pointerup", done);
+    ov.addEventListener("pointercancel", done);
+  }
+  /* Page `from` moved to be page `to`: what lies on it goes with it, the pages between go up or down by one. One step back. */
+  function pageMove(from, to) {
+    const n = S.book.pages.length;
+    if (S.readonly || from === to || from < 0 || to < 0 || from >= n || to >= n) return;
+    sel.cancel(); sel.finish(); sel.pick([]);
+    const step = pageStep(), before = { ...sel.snap(), n: S.model.board.paper.n }, on = S.model.items.map((it) => [it, pageOf(it)]);
+    for (const [it, p] of on) {
+      if (p < 0) continue;
+      const q = p === from ? to : from < to && p > from && p <= to ? p - 1 : from > to && p >= to && p < from ? p + 1 : p;
+      if (q !== p) shiftBy(it, (q - p) * step);
+    }
+    const after = { ...sel.snap(), n: S.model.board.paper.n }, back = (s) => () => { sel.restore(s); S.model.board.paper.n = s.n; pagesNow(); };
+    did({ undo: back(before), redo: back(after) });
+    changed();
+    paint();
+  }
+  /* A copy of page i, after it, with a copy of all that lies on it. One step back. */
+  function pageDup(i) {
+    const paper = S.model.board.paper;
+    if (S.readonly || paper.n >= B.paper.MAX) return;
+    sel.cancel(); sel.finish(); sel.pick([]);
+    const step = pageStep(), before = { ...sel.snap(), n: paper.n }, on = S.model.items.map((it) => [it, pageOf(it)]), ids = new Map();
+    const fresh = (k, v) => { if (!v) return v; const key = k + ":" + v; if (!ids.has(key)) ids.set(key, B.format.id()); return ids.get(key); };
+    for (const [it, p] of on) if (p > i) shiftBy(it, step);
+    const copies = on.filter(([, p]) => p === i).map(([it]) => {
+      const c = it.k === "ink" ? { ...it, id: B.format.id(), pts: it.pts.map((q) => [...q]), path: null, box: null } : B.items.norm({ ...JSON.parse(JSON.stringify(B.items.data(it))), id: B.format.id() });
+      if (c.group) c.group = fresh("g", c.group);
+      if (c.of) c.of = fresh("o", c.of);
+      for (const end of ["from", "to"]) if (c[end]) delete c[end]; // (a line joined to things joins nothing as a copy)
+      shiftBy(c, step);
+      return c;
+    });
+    S.model.items.push(...copies);
+    paper.n += 1;
+    pagesNow();
+    const after = { ...sel.snap(), n: paper.n }, back = (s) => () => { sel.restore(s); S.model.board.paper.n = s.n; pagesNow(); };
+    did({ undo: back(before), redo: back(after) });
+    changed();
+    paint();
+  }
   /* The rows a right click on page i adds to the board's menu. */
   const pageRows = (i) => S.readonly ? [] : [[esc(T("board.page.before")), "", true, () => pageIn(i), "", core.sign("board.page.before")], [esc(T("board.page.after")), "", true, () => pageIn(i + 1), "", core.sign("board.page.after")],
+    [esc(T("board.page.duplicate")), "", S.model.board.paper.n < B.paper.MAX, () => pageDup(i), "", core.sign("board.page.duplicate")],
     null, [esc(T("board.page.delete")), "", S.model.board.paper.n > 1, () => pageGone(i), "danger", core.sign("board.page.delete")]];
   const nameOf = (ref) => { const n = String(ref || "").split("/").pop().replace(/\.board\.svg$/i, ""); return /^board-/.test(n) ? "" : n; }; // (one a note keeps is named board-…: no name to show)
 
@@ -1824,7 +1994,11 @@
     if (act.form) { live(null); return formed(act.stroke.item, act.shape || null); }
     const item = act.stroke.item;
     S.model.items.push(item);
-    did({ undo: () => { S.model.items = S.model.items.filter((it) => it !== item); }, redo: () => { S.model.items.push(item); } });
+    // a notebook written on at the foot of its last page: the next page comes by itself under it (Henri, 2026-11-19: „neue
+    // Seite von selbst“) — with the stroke, one step back
+    const n0 = S.book ? S.model.board.paper.n : 0, more = !!S.book && !S.readonly && footOfLast(item), pagesTo = (k) => { S.model.board.paper.n = k; pagesNow(); };
+    if (more) { pagesTo(n0 + 1); said(T("board.page.added", n0 + 1)); }
+    did({ undo: () => { S.model.items = S.model.items.filter((it) => it !== item); if (more) pagesTo(n0); }, redo: () => { S.model.items.push(item); if (more) pagesTo(n0 + 1); } });
     paint(item); // (the stroke is in the ink before the one under the hand is taken away: no frame without it)
     live(null);
   }
@@ -1872,6 +2046,7 @@
     const done = () => e.preventDefault();
     if (e.key === " " && !mod) { space = true; stage().dataset.space = ""; return done(); }
     if (mod && k === "v" && !e.altKey && !S.readonly) { if (BROWSER) return; done(); return pasteHere(); } // (a browser: its paste follows, with what is pasted in it)
+    if (e.key === "Escape" && pagesShown()) { done(); return pagesClose(); } // (the pages at a glance: shut, the notebook stays)
     if (e.key === "Escape" && vpop().dataset.open != null) { done(); return menu(null); }
     if (e.key === "Escape" && sel.pending) { done(); delete el.querySelector(".bd-cpop").dataset.open; return sel.connectTo(null); }
     if (S.mode === "select" && !S.readonly && sel.key(e)) return done();
@@ -2104,7 +2279,7 @@
     crop: S.crop, insert: S.model.board.insert || null, scenes: S.model.scenes.map((sc) => ({ ...sc })),
     scene: S.scene, snap: !!S.model.board.snap,
     menu: vpop().dataset.open != null ? vpop().dataset.kind : null, connect: !!S.connect, joints: sel.joints,
-    asking: el.querySelector(".bd-cpop").hasAttribute("data-open"),
+    asking: el.querySelector(".bd-cpop").hasAttribute("data-open"), overview: pagesShown(),
     view: { x: S.view.x, y: S.view.y, z: S.view.z }, mode: S.mode, picked: S.pick.map((it) => it.id),
     things: S.model.items.filter((it) => it.k !== "ink").map((it) => JSON.parse(JSON.stringify(it))),
     editing: sel.editing, ref: S.ref, book: S.book ? { pages: S.book.pages.length, bg: S.model.board.paper.bg, color: S.model.board.paper.color, drawn: S.book.paper.state() } : null, pdf: S.pdf ? { path: S.pdf.path, pages: S.pdf.pages.length, drawn: S.pdf.paper.state(), sharp: S.pdf.paper.sharp() } : null, items: S.model.items.filter((it) => it.k === "ink").length,
@@ -2115,7 +2290,7 @@
     kinds: S.model.items.filter((it) => it.k === "ink").map((it) => it.t + (it.sharp ? "!" : "") + ":" + it.pts.length),
     zoom: S.view.z, dirty: S.dirty, readonly: S.readonly, undo: S.undo.length, redo: S.redo.length,
     lost: S.model.lost, claude: { busy: el.hasAttribute("data-claude"), chip: claude.note }, improving: !!improve.job } : null);
-  B.page = (op, i) => { if (S && S.book) ({ before: () => pageIn(i), after: () => pageIn(i + 1), delete: () => pageGone(i) })[op]?.(); }; // (for the tests: what the page's menu does, page i counted from 0)
+  B.page = (op, i, j) => { if (S && S.book) ({ before: () => pageIn(i), after: () => pageIn(i + 1), delete: () => pageGone(i), move: () => pageMove(i, j), dup: () => pageDup(i), fit: () => fitPage({ x: size().w / 2, y: size().h / 2 }), open: () => pagesOpen(), close: () => pagesClose() })[op]?.(); }; // (for the tests: what the page's menu does, page i counted from 0)
   /* Files handed to the board by the shell (a photo or a scan from the iPhone: macos FromDevice.swift), by their addresses:
    * taken as files dropped on it are — kept beside the board, put in the middle of what is seen. → whether it took them */
   B.drop = (uris) => { const s = S; if (!s || s.readonly || !Array.isArray(uris) || !uris.length) return false; ask("board-drop", { path: s.ref, uris }).then(([names, error]) => { if (S === s) placed(names, error); }); return true; };

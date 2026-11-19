@@ -108,6 +108,8 @@
     }
     // fingers that only touched the board together: how many there were at most, when the first came down, whether any moved
     let touched = null;
+    // a finger's tap that came to nothing else: when and where — a second one soon after near it is a double tap (on.doubleTap)
+    let tapAt = null;
     let taken = -Infinity; // when the newest sample the stroke under the hand has was taken
     const at = (e) => { const r = stage.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
     /* How hard the pointer presses, as the stroke is to take it. A mouse says 0.5 while a button is down. A pen says what it
@@ -236,6 +238,7 @@
       if (!tool && !fingers.size) on.hover(point(e), e);
     });
     const up = (e, cancelled) => {
+      const drew = tool === e.pointerId; // (the finger held a tool: drew with it — Draw with Finger, or no pen seen —, or the lasso's)
       if (e.pointerType === "pen") { pen.down = false; pen.last = e.timeStamp; }
       if (fingers.delete(e.pointerId) && fingers.size < 2) { pinch = null; if (twist) { twist = null; on.twisted(); } }
       // (three were down, two are left: the pinch goes on from where these two are — from the two before, the board jumped)
@@ -247,6 +250,13 @@
         const was = touched;
         touched = null;
         if (!cancelled && was.n >= 2 && was.n <= 3 && !was.moved && e.timeStamp - was.t < 320 && on.taps) on.taps(was.n);
+        // one finger, down and up again at once without moving: a tap — the second of two near each other a double tap (a board
+        // of pages: the page across the window, or whole in it — Henri, 2026-11-19, as GoodNotes has it)
+        if (!cancelled && was.n === 1 && !was.moved && e.timeStamp - was.t < 300 && on.doubleTap) {
+          const p = at(e), two = tapAt && e.timeStamp - tapAt.t < 400 && Math.hypot(p.x - tapAt.x, p.y - tapAt.y) < 40;
+          tapAt = two ? null : { t: e.timeStamp, ...p };
+          if (two) on.doubleTap(p, drew); // (drew: the finger held a tool — a pen's line, or the lasso: the board says which counts)
+        } else tapAt = null;
       }
       if (e.pointerType === "touch" && !fingers.size && !(drag && e.pointerId === drag.id && drag.far)) rest(); // (two fingers that pulled, or one that came down: let go)
       if (drag && e.pointerId === drag.id) {

@@ -902,9 +902,11 @@ them is not there).
   dark on white and yellow paper and light on dark paper, whatever the theme.
 - **A page more**: the page button beside undo at the top, the sheet with Add Page under the last
   page, Add Page in the paper's menu, or Page under `+` — at the end, and the view goes to it.
-  `Ctrl+Z` takes it away again. What is drawn stays where it was drawn.
+  `Ctrl+Z` takes it away again. What is drawn stays where it was drawn. **By itself**: a line written that reaches into
+  the lowest fifth of the last page brings the next page under it (the view stays; "Page 4 added" is said a moment) —
+  one step of Undo takes the line and the page.
 - **A page's own menu** (a right click on the bare page): Insert Page Before, Insert Page After,
-  Delete Page. What lies on the pages after it moves with them; what lay on a page that is deleted
+  Duplicate Page (a copy after it, with a copy of all that is on it), Delete Page. What lies on the pages after it moves with them; what lay on a page that is deleted
   goes with it, and `Ctrl+Z` brings both back. Delete Page is in the paper's menu too, for the page
   in sight (a tablet has no right click). The one page left cannot be deleted.
 - **Moving about** as on a PDF's pages: two fingers or the wheel move down the pages (a push runs
@@ -922,12 +924,21 @@ them is not there).
   puts the pages in the middle when let go. On a Mac the board follows a trackpad's (and an iPad's finger through
   ipad-cast) steps as they come and adds no glide of its own — the system glides; only a mouse wheel's notch glides.
   The same holds over a PDF's pages on a whiteboard.
-- **The page in sight** is said at the top, between the bars ("3 / 12"), while the pages move, and fades a moment after.
+- **The page in sight** is said at the top, between the bars ("3 / 12"), while the pages move, and fades a moment after;
+  pressed while it shows, it opens the pages at a glance.
+- **A double tap** of a finger: the page under it across the window (the place tapped staying at its height) — or,
+  across already, the page whole in the window; a glide there. Not where the finger draws (Draw with Finger). The same
+  over a PDF's pages.
+- **The pages at a glance** (the button beside the size at the lower left, or the page in sight said at the top), as
+  GoodNotes' page grid: every page as a small picture with what is on it, the one in sight ringed in the accent.
+  Pressed, the notebook goes there; pulled onto another page (a held finger through ipad-cast, the Pencil, the mouse),
+  the page goes to that place with all that is on it, the pages between moving up or down; its ⋯: Insert Page Before,
+  Insert Page After, Duplicate Page, Delete Page; Add Page at the end. Each is one step of Undo. Done or `Esc` shuts it.
 - **The file**: a whiteboard's file whose first line says it is a notebook — its paper, its colour,
   its size, how many pages (`"paper":{"bg":"grid","color":"white","size":"a4","n":2}`). Its
   picture, in the sidebar, in All Notes and in a note, is its first page.
 
-Not there yet: a page of its own paper, pages moved to another place, pages of another size or
+Not there yet: a page of its own paper, pages of another size or
 lying across, a sign of its own in the sidebar, a page's menu under a held finger.
 
 ### Links between notes

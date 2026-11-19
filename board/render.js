@@ -98,8 +98,9 @@
   const colorOf = (it, auto = AUTO) => (it.c === "auto" || !/^#[0-9a-f]{3,8}$/i.test(it.c) ? auto : it.c);
 
   /* The board as a picture: { w, h, box: [x, y, w, h], body } — body is what stands between the
-   * data and </svg>. An empty board is a faint sign of one, so that the note shows where it is. */
-  function picture(model) {
+   * data and </svg>. An empty board is a faint sign of one, so that the note shows where it is.
+   * o.bare: what is on it alone — no notebook's first page under it (a page at a glance draws its own: board.js, pageSvg). */
+  function picture(model, o = {}) {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, body = "";
     const paper = model.board && model.board.paper && B.paper && B.pdf ? B.paper.norm(model.board.paper) : null, ink = paper ? B.paper.ink(paper) : AUTO; // (on a notebook's dark paper "auto" ink is light)
     // what stands on the board first, in its order; the ink lies over it, as it does on the screen
@@ -119,7 +120,7 @@
         : `<path id="${it.id}" d="${o.d}" fill="${colorOf(it, ink)}"${it.t === "pencil" ? ` opacity="${n(it.o * 0.6)}"` : op}/>\n`;
     }
     // a notebook (paper.js) shows its first page, as a notebook's cover is its first page: the sheet, its paper, what is on it
-    if (paper) {
+    if (paper && !o.bare) {
       const p = B.paper.pages(paper)[0], box = [Math.floor(p.x), Math.floor(p.y), Math.ceil(p.w), Math.ceil(p.h)];
       return { w: box[2], h: box[3], box, body: B.paper.svg(p, paper.bg, paper.color) + body, empty: !body };
     }
