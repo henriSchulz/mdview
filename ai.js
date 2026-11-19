@@ -36,11 +36,12 @@
   function stop(id) { const j = jobs.get(id); if (!j) return; jobs.delete(id); post("ai-stop", { channel: j.channel }); }
   Ai.ask = ask; Ai.stop = stop; // (for the whiteboard's own question: board.js)
   /* … and what was asked there and answered, into the document's conversation as though in the chat (Henri, 2026-11-02):
-   * the chat shows it, and what is asked in the chat next knows it. a: { text, error, drew } */
-  Ai.record = (question, a) => {
+   * the chat shows it, and what is asked in the chat next knows it. a: { text, error, drew }; shown: what the chat shows of
+   * the question, where it was a ready-made choice of the board's bubble (its name — Claude was told more). */
+  Ai.record = (question, a, shown = null) => {
     forNote();
     const t = cur;
-    t.messages.push({ role: "user", text: String(question), ctx: [{ kind: "board", name: T("ai.ctx.board") }] });
+    t.messages.push({ role: "user", text: String(question), ...(shown ? { shown: String(shown) } : {}), ctx: [{ kind: "board", name: T("ai.ctx.board") }] });
     t.messages.push(a.error ? { role: "assistant", text: "", error: String(a.error) } : { role: "assistant", text: String(a.text || ""), ...(a.drew ? { drew: a.drew } : {}) });
     t.at = Date.now();
     if (!talksAll.includes(t)) talksAll.unshift(t);
@@ -301,7 +302,7 @@
   }
   const hold = (t) => { cur = t; byNote.set(curPath == null ? (curPath = pathNow()) : curPath, t); };
   const fresh = () => ({ id: "t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), title: "", at: Date.now(), messages: [] });
-  const titleOf = (t) => t.title || (t.messages.find((m) => m.role === "user") || {}).text || "";
+  const titleOf = (t) => { const u = t.messages.find((m) => m.role === "user") || {}; return t.title || u.shown || u.text || ""; };
   const q = (sel) => box.querySelector(sel);
   /* What Claude said, in parts: text, and what it wrote for the note (between <insert> and </insert> — one that is not shut yet,
    * while the answer comes, is one in the making). */
@@ -333,7 +334,7 @@
   const subOf = (c) => T(c.kind === "folder" ? "ai.ctx.folder" : c.kind === "file" ? "ai.ctx.file" : c.kind === "doc" ? "ai.ctx.doc" : c.kind === "board" ? "ai.ctx.boardSub" : "ai.ctx.note");
   /* One message of the conversation, as the window shows it. i: its place in the conversation (for the cards' buttons). */
   function htmlOf(m, i, live) {
-    if (m.role === "user") return `<div class="ai-msg ai-user">${(m.ctx || []).map((c) => chipOf(c.name, subOf(c))).join("")}<div class="ai-said">${esc(m.text)}</div></div>`;
+    if (m.role === "user") return `<div class="ai-msg ai-user">${(m.ctx || []).map((c) => chipOf(c.name, subOf(c))).join("")}<div class="ai-said">${esc(m.shown || m.text)}</div></div>`;
     if (m.error) return `<div class="ai-msg ai-bot"><div class="ai-error">${esc(m.error)}</div></div>`;
     let n = 0;
     const inner = parts(m.text).map((p) => (p.insert == null ? `<div class="ai-md">${md(p.text)}</div>`
@@ -404,7 +405,9 @@
       if (near) bottom();
     }, 90);
   }
-  async function say(text) {
+  /* shown: what the conversation shows of it — a ready-made choice of a board's bubble, by its name (Claude is told text);
+   * what is typed in the field stays there then. */
+  async function say(text, shown = null) {
     text = String(text || "").trim();
     if (!text || talking) return;
     // (over a whiteboard Claude draws on it, whatever the mode: Edit is for a note's text — a notebook or a PDF has none, and
@@ -419,8 +422,8 @@
     if (edit) useDoc = true;
     const A = active(), mine = cur, name = noteName();
     if (!talksAll.includes(mine)) talksAll.unshift(mine);
-    const ctx = [...(useDoc && name ? [{ kind: "doc", name }] : []), ...extra.map((c) => ({ kind: c.kind, name: c.name }))];
-    mine.messages.push({ role: "user", text, ctx });
+    const ctx = [...(shown ? [{ kind: "board", name: T("ai.ctx.board") }] : []), ...(useDoc && name ? [{ kind: "doc", name }] : []), ...extra.map((c) => ({ kind: c.kind, name: c.name }))];
+    mine.messages.push({ role: "user", text, ...(shown ? { shown: String(shown) } : {}), ctx });
     mine.at = Date.now();
     // (what is chosen in the note goes along: "this", "these" are what the user points at)
     let selection = "";
@@ -444,8 +447,7 @@
         if (cur === mine) drawAll();
         if (steps) steps.end(!!m.error).then((n) => { if (!n) return; m.drew = n; keep(); if (cur === mine) drawAll(); });
       });
-    field.value = "";
-    fit();
+    if (!shown) { field.value = ""; fit(); }
     keep();
     drawAll();
   }
@@ -619,7 +621,7 @@
   Ai.chat = {
     get open() { return !!box && !box.hidden && box.dataset.open != null; },
     toggle() { if (Ai.chat.open) Ai.chat.close(); else Ai.chat.show(); },
-    show() {
+    show(o = {}) {
       if (!core.ai.on()) return;
       if (!box) build();
       forNote(); // (each document has its conversation: a new one the first time the assistant is opened on it)
@@ -629,7 +631,14 @@
       document.body.dataset.aiChat = "";
       drawAll();
       fit();
-      setTimeout(() => field.focus({ preventScroll: true }), 0);
+      if (o.focus !== false) setTimeout(() => field.focus({ preventScroll: true }), 0);
+    },
+    /* Asked from a whiteboard's bubble (board.js: a ready-made choice that answers in words): the chat opens — without the
+     * keys, it was pressed with a pen or a finger as often as not — and shows it by its name. */
+    ask(text, shown) {
+      if (!core.ai.on()) return;
+      if (!Ai.chat.open) Ai.chat.show({ focus: false });
+      say(text, shown);
     },
     close() {
       if (!box || box.hidden) return;

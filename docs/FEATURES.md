@@ -602,8 +602,17 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
   whiteboard) belong to it, and go with it when AI is off.
 - **Claude on a whiteboard** — on a note's board, a board of its own, a notebook (told its pages and their paper, and
   writing on them) and the board over a PDF:
-  **Ask Claude** (the sparkle in the board's bar at the upper right, beside ⋯) opens a field:
-  say what to draw or change and press `Enter` (`Shift+Enter` breaks the line). Claude is told what is on the board (each thing
+  **Ask Claude** (the star in the board's bar at the upper right; beside it the chat's own button, then ⋯) opens the
+  **bubble**: ready-made choices to press — no keys needed for the usual — and under them a field to say anything else.
+  The choices work on what is chosen, else on what the window shows (the bubble says which): **Tidy Handwriting**
+  (Improve, below: the user's own hand set straight), **Redraw Neatly** (Claude takes it away and writes and draws the same
+  again, clean, where it was and as large), **Check** (mistakes ringed or underlined in red, the correction written beside
+  them; a green ✓ where all is right), **Solve** (the task solved, or the calculation carried on to its end, by hand under
+  it), **Explain** (in the chat) and **As LaTeX** (the handwriting written out in the chat as text and LaTeX, with Insert
+  and Copy); a choice with nothing to work on is pale, and on an empty board there are none. Claude answers in the language
+  of what is written there. Opened with a pen or a finger the field does not take the keys (an iPad's keyboard would come
+  up over the board); opened with the mouse it does. In the field: say what to draw or change and press `Enter`
+  (`Shift+Enter` breaks the line). Claude is told what is on the board (each thing
   as the file has it, a stroke by its tool, colour and the box around it), which part of it the
   window shows, what is chosen, the pages of a PDF, and — where there are strokes, pictures or a
   PDF, which the text does not show — a picture of what the window shows, sent with the question
@@ -632,20 +641,21 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
   of the ink's colour goes with the pen's tip, things grow into their place and what is moved glides there (at once where
   motion is reduced). While it thinks, then draws, a line under the button says so, with a small stop at its end (the button
   itself stays the way into the field and the chat meanwhile); what it said stands in that line afterwards, and the board's
-  menus and the chat stand over it. All its steps are **one step of Undo**. The star opens what was used last, the field or the chat (kept on the
-  computer); pressed again, or a press on the empty board, it shuts the field (and the chat). At the field's foot, beside the chat's button, four quiet pills say how Claude draws and writes, each with a small
+  menus and the chat stand over it. All its steps are **one step of Undo**. The star always opens the bubble (and shuts the chat, which would stand over it);
+  pressed again, or a press on the empty board, it shuts it. At the bubble's foot four quiet pills say how Claude draws and writes, each with a small
   menu of its choices (the one in use ticked), kept on the computer: the writing (drawn — Claude draws titles, headings,
   labels and short notes letter by letter itself as strokes, the default, and longer text — a study sheet's body —
   in the pen's font, so a large sheet is written whole and soon —, or print or script set in a pen's
   font), the hand (careful, natural, hurried), with what (ink only, or shapes, texts and sticky notes too) and the speed (normal,
   or three, five or ten times as fast: everything Claude draws, the ways between strokes and the pauses too). Things chosen: their bar has Ask
   Claude, and the field asks what to do with them (“make these blue”); the right button's menu
-  has it too, at the point pressed (“here”). The field's second button, **Talk about it in the
-  Chat**, opens the chat over the board: while a board is open the chat stays over it (the keys
+  has it too, at the point pressed (“here”). The chat's own button, beside the star, opens the chat over the
+  board (pressed again, it shuts it; it is in the accent while the chat is open): while a board is open the chat stays over it (the keys
   typed in it are its own; a press on the board shuts it, one on the board's bars does not), is told the board as the
   field is, and what it answers with steps is done on the board as well — the chat says how many
-  and shows no steps as text. What is asked in the board's field goes into the chat's conversation too (marked as asked
-  on the board, with its answer and how many steps were drawn), so the chat knows it when asked on; a board open with no
+  and shows no steps as text. Everything done from the bubble goes into the chat's conversation too — what was typed, a
+  ready-made choice by its name (Claude is told more), Tidy and Improve — marked as asked on the board, with its answer and
+  how many steps were drawn, so the chat knows it when asked on; a board open with no
   note on screen — a notebook, a board from the folder's window — has a conversation of its own. Over a board the chat
   draws whatever its mode (Edit is for a note's text), and its field asks what to draw. Not on a board that is only shown, and not where AI is off.
 - **Improve** makes strokes chosen nicer and keeps them the user's own hand — handwriting, a formula, a sketch or a
@@ -658,7 +668,7 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
   letters and between words more even, and draws every stroke with a calmer hand. What is drawn is drawn anew clean along its
   own course: straight lines straight, circles round, corners meeting; a stray dot goes. Nothing is added or left out, and
   only strokes that were chosen change, in their pen, colour and width. Each step glides there; what it made stays chosen;
-  all of it, the smoothing too, is one step of Undo. Pressed again while it works, the wand stops it. Not where AI is off.
+  all of it, the smoothing too, is one step of Undo. Pressed again while it works, the wand stops it, as does the stop in the line under the star. Each Improve stands in the chat's conversation too. Not where AI is off.
 
 ### Whiteboards
 

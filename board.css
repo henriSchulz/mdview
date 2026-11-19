@@ -518,8 +518,9 @@ body[data-flat] .bd-ruler { background-color: color-mix(in srgb, var(--bd-tool-b
 
 /* Claude on the board (board.js: ask): its button where AI is on and the board may be changed; while it draws, the button
    stops it — in the accent, so that it is seen — and the field asked in is as wide as a sentence */
-body:not([data-ai]) #board [data-do="claude"], #board[data-mode="look"] [data-do="claude"] { display: none; }
+body:not([data-ai]) #board :is([data-do="claude"], [data-do="chat"]), #board[data-mode="look"] :is([data-do="claude"], [data-do="chat"]) { display: none; }
 #board [data-do="claude"][data-busy] { color: var(--accent); }
+body[data-ai-chat] #board [data-do="chat"] { color: var(--accent); } /* (the chat's own button, beside the bubble's star: in the accent while it is open) */
 .bd-vpop:has(.bd-ask) { padding: 8px; }
 .bd-ask { width: 340px; max-width: calc(100vw - 64px); display: flex; flex-direction: column; gap: 4px; }
 .bd-ask-about { display: inline-flex; align-items: center; gap: 5px; align-self: flex-start; margin: 2px 4px 0; padding: 3px 9px 3px 7px; border-radius: var(--radius-pill); background: var(--fill-hover); color: var(--fg2); font-size: 12px; }
@@ -578,4 +579,23 @@ body:not([data-ai]) #board [data-do="claude"], #board[data-mode="look"] [data-do
 .bd-ask-menu button:hover { background: var(--accent); color: var(--bd-on-accent); }
 .bd-ask-menu svg { width: 13px; height: 13px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .bd-ask-menu button[aria-checked="false"] svg { visibility: hidden; }
+/* … its ready-made choices (board.js: PRESETS), large enough for a pen or a finger: the two most used as tiles with a word of
+   what they do, four more as squares under them; a choice that has nothing to work on is pale */
+.bd-ask-about[data-view] svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.bd-ask-big { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 4px; }
+.bd-ask-chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 4px; }
+.bd-ask-do { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 0; min-height: 54px; box-sizing: border-box; padding: 7px 4px; border: 0; border-radius: 12px;
+  background: color-mix(in srgb, var(--fg) 6%, transparent); color: var(--fg); font: inherit; font-size: 12px; text-align: center; cursor: default; -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy), opacity var(--dur-fast) var(--ease-out); }
+.bd-ask-do b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.bd-ask-do-big { align-items: flex-start; justify-content: flex-start; gap: 3px; min-height: 76px; padding: 10px 12px; text-align: left; }
+.bd-ask-do-big b { font-size: 13.5px; font-weight: 600; white-space: normal; }
+.bd-ask-do-big small { color: var(--fg2); font-size: 11.5px; line-height: 1.3; }
+.bd-ask-do svg { width: 19px; height: 19px; flex: none; fill: none; stroke: var(--accent); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.bd-ask-do-big svg { width: 21px; height: 21px; margin-bottom: 2px; }
+.bd-ask-do:hover { background: color-mix(in srgb, var(--fg) 11%, transparent); transition-duration: var(--dur-instant); }
+.bd-ask-do:active { transform: scale(var(--press-scale, 0.97)); background: color-mix(in srgb, var(--accent) 16%, transparent); transition-duration: var(--dur-instant); }
+.bd-ask-do:focus-visible { outline: var(--focus-ring, 2px) solid var(--accent); outline-offset: 1px; }
+.bd-ask-do:disabled { opacity: 0.38; pointer-events: none; }
+.bd-ask[data-presets] .bd-ask-field { padding-top: 10px; height: 33px; background: linear-gradient(var(--line), var(--line)) top / 100% 1px no-repeat; } /* (a hairline over it: what is typed is the other way) */
 .bd-claude-tip[data-up] { opacity: 0.55; scale: 0.8; } /* (the pen in the air, between two strokes) */

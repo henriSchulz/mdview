@@ -43,6 +43,10 @@
     pace: svg('<path d="M13 3 5 13.5h6L10 21l8-10.5h-6z"/>'),
     kit: svg('<path d="M5 17c2.5-6 5-9 8-9"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><circle cx="17" cy="17" r="3"/>'),
     check: svg('<path d="m5 12.5 4.5 4.5L19 7.5"/>'),
+    redraw: svg('<path d="M3.5 18.5c2.2-4.4 4.4-4.4 6.2-1.2s3.9 3.2 6.1-.6"/><path d="m15 3.8 2.6 2.6-6.2 6.2-3.2.6.6-3.2z"/><path d="M19.5 9.5v3M18 11h3"/>'),
+    solve: svg('<path d="M4.5 9.5h7M4.5 14.5h7"/><path d="M15 8l4 4-4 4"/>'),
+    explain: svg('<circle cx="12" cy="12" r="8.5"/><path d="M9.7 9.6a2.4 2.4 0 1 1 3.3 2.2c-.6.3-1 .8-1 1.5v.3"/><circle cx="12" cy="16.4" r=".5" fill="currentColor"/>'),
+    latex: svg('<path d="M17.5 5.5h-11l5.5 6.5-5.5 6.5h11"/>'),
     send: svg('<path d="M12 19V5M6 11l6-6 6 6"/>'),
     chat: svg('<path d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v7a2.5 2.5 0 0 1-2.5 2.5H11l-4 3.5V16A2.5 2.5 0 0 1 5 13.5z"/>'),
     stop: svg('<rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" stroke="none"/>'),
@@ -262,7 +266,7 @@
       `<div class="bd-bar bd-fbar" role="toolbar" hidden></div><div class="bd-fpop ui-menu ui-popover"></div>` +
       `<div class="bd-bar bd-insert" role="toolbar" aria-label="${esc(T("board.modes"))}"><span role="radiogroup" class="bd-kinds">${KINDS.map((k) => `<button type="button" class="bd-btn" role="radio" data-kind="${k}" title="${esc(T("board.kind." + k))}" aria-label="${esc(T("board.kind." + k))}">${I[KICON[k]]}</button>`).join("")}</span>${button("image", "board.insert.image")}<span class="bd-sep"></span>${button("plus", "board.insert.more")}<input type="file" class="bd-file" accept="image/*" multiple hidden></div>` +
       `<div class="bd-bar bd-title" role="toolbar">${button("back", "board.back")}<span class="bd-name"></span><span class="bd-chip" hidden></span></div>` +
-      `<div class="bd-bar bd-actions" role="toolbar">${button("page", "board.page.add")}<span class="bd-sep" data-for="book"></span>${button("undo", "board.undo")}${button("redo", "board.redo")}<span class="bd-sep"></span>${button("claude", "board.claude")}${button("more", "board.more")}</div>` +
+      `<div class="bd-bar bd-actions" role="toolbar">${button("page", "board.page.add")}<span class="bd-sep" data-for="book"></span>${button("undo", "board.undo")}${button("redo", "board.redo")}<span class="bd-sep"></span>${button("claude", "board.claude")}${button("chat", "board.chat")}${button("more", "board.more")}</div>` +
       `<div class="bd-claude-note" role="status"><span class="bd-claude-said"></span><button type="button" class="bd-claude-stop" data-do="claude-stop" title="${esc(T("board.ask.stop"))}" aria-label="${esc(T("board.ask.stop"))}">${I.stop}</button></div><div class="bd-vpop ui-menu ui-popover" role="menu"></div><i class="bd-claude-tip" aria-hidden="true"></i>` +
       `<div class="bd-bar bd-palette" role="toolbar" aria-label="${esc(T("board.tools"))}">` +
         `<span role="radiogroup" class="bd-set bd-tools" data-for="pen">${DRAWS.map((t) => `<button type="button" class="bd-btn bd-tool" role="radio" data-tool="${t}" title="${esc(T("board.tool." + t))}" aria-label="${esc(T("board.tool." + t))}">${I[t]}</button>`).join("")}` +
@@ -282,6 +286,7 @@
       `<div class="bd-bar bd-viewbar" role="toolbar">${button("connect", "board.connect")}${button("grid", "board.grid")}${button("paper", "board.paper")}</div>` +
       `<div class="bd-cpop ui-menu ui-popover" role="menu" aria-label="${esc(T("board.insert.shape"))}">${B.items.SHAPES.map((k) => `<button type="button" class="bd-tile" data-next="${k}" title="${esc(T("board.shape." + k))}" aria-label="${esc(T("board.shape." + k))}"><svg viewBox="-2 -2 32 32"><path d="${B.items.shapePath(k, 28, k === "rect" || k === "round" ? 20 : 28)}" transform="translate(0 ${k === "rect" || k === "round" ? 4 : 0})"/></svg></button>`).join("")}</div>`;
     document.body.appendChild(el);
+    el.addEventListener("pointerdown", (e) => { if (!e.target.closest?.(".bd-stage")) claude.via = B.pointer.told(e).pointerType || "mouse"; }, true);
     el.addEventListener("click", (e) => {
       const b = e.target.closest("button");
       if (!b || !S) return;
@@ -289,6 +294,7 @@
       if (b.closest(".bd-vpop")) return void picked(b);
       if (["zoom", "more", "scenes", "plus", "paper"].includes(b.dataset.do)) return menu(b.dataset.do, b);
       if (b.dataset.do === "claude") return claude.open(b);
+      if (b.dataset.do === "chat") return chatToggle();
       if (b.dataset.do === "claude-stop") return claude.stop();
       if (b.dataset.kind) return setKind(b.dataset.kind);
       if (b.dataset.do === "hues") return options(b, false, "hues");
@@ -889,13 +895,20 @@
           (S.readonly ? "" : `<button type="button" class="bd-btn" data-scene-name="${sc.id}" title="${esc(T("board.scene.rename"))}" aria-label="${esc(T("board.scene.rename"))}">${I.rename}</button><button type="button" class="bd-btn" data-scene-set="${sc.id}" title="${esc(T("board.scene.replace"))}" aria-label="${esc(T("board.scene.replace"))}">${I.frame}</button><button type="button" class="bd-btn" data-scene-del="${sc.id}" title="${esc(T("board.delete"))}" aria-label="${esc(T("board.delete"))}">${I.trash}</button>`) + `</div>`).join("")}</div>`
         : `<p class="bd-hint">${esc(T("board.scene.none"))}</p>`) + (S.readonly ? "" : `<button type="button" class="bd-wide-btn" data-m="scene-add">${esc(T("board.scene.add"))}</button>`);
     }
-    // (Claude asked: a card to write in, as the chat's — what is chosen named above it, the chat at its foot, the round button sends)
-    else if (kind === "ask") html = `<div class="bd-ask">${S.pick.length ? `<span class="bd-ask-about">${I.spark}${esc(T(S.pick.length === 1 ? "board.ask.about.one" : "board.ask.about", S.pick.length))}</span>` : ""}` +
-      `<textarea class="bd-ask-field" rows="1" placeholder="${esc(T(S.pick.length ? "board.ask.chosen" : "board.ask.what"))}" aria-label="${esc(T("board.claude"))}" maxlength="4000" spellcheck="false"></textarea>` +
-      `<div class="bd-ask-menu" role="menu"></div>` +
-      `<div class="bd-ask-foot"><span class="bd-ask-left"><button type="button" class="bd-ask-chat bd-ask-icon" data-m="ask-chat" title="${esc(T("board.ask.chat"))}" aria-label="${esc(T("board.ask.chat"))}">${I.chat}</button>` +
-      Object.keys(STYLE).map((k) => `<button type="button" class="bd-ask-chat bd-ask-pill" data-m="ask-pill" data-k="${k}" aria-haspopup="menu" aria-expanded="false" title="${esc(T("board.style." + k))}">${I[k]}<span>${esc(styleLabel(k))}</span></button>`).join("") + `</span>` +
-      `<button type="button" class="bd-ask-send" data-m="ask-go" title="${esc(T("board.ask.go"))}" aria-label="${esc(T("board.ask.go"))}">${I.send}</button></div></div>`;
+    // (Claude asked: the bubble — what it is about, ready-made choices to press (no keys needed for the usual: Henri, 2026-11-19
+    // „damit man oft nicht die tastatur braucht“), and a field to say anything else; its pills say how Claude draws)
+    else if (kind === "ask") {
+      const t = aiTarget(), any = t.items.length || !!S.pdf, off = (k) => (PRESETS[k].needs(t) ? "" : " disabled");
+      const tile = (k, big) => `<button type="button" class="bd-ask-do${big ? " bd-ask-do-big" : ""}" data-m="preset" data-p="${k}" title="${esc(T("board.do." + k + ".tip"))}"${off(k)}>${I[PRESETS[k].icon]}<b>${esc(T("board.do." + k))}</b>${big ? `<small>${esc(T("board.do." + k + ".sub"))}</small>` : ""}</button>`;
+      html = `<div class="bd-ask"${any ? " data-presets" : ""}>` +
+        (t.chosen ? `<span class="bd-ask-about">${I.spark}${esc(T(t.items.length === 1 ? "board.ask.about.one" : "board.ask.about", t.items.length))}</span>` : any ? `<span class="bd-ask-about" data-view>${I.frame}${esc(T("board.ask.view"))}</span>` : "") +
+        (any ? `<div class="bd-ask-big">${tile("tidy", true)}${tile("redraw", true)}</div><div class="bd-ask-chips">${["check", "solve", "explain", "latex"].map((k) => tile(k, false)).join("")}</div>` : "") +
+        `<textarea class="bd-ask-field" rows="1" placeholder="${esc(T(any ? "board.ask.or" : S.pick.length ? "board.ask.chosen" : "board.ask.what"))}" aria-label="${esc(T("board.claude"))}" maxlength="4000" spellcheck="false"></textarea>` +
+        `<div class="bd-ask-menu" role="menu"></div>` +
+        `<div class="bd-ask-foot"><span class="bd-ask-left">` +
+        Object.keys(STYLE).map((k) => `<button type="button" class="bd-ask-chat bd-ask-pill" data-m="ask-pill" data-k="${k}" aria-haspopup="menu" aria-expanded="false" title="${esc(T("board.style." + k))}">${I[k]}<span>${esc(styleLabel(k))}</span></button>`).join("") + `</span>` +
+        `<button type="button" class="bd-ask-send" data-m="ask-go" title="${esc(T("board.ask.go"))}" aria-label="${esc(T("board.ask.go"))}">${I.send}</button></div></div>`;
+    }
     else if (kind === "link") html = `<input type="text" class="bd-scene-input bd-link-input" placeholder="https://" aria-label="${esc(T("board.insert.link"))}" spellcheck="false"><button type="button" class="bd-wide-btn" data-m="link-add">${esc(T("board.link.add"))}</button>`;
     p.innerHTML = html;
     p.dataset.kind = kind;
@@ -904,7 +917,9 @@
       const fit = () => { field.style.height = "auto"; field.style.height = Math.min(160, field.scrollHeight) + "px"; send.toggleAttribute("data-idle", !field.value.trim()); };
       field.value = claude.typed;
       fit();
-      setTimeout(() => { field.focus(); field.setSelectionRange(field.value.length, field.value.length); }, 0);
+      // (the keys' at once only where it was opened with a mouse: a pen or a finger would bring up an iPad's keyboard over
+      // the board, where the ready-made choices are what is wanted)
+      if (claude.via !== "pen" && claude.via !== "touch") setTimeout(() => { field.focus(); field.setSelectionRange(field.value.length, field.value.length); }, 0);
       field.addEventListener("input", () => { claude.typed = field.value; fit(); styleMenu(null); });
       p.querySelector(".bd-ask").addEventListener("pointerdown", (e) => { if (!e.target.closest(".bd-ask-menu, .bd-ask-pill")) styleMenu(null); });
       // (Enter asks, Shift+Enter breaks the line, Esc shuts it — as in the chat)
@@ -933,6 +948,7 @@
     if (d.m === "page") { menu(null); return addPage(); }
     if (d.m === "page-del") { menu(null); return pageGone(B.pdf.near(S.book.pages, S.view, size()).n - 1); } // (the page in sight)
     if (d.m === "ask-go") return claude.go();
+    if (d.m === "preset") return preset(d.p);
     if (d.m === "ask-pill") return styleMenu(b);
     if (d.opt) { // (one of the style's choices: kept for the next question, and on this computer; its pill says it)
       claude.prefs[d.opt] = d.v;
@@ -941,7 +957,6 @@
       styleMenu(null);
       return vpop().querySelector(".bd-ask-field")?.focus();
     }
-    if (d.m === "ask-chat") return chatOpen();
     if (d.m === "sticky" || d.m === "table") { menu(null); setMode("select"); return void sel.insert(d.m); }
     if (d.m === "linkask") return menu("link", el.querySelector('[data-do="plus"]'));
     if (d.m === "fit") { S.view.fit(bounds()); return menu(null); }
@@ -1330,42 +1345,69 @@
         : `\n\n(Write words with the step "write"${p.font === "script" ? ', in joined-up script: "style":"script"' : ""}.)`);
   };
   const styled = (step) => { const p = (claude.prefs = claude.prefs || styleOf()); return step.add === "write" || step.add === "hand" ? { ...step, style: step.style || (p.font === "script" ? "script" : "hand"), mess: Number(p.mess) } : step.add === "ink" || step.add === "stroke" ? { ...step, mess: Number(p.mess) } : step; };
-  /* Which way to Claude was used last: "card" or "chat" (its button opens that one). */
-  const WAY = "mdview:board-claude-way";
-  const lastWay = () => { try { return localStorage.getItem(WAY) === "chat" ? "chat" : "card"; } catch (e) { return "card"; } };
-  const keepWay = (way) => { try { localStorage.setItem(WAY, way); } catch (e) { /* (not kept: it holds for now) */ } };
-  function chatOpen() {
+  /* The chat, its own button beside the bubble's star (Henri, 2026-11-19: „die kleine bubble und den chat separat“ — the
+   * star opened whichever was used last). What the bubble did is in the chat all the same (ai.record). */
+  function chatToggle() {
     menu(null);
-    keepWay("chat");
-    core.ai.load().then((ai) => { if (!ai.chat.open) ai.chat.toggle(); }).catch(() => {});
+    core.ai.load().then((ai) => ai.chat.toggle()).catch(() => {});
+  }
+  /* What a ready-made choice of the bubble is about: what is chosen — else what the window shows, its things and its ink. */
+  function aiTarget() {
+    const mine = (it) => !it.foreign, inks = (items) => items.filter((it) => it.k === "ink" && !it.lock && !it.foreign);
+    const chosen = S.pick.filter(mine);
+    if (chosen.length) return { chosen: true, items: chosen, inks: inks(chosen) };
+    const s = size(), v = S.view, x0 = v.x, y0 = v.y, x1 = v.x + s.w / v.z, y1 = v.y + s.h / v.z;
+    const items = S.model.items.filter((it) => { if (!mine(it)) return false; const b = B.format.boundsOf(it); return !!b && b[2] >= x0 && b[0] <= x1 && b[3] >= y0 && b[1] <= y1; });
+    return { chosen: false, items, inks: inks(items) };
+  }
+  /* The bubble's ready-made choices: what each needs, and what Claude is told (after it, the language and the style). The two
+   * that answer in words go to the chat; the others are done on the board; Tidy is Improve. */
+  const PRESETS = {
+    tidy: { icon: "wand", needs: (t) => t.inks.length > 0 },
+    redraw: { icon: "redraw", needs: (t) => t.items.length > 0, ask: (of) => `Redraw ${of} neatly, where it is and as large as it is: take away the strokes and things it is made of — all of them in one del — and write and draw the same content again, clean: the same words, numbers and formulas (words by hand, formulas with the step "write" as LaTeX between dollars), the same sketch or diagram with straight lines, round circles, even arrows and clean shapes, its labels where they were. Nothing added, nothing left out, nothing corrected; the colours kept.` },
+    check: { icon: "check", needs: (t) => t.items.length > 0 || !!S.pdf, ask: (of) => `Check ${of} for mistakes — arithmetic, algebra, signs, indices, units, logic, spelling. Change and take away nothing that is there. Mark each mistake where it stands, in red (#e5484d): a ring round it or a line under it, and the correction written small beside it by hand. Where all of it is right, a small green (#30a46c) ✓ beside it. In your one sentence say what you found.` },
+    solve: { icon: "solve", needs: (t) => t.items.length > 0 || !!S.pdf, ask: (of) => `Go on with ${of}: solve the task, or carry the calculation, derivation or proof on to its end — step by step, by hand, under what is there (where there is room; on a notebook on its page, else on the next one), as large as it is written there and in its colour, formulas with the step "write" as LaTeX between dollars. In your one sentence say the result.` },
+    explain: { icon: "explain", chat: true, needs: (t) => t.items.length > 0 || !!S.pdf, ask: (of) => `Explain ${of} to me: what it says and why, step by step, briefly. Answer here in the chat; draw nothing on the board.` },
+    latex: { icon: "latex", chat: true, needs: (t) => t.items.length > 0 || !!S.pdf, ask: (of) => `Write ${of} out exactly as it is written by hand: its words as text, every formula as LaTeX ($…$ within a line, $$…$$ for one on a line of its own), as Markdown in one <insert> — nothing added, left out or corrected. Draw nothing on the board.` },
+  };
+  /* A ready-made choice pressed: done on what is chosen, else on what the window shows — and said in the chat as its name. */
+  function preset(k) {
+    const P = PRESETS[k], t = aiTarget(), shown = T("board.do." + k);
+    if (!P || !P.needs(t) || !claude.on()) return;
+    menu(null);
+    if (k === "tidy") return improve.go(t.inks, { shown, chosen: t.chosen });
+    const of = t.chosen ? "what is chosen (the things named as chosen above)" : S.pdf ? "what the window shows (the page of the PDF in view, and what is drawn on it)" : "what the window shows of the board (the strokes and things in view)";
+    const text = P.ask(of) + `\n\n(Write in the language of what is written there; where nothing is written, in ${T("board.do.lang")}.)`;
+    if (P.chat) return core.ai.load().then((ai) => ai.chat.ask(text, shown)).catch(() => note(T("board.ask.failed"), true));
+    return claude.go(text, shown);
   }
   const claude = {
     prefs: null, // (styleOf(), when first asked for)
     job: null, // the answer coming in: { id, ai, steps, s }
     pending: false, // asked, while what goes with the question is being made
     typed: "", // what was typed into the field, kept until it was asked
+    via: "mouse", // what pressed last on the board's bars: a pen or a finger opens the bubble without the keys
     pt: null, // where the right button was pressed, when it was asked from its menu
     note: "", // what the title says of Claude now: that it draws, what it said, why it could not
     tip: null, // where Claude's pen was last: the next stroke is reached through the air from there
     on: () => !!(S && !S.readonly && core.ai && core.ai.on && core.ai.on()),
-    /* anchor: the button it was asked from — pressed again, it shuts the field and the chat (Henri, 2026-11-02); none: the
-     * right button's menu, at pt. */
+    /* The bubble — always the bubble; the chat has its own button. anchor: the button it was asked from — pressed again, it
+     * shuts the bubble (Henri, 2026-11-02); none: the right button's menu, at pt. The chat goes while it is open: it would
+     * stand over it. */
     open(anchor = null, pt = null) {
       if (!claude.on()) return;
       claude.prefs = claude.prefs || styleOf();
-      const chat = window.MdAi && MdAi.chat.open;
-      if (anchor && ((vpop().dataset.open != null && vpop().dataset.kind === "ask") || chat)) { menu(null); if (chat) MdAi.chat.close(); return; }
-      // (its button opens what was used last, the card or the chat — kept on this computer; the right button's menu, the card)
-      if (anchor && lastWay() === "chat") return chatOpen();
+      if (anchor && vpop().dataset.open != null && vpop().dataset.kind === "ask") return menu(null);
+      if (window.MdAi && MdAi.chat.open) MdAi.chat.close();
       claude.pt = pt ? onBoard(pt) : null;
       menu("ask", anchor || el.querySelector('[data-do="claude"]'), true);
     },
-    async go() {
-      const input = vpop().querySelector(".bd-ask-field"), text = (input ? input.value : claude.typed).trim();
+    /* Asked: what is typed in the bubble — or given (a ready-made choice: what Claude is told, and shown, its name in the chat). */
+    async go(given = null, shown = null) {
+      const input = vpop().querySelector(".bd-ask-field"), text = given != null ? given : (input ? input.value : claude.typed).trim();
       if (!text) { if (input) { input.focus(); input.classList.remove("bd-shake"); void input.offsetWidth; input.classList.add("bd-shake"); } return; }
-      if (claude.job || !claude.on()) return;
+      if (claude.job || improve.job || !claude.on()) return;
       menu(null);
-      keepWay("card");
       const s = S, board = aiBoard(claude.pt);
       busy(true);
       claude.pending = true; // (asked, not yet sent: stopped meanwhile, it is never sent)
@@ -1375,7 +1417,7 @@
       claude.pending = false;
       if (S !== s) return;
       if (!ai || !ai.ask) { busy(false); return note(T("board.ask.failed"), true); }
-      claude.typed = "";
+      if (given == null) claude.typed = "";
       const steps = aiSteps(s, () => { if (claude.job === job) note(T("board.ask.busy")); });
       const job = { ai, s };
       job.steps = steps;
@@ -1384,7 +1426,7 @@
         if (claude.job === job) { claude.job = null; busy(false); }
         if (S !== s) return;
         const words = B.claude.words(whole);
-        if (error !== "stopped") ai.record?.(text, { text: whole, error, drew: n }); // (into the chat's conversation of this document)
+        if (error !== "stopped") ai.record?.(text, { text: whole, error, drew: n }, shown); // (into the chat's conversation of this document)
         if (error) note(error === "AI is turned off in the settings" ? T("board.ask.off") : error, true);
         else note(n ? (words ? words.split("\n")[0].slice(0, 160) : T(n === 1 ? "board.ask.done.one" : "board.ask.done", n)) : words.slice(0, 200) || T("board.ask.none"), !n && !words);
         claude.said = setTimeout(() => { if (S === s && !claude.job) note(""); }, 8000);
@@ -1392,6 +1434,7 @@
       claude.job = job;
     },
     stop() {
+      if (improve.job) return improve.stop(); // (the line's stop stops Tidy too)
       const job = claude.job;
       if (!job && claude.pending) { claude.pending = false; busy(false); return; }
       if (!job) return;
@@ -1431,16 +1474,19 @@
    * all of it, the smoothing too, is one step back, and what it made stays chosen. Pressed again while it works, it stops. */
   const improve = {
     job: null, // { s, before, ids, origin, n, queue, over, ai, id }
-    async go() {
-      if (improve.job || !claude.on() || sel.editing) return;
-      const s = S, inks = s.pick.filter((it) => it.k === "ink" && !it.lock && !it.foreign);
+    /* given: the strokes (the bubble's Tidy: what is chosen, or the ink the window shows); o.shown: its name in the chat;
+     * o.chosen false: they were not chosen, and what it makes is not chosen either. */
+    async go(given = null, o = {}) {
+      if (improve.job || claude.job || !claude.on() || sel.editing) return;
+      const s = S, inks = given || s.pick.filter((it) => it.k === "ink" && !it.lock && !it.foreign);
       if (!inks.length) return;
       const before = sel.snapshot();
       for (const it of inks) if (!it.sharp) { const pts = B.claude.smooth(it.pts, Math.max(0.6, it.w * 0.3)); if (pts !== it.pts) { it.pts = pts; it.path = null; it.box = null; } }
-      const told = B.claude.tellPick(inks), job = { s, before, ids: new Set(inks.map((it) => it.id)), origin: told.origin, n: 0, queue: Promise.resolve(), over: false };
+      const told = B.claude.tellPick(inks), job = { s, before, ids: new Set(inks.map((it) => it.id)), origin: told.origin, n: 0, queue: Promise.resolve(), over: false, chosen: o.chosen !== false, shown: o.shown || T("board.do.tidy") };
       improve.job = job;
       paint();
       note(T("board.improve.busy"));
+      el.querySelector(".bd-claude-note").toggleAttribute("data-busy", true); // (its stop at the line's end)
       let ai = null, picture = "";
       try { [ai, picture] = await Promise.all([core.ai.load(), improvePicture(inks).catch(() => "")]); } catch (e) { /* (ai.js could not be loaded) */ }
       if (improve.job !== job) return;
@@ -1480,7 +1526,7 @@
     if (!got) return;
     job.n++;
     for (const it of got.added) job.ids.add(it.id);
-    s.pick = [...s.pick.filter((it) => s.model.items.includes(it)), ...got.added];
+    s.pick = [...s.pick.filter((it) => s.model.items.includes(it)), ...(job.chosen ? got.added : [])];
     const calm = !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     const ms = calm ? 0 : parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--spring-snappy-dur")) || 400; // (motion.css)
     if (ms) {
@@ -1512,6 +1558,9 @@
     if (improve.job !== job) return;
     improve.job = null;
     const s = job.s;
+    el.querySelector(".bd-claude-note").toggleAttribute("data-busy", !!claude.job);
+    // (said in the chat's conversation, as all that is asked on the board — Henri, 2026-11-19: „alles aus der bubble kommt in den chat“)
+    if (error !== "stopped" && job.ai) job.ai.record?.(job.shown, error ? { error } : { text: T(job.n ? "board.improve.done" : "board.improve.none") });
     if (S !== s) return;
     sel.commitSince(job.before);
     paint();

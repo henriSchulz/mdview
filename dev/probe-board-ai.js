@@ -14,7 +14,7 @@
   let where = pdf ? "pdf" : "note";
   try {
     // (the chat in its Edit mode, as it is kept from a note: over a board it draws all the same — #34)
-    try { localStorage.setItem("mdview:ai-edit", "1"); localStorage.removeItem("mdview:board-claude-way"); } catch (e) { /* (none) */ } // (and no way to Claude used yet: its button opens the card)
+    try { localStorage.setItem("mdview:ai-edit", "1"); } catch (e) { /* (none) */ }
     await document.fonts.ready;
     await sleep(800);
     const B = () => window.MdBoard, st = () => B() && B().shown && B().state(), el = () => document.getElementById("board");
@@ -51,7 +51,8 @@
     const input0 = input().value.trim();
     ok("typed: the round button may send", !pop().querySelector(".bd-ask-send").hasAttribute("data-idle"));
     // (the style: a pill for each — writing, hand, with what, how fast —, each a small menu; what is chosen is said on its pill and kept)
-    ok("the card's foot: Chat and four pills of the style, the speed among them", pop().querySelectorAll(".bd-ask-pill").length === 4 && !!pop().querySelector('[data-m="ask-chat"]') && !!pop().querySelector('.bd-ask-pill[data-k="pace"]'), pop().querySelector(".bd-ask-foot")?.textContent);
+    ok("the bubble's foot: four pills of the style, the speed among them — the chat has its own button in the bar", pop().querySelectorAll(".bd-ask-pill").length === 4 && !pop().querySelector('[data-m="ask-chat"]') && !!pop().querySelector('.bd-ask-pill[data-k="pace"]') && seen(el().querySelector('.bd-actions [data-do="chat"]')), pop().querySelector(".bd-ask-foot")?.textContent);
+    ok("… and its ready-made choices, where the board has something to work on", pop().querySelectorAll('[data-m="preset"]').length === (st().items + st().things.length || pdf ? 6 : 0), [...pop().querySelectorAll('[data-m="preset"]')].map((b) => b.dataset.p));
     pop().querySelector('.bd-ask-pill[data-k="font"]').click();
     ok("the writing's pill opens its menu: drawn, print, script, the one in use ticked", await until(() => pop().querySelector(".bd-ask-menu[data-open]") && pop().querySelectorAll(".bd-ask-menu button").length === 3 && pop().querySelectorAll('.bd-ask-menu [aria-checked="true"]').length === 1, 1000), pop().querySelector(".bd-ask-menu")?.outerHTML.slice(0, 200));
     out("styling", {}); await sleep(900);
@@ -122,12 +123,11 @@
       await sleep(200);
       B().pick([]);
     }
-    // --- the chat over the board
-    btn().click();
-    await until(() => pop().hasAttribute("data-open"), 2000);
-    pop().querySelector('[data-m="ask-chat"]').click();
+    // --- the chat over the board: its own button, beside the star (Henri, 2026-11-19)
+    const chatBtn = () => el().querySelector('.bd-actions [data-do="chat"]');
+    chatBtn().click();
     const chat = () => document.getElementById("ai-chat");
-    ok("Talk about it in the Chat: the chat opens over the board, and is seen", await until(() => window.MdAi && MdAi.chat.open && chat() && Number(getComputedStyle(chat()).zIndex) > Number(getComputedStyle(el()).zIndex) && chat().getBoundingClientRect().width > 200, 4000), chat() && [getComputedStyle(chat()).zIndex, getComputedStyle(chat()).display, chat().getBoundingClientRect().width]);
+    ok("the chat's button: the chat opens over the board, and is seen", await until(() => window.MdAi && MdAi.chat.open && chat() && Number(getComputedStyle(chat()).zIndex) > Number(getComputedStyle(el()).zIndex) && chat().getBoundingClientRect().width > 200, 4000), chat() && [getComputedStyle(chat()).zIndex, getComputedStyle(chat()).display, chat().getBoundingClientRect().width]);
     await sleep(400);
     out("history", {}); await sleep(900); // (the conversation: what was asked on the board stands in it)
     const field = chat().querySelector(".ai-field"), kind = st().kind;
@@ -147,20 +147,17 @@
     // (the star pressed again shuts the chat; so does a press on the empty board — Henri, 2026-11-02)
     const press = (target, x, y) => { for (const type of ["pointerdown", "pointerup"]) target.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, pointerId: 9, pointerType: "mouse", isPrimary: true, button: 0, buttons: type === "pointerdown" ? 1 : 0 })); };
     const click = (b) => { const r = b.getBoundingClientRect(); press(b, r.left + 4, r.top + 4); b.click(); };
-    click(btn());
-    ok("the star pressed again shuts the chat", await until(() => !MdAi.chat.open, 2000));
+    click(chatBtn());
+    ok("the chat's button pressed again shuts the chat", await until(() => !MdAi.chat.open, 2000));
     MdAi.chat.toggle();
     await until(() => MdAi.chat.open, 2000);
     press(el().querySelector(".bd-stage"), 200, 300);
     ok("a press on the empty board shuts the chat", await until(() => !MdAi.chat.open, 2000));
-    // (the chat was the way used last: the star opens it again, and that is kept on this computer)
+    // (the chat used last: the star still opens the bubble — and the chat goes, it would stand over it)
+    click(chatBtn());
+    await until(() => MdAi.chat.open, 2000);
     click(btn());
-    ok("the star opens the chat again: it was used last, and that is kept", await until(() => MdAi.chat.open, 2000) && localStorage.getItem("mdview:board-claude-way") === "chat", localStorage.getItem("mdview:board-claude-way"));
-    click(btn());
-    await until(() => !MdAi.chat.open, 2000);
-    localStorage.setItem("mdview:board-claude-way", "card"); // (the card used last)
-    click(btn());
-    ok("the star opens the field", await until(() => pop().hasAttribute("data-open") && pop().dataset.kind === "ask", 2000));
+    ok("the star opens the bubble, the chat used last or not", await until(() => pop().hasAttribute("data-open") && pop().dataset.kind === "ask" && !MdAi.chat.open, 2000), [pop().dataset.kind, MdAi.chat.open]);
     click(btn());
     ok("… and shuts it, pressed again", await until(() => !pop().hasAttribute("data-open"), 2000), pop().dataset.kind);
     click(btn());
