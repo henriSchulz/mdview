@@ -1811,7 +1811,7 @@
     const s = (S = { ref, img, pdf, book: null, readonly: !!((window.MdHost || {}).reading || (!pdf && cur.readonly)), model: B.format.fresh(), view: B.view.make(size, viewMoved), undo: [], redo: [], dirty: false, timer: 0, kind: "lasso", back: null, fav: null, pen: "pen", tool: "pen", tools: toolsNow(), act: null, mode: "select", pick: [], connect: false, scene: -1, ruler: null, crop: null });
     inkAt = null;
     core.lockScroll(true);
-    post("board-open", { on: true });
+    post("board-open", { on: true, full: !pdf }); // (full: over the whole window — not a PDF's, which lies under the tabs)
     el.setAttribute("aria-label", T("board.name"));
     el.querySelector(".bd-name").textContent = pdf ? pdf.name : nameOf(ref) || T("board.name"); // (a whiteboard of its own by its name; one a note keeps has none)
     el.toggleAttribute("data-readonly", s.readonly);

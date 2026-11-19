@@ -718,6 +718,13 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     itself out: a width set from the first look is off by what the bar moves afterwards. A new item at the bar's left goes
     after the gap. Check: `ChromeTests.testTheBarsButtonsStandBesideTheSidebar`; a picture: `MDVIEW_SNAP=… ChromeTests/testPictures`.
 
+123. **What fills the window with bars of its own has the window's top to itself on the Mac.** A whiteboard lies over the
+    whole window and has its name, its tools and its actions at the top; the system's bar stayed, and its buttons lay on
+    the board's capsules, the board's name under the window's three buttons (Henri, 2026-11-19: "bug"). While such a board
+    is open (`board-open` with `full`; not a PDF's, which lies under the tabs) the bar is hidden (`MacChrome.update`), and
+    the board's name begins after the window's buttons. Check: `ChromeTests.testAWhiteboardHasTheWindowsTop`; a picture:
+    `chrome-light-board.png` of `ChromeTests/testPictures`.
+
 ### Touch (iPad)
 
 24. **Chromium hands a touch near a small target to that target**: decide by

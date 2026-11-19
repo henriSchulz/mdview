@@ -174,7 +174,9 @@ final class MacChrome: NSObject, NSToolbarDelegate {
         let b = { (k: String) in (s[k] as? Bool) == true }
         // (a spare has its bar already: what it is taken for is mostly a note or a folder, and a bar that comes then lays the
         // window out anew — 55 ms of the 70 the shell took to show a spare's note)
-        let shown = (w.path != nil || w.folder != nil || w.isSpare) && !b("focus")
+        // (a whiteboard over the whole window has bars of its own at the top: the system's would lie on them — Henri,
+        // 2026-11-19, "bug": the board's name under the window's buttons, its capsule under back and forward)
+        let shown = (w.path != nil || w.folder != nil || w.isSpare) && !b("focus") && !w.boardFull
         if toolbar.isVisible != shown { toolbar.isVisible = shown; tellHeight(); fit() }
         let note = !b("nonote"), folder = b("folder")
         items[.mdOutline]?.isEnabled = note
@@ -197,6 +199,9 @@ final class MacChrome: NSObject, NSToolbarDelegate {
             items[.mdFolder]?.isHidden = folder
         }
     }
+
+    /// The bar as it is to be now, with what the page said last (the window's own state changed: a board open or shut).
+    func again() { update(state) }
 
     /// The bar's height, told to the page (--mac-bar): its note, sidebar and All Notes begin under it.
     func tellHeight() {
@@ -224,6 +229,8 @@ final class MacChrome: NSObject, NSToolbarDelegate {
         "body[data-focus] #mac-bar,body:not([data-tabs])[data-nonote] #mac-bar{display:none}" +
         ":root[data-mac] body:not([data-tabs]) :is(#content,#active,#editor){padding-top:calc(var(--mac-bar,52px) + 28px)}" +
         ":root[data-mac] #sidebar{padding-top:calc(var(--mac-bar,52px) - var(--sb-inset,8px))}" +
+        // (a whiteboard over the whole window: the bar is gone, the window's three buttons stay — the board's name begins after them)
+        ":root[data-mac] #board:not([data-pdf]) .bd-title{left:calc(78px + env(safe-area-inset-left, 0px))}" +
         ":root[data-mac] :is(#ctxmenu,.actmenu){--accent:var(--c-accent)}";
       var style = document.createElement("style");
       style.textContent = css;

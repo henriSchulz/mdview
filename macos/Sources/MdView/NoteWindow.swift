@@ -49,6 +49,7 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
     var boardPaths: Set<String> = []
     var boardDirs: Set<String> = []
     var boardOpen = false
+    var boardFull = false // (… and over the whole window, its own bars at the top: the system's bar goes meanwhile — MacChrome)
     var boardDraws = false // (a pen or the eraser in hand on an open board: TouchDraw.swift)
     var keptDirs: Set<String> = []
     var dirWatch: Set<String> = []
@@ -516,7 +517,10 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         case "pdfnote":
             let p = str("path")
             if Lib.isFile(p) && Lib.isMd(p) { openPath(p, fragment: "^line=\(Int((msg["line"] as? Double) ?? 0))", push: true) }
-        case "board-open": boardOpen = truthy(msg["on"])
+        case "board-open":
+            boardOpen = truthy(msg["on"])
+            boardFull = boardOpen && truthy(msg["full"])
+            chrome?.again()
         case "board-draw": boardDraws = truthy(msg["on"]); tellDrawArea()
         case "board-watch":
             boardDirs = Set((msg["paths"] as? [String] ?? []).prefix(16).map { foundAsset(Lib.resolve($0)) }.filter { Lib.isBoard($0) && Lib.isFile($0) }.map { Lib.dir($0) })

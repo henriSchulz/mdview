@@ -72,6 +72,23 @@ final class ChromeTests: ShellTest {
         if #available(macOS 15, *) { XCTAssertEqual(item(w, .mdGap)?.isHidden, true) }
     }
 
+    /// A whiteboard over the whole window has its own bars at the top: the system's bar goes while it is open, and the
+    /// board's name begins after the window's three buttons (Henri, 2026-11-19, "bug": the name lay under them, the bar's
+    /// buttons on the board's capsule). Shut, the bar is there again.
+    func testAWhiteboardHasTheWindowsTop() {
+        let (w, _) = folderWindow()
+        let board = write("Notes/assets/S.board.svg", read(Lib.join(ShellTest.checkout, "web/public/welcome/samples/Empty.board.svg")))
+        XCTAssertEqual(w.window.toolbar?.isVisible, true)
+        page(w, "(MdPage.openBoardFile(\(jsonString(board))), 1)")
+        XCTAssertTrue(wait(10) { (self.page(w, "!!document.querySelector('#board[data-ready]')") as? Bool) == true }, "the board did not open")
+        XCTAssertTrue(wait(5) { w.window.toolbar?.isVisible == false }, "the system's bar lies over the board's own")
+        let left = (page(w, "document.querySelector('#board .bd-title').getBoundingClientRect().left") as? NSNumber)?.doubleValue ?? 0
+        let lights = w.window.standardWindowButton(.zoomButton).map { $0.convert($0.bounds, to: nil).maxX } ?? 70
+        XCTAssertGreaterThanOrEqual(left, Double(lights) + 4, "the board's name under the window's buttons")
+        page(w, "(MdBoard.close(), 1)")
+        XCTAssertTrue(wait(5) { w.window.toolbar?.isVisible == true }, "the board shut, and no bar")
+    }
+
     /// A folder's window opens where it was closed, as large as it was.
     func testAWindowOpensWhereItStood() {
         let app = AppDelegate.shared!
@@ -120,6 +137,14 @@ final class ChromeTests: ShellTest {
             if look == "dark" {
                 w.chrome?.act("outline"); shoot(w, look + "-outline"); w.chrome?.act("outline")
                 w.chrome?.act("find"); shoot(w, look + "-find"); _ = page(w, "(document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })), 1)")
+            }
+            if look == "light", let sample = try? String(contentsOfFile: Lib.join(ShellTest.checkout, "web/public/welcome/samples/Empty.board.svg"), encoding: .utf8) {
+                let board = write("Notizen/assets/Laptop.board.svg", sample)
+                page(w, "(MdPage.openBoardFile(\(jsonString(board))), 1)")
+                wait(1.5)
+                shoot(w, look + "-board")
+                page(w, "(MdBoard.close(), 1)")
+                wait(1)
             }
             if look == "light" {
                 w.on("tab", ["op": "new"])
