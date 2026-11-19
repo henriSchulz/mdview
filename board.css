@@ -456,6 +456,11 @@ body[data-flat] .bd-ruler { background-color: color-mix(in srgb, var(--bd-tool-b
 }
 .bd-said { position: absolute; left: 50%; top: 38%; translate: -50% 0; padding: 8px 16px; border-radius: var(--radius-pill); background: var(--glass); backdrop-filter: var(--glass-filter); -webkit-backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-capsule); font-weight: 600; pointer-events: none; opacity: 0; scale: 0.94; transition: opacity var(--dur-fast) var(--ease-exit), scale var(--dur-fast) var(--ease-exit); }
 .bd-said[data-on] { opacity: 1; scale: 1; transition: opacity var(--dur-fast) var(--ease-out), scale var(--spring-snappy-dur) var(--spring-snappy); }
+/* a squeeze of the Pencil (ipad-cast): the pens, the eraser, the lasso and the pen's colours in a small bar at the Pencil */
+.bd-squeeze { position: absolute; z-index: 6; --bd-well: 24px; gap: 4px; opacity: 0; scale: 0.92; pointer-events: none; transition: opacity var(--dur-fast) var(--ease-exit), scale var(--dur-fast) var(--ease-exit); }
+.bd-squeeze[data-open] { opacity: 1; scale: 1; pointer-events: auto; transition: opacity var(--dur-fast) var(--ease-out), scale var(--spring-snappy-dur) var(--spring-snappy); }
+.bd-squeeze .bd-sep { width: 1px; align-self: stretch; margin: 6px 4px; background: var(--line); }
+.bd-squeeze .bd-well { margin: 0 3px; }
 /* a board of pages (a notebook, a PDF): the page in sight while it is moved, as GoodNotes says it — at the top, between the bars */
 .bd-pageno { position: absolute; left: 50%; top: calc(var(--bd-inset) + env(safe-area-inset-top, 0px) + (var(--bd-bar-h) - 28px) / 2); translate: -50% 0; height: 28px; box-sizing: border-box; padding: 0 12px; display: flex; align-items: center; border-radius: var(--radius-pill); background: var(--glass); backdrop-filter: var(--glass-filter); -webkit-backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-capsule); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; pointer-events: none; opacity: 0; transition: opacity var(--dur-base) var(--ease-exit); }
 .bd-pageno[data-on] { opacity: 1; transition: opacity var(--dur-fast) var(--ease-out); }

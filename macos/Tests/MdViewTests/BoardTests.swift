@@ -235,5 +235,52 @@ final class BoardTests: ShellTest {
         XCTAssertTrue(wait(3) { ((self.page(w, "__seen.length") as? NSNumber)?.intValue ?? 0) > 0 }, "the board saw no move of the mouse")
         XCTAssertEqual(page(w, "__seen.every((r) => r[0] === 'mouse')") as? Bool, true, "the Mac's mouse was taken for something else: \(String(describing: page(w, "JSON.stringify(__seen)")))")
     }
+
+    /// The Pencil's double tap and squeeze from ipad-cast (com.henri.pencil → PencilActions → MdBoard.pencil) do what the iPad's
+    /// own setting says, as GoodNotes does: the eraser and back, the tool before; a squeeze shows the tools and colours at the
+    /// Pencil, and a tool taken there shuts it.
+    func testThePencilsDoubleTapAndSqueeze() throws {
+        let sample = Lib.join(ShellTest.checkout, "web/public/welcome/samples/Empty.board.svg")
+        let board = write("assets/Q.board.svg", read(sample))
+        let w = open(write("Q.md", "# Squeeze\n\n![](assets/Q.board.svg)\n"))
+        page(w, "(MdPage.openBoardFile(\(jsonString(board))), 1)")
+        XCTAssertTrue(wait(10) { (self.page(w, "!!(window.MdBoard && MdBoard.state && MdBoard.state() && document.querySelector('#board[data-ready]'))") as? Bool) == true }, "the board did not open")
+        page(w, "(document.querySelector('#board [data-kind=\"pen\"]').click(), 1)")
+        let kind = "JSON.stringify([MdBoard.state().kind, MdBoard.state().tool])"
+        let pen = page(w, kind) as? String ?? ""
+        XCTAssertTrue(pen.hasPrefix("[\"pen\""), "no pen in hand: \(pen)")
+        page(w, "MdBoard.pencil({ action: 'tap', preferred: 'switchEraser' })")
+        XCTAssertEqual(page(w, kind) as? String, "[\"eraser\",\"eraser\"]", "a double tap did not take up the eraser")
+        page(w, "MdBoard.pencil({ action: 'tap', preferred: 'switchEraser' })")
+        XCTAssertEqual(page(w, kind) as? String, pen, "a second double tap did not go back to the pen")
+        page(w, "(document.querySelector('#board [data-kind=\"lasso\"]').click(), 1)")
+        page(w, "MdBoard.pencil({ action: 'tap', preferred: 'switchPrevious' })")
+        XCTAssertEqual(page(w, kind) as? String, pen, "switch to previous did not go back to the pen")
+        page(w, "MdBoard.pencil({ action: 'tap', preferred: 'ignore' })")
+        XCTAssertEqual(page(w, kind) as? String, pen, "ignore changed the tool")
+        // a squeeze: the bar at the Pencil (measured as laid out: it grows into place)
+        page(w, "MdBoard.pencil({ action: 'squeeze', phase: 'began', preferred: 'showContextualPalette', x: 400, y: 380 })")
+        let open = "(() => { const b = document.querySelector('#board .bd-squeeze'); if (!b || b.dataset.open == null) return null; const q = document.getElementById('board').getBoundingClientRect(); return [q.left + b.offsetLeft, q.top + b.offsetTop + b.offsetHeight, b.offsetWidth, b.querySelectorAll('[data-tool], [data-kind]').length, b.querySelectorAll('[data-ink]').length]; })()"
+        let bar = (page(w, open) as? [NSNumber])?.map(\.doubleValue) ?? []
+        XCTAssertEqual(bar.count, 5, "no bar at the Pencil after a squeeze")
+        guard bar.count == 5 else { return }
+        XCTAssertLessThan(bar[1], 380, "the bar is not above the Pencil")
+        XCTAssertLessThan(abs(bar[0] + bar[2] / 2 - 400), 2, "the bar is not over the Pencil")
+        XCTAssertEqual(bar[3], 6, "pens, eraser and lasso")
+        XCTAssertEqual(bar[4], 3, "the pen's three colours")
+        page(w, "MdBoard.pencil({ action: 'squeeze', phase: 'ended', preferred: 'showContextualPalette', x: 400, y: 380 })")
+        XCTAssertEqual(page(w, "document.querySelector('#board .bd-squeeze').dataset.open != null") as? Bool, true, "the end of the squeeze shut the bar")
+        page(w, "(document.querySelector('#board .bd-squeeze [data-tool=\"eraser\"]').click(), 1)")
+        let shown = "document.querySelector('#board .bd-squeeze').dataset.open != null"
+        XCTAssertTrue(wait(2) { (self.page(w, shown) as? Bool) == false }, "a tool taken did not shut the bar")
+        XCTAssertEqual(page(w, kind) as? String, "[\"eraser\",\"eraser\"]", "the eraser taken in the bar is not in hand")
+        // where the cast says the Pencil is (the screen's top left) is the page's own place
+        let inWindow = w.web.convert(NSPoint(x: 120, y: w.web.isFlipped ? 90 : w.web.bounds.height - 90), to: nil)
+        let screen = w.window.convertPoint(toScreen: inWindow), top = NSScreen.screens[0].frame.maxY
+        let word = PencilActions.word(["action": "tap", "preferred": "switchEraser", "x": screen.x, "y": top - screen.y], in: w.web)
+        XCTAssertEqual((word["x"] as? Double) ?? 0, 120, accuracy: 0.5)
+        XCTAssertEqual((word["y"] as? Double) ?? 0, 90, accuracy: 0.5)
+        XCTAssertEqual(word["preferred"] as? String, "switchEraser")
+    }
 }
 

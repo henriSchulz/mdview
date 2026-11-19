@@ -5,6 +5,7 @@
 // notification, `com.henri.touch.drawAreas` — and ipad-cast makes a drag of a finger that moves there (its DrawAreas.swift).
 // Nobody listening: nothing happens. Said again when the window moves, is sized, comes to the front or leaves it.
 import AppKit
+import WebKit
 
 enum TouchDraw {
     static let name = Notification.Name("com.henri.touch.drawAreas")
@@ -38,4 +39,42 @@ extension NoteWindow {
     func windowDidBecomeKey(_ n: Notification) { tellDrawArea() }
     func windowDidResignKey(_ n: Notification) { tellDrawArea() }
     func windowDidMiniaturize(_ n: Notification) { tellDrawArea() }
+}
+
+
+/// The Apple Pencil's own double tap and squeeze from an iPad that is the Mac's screen: ipad-cast says them as a distributed
+/// notification, `com.henri.pencil` — action ("tap" | "squeeze"), phase (a squeeze's "began" … "ended"), preferred (what the
+/// iPad's own setting says: "switchEraser", "switchPrevious", "showColorPalette", "showInkAttributes",
+/// "showContextualPalette", "ignore", …) and x, y where the Pencil hovers (the screen's own coordinates, from the top left,
+/// as events are placed). The front window's whiteboard takes them (board.js: MdBoard.pencil) — Henri, 2026-11-19: Whiteboard
+/// und Notizbuch "so gut wie es nur geht auf den Apple Pencil und den Cast optimieren".
+enum PencilActions {
+    static let name = Notification.Name("com.henri.pencil")
+    private static var token: NSObjectProtocol?
+
+    static func listen() {
+        guard token == nil else { return }
+        token = DistributedNotificationCenter.default().addObserver(forName: name, object: nil, queue: .main) { n in
+            take(n.userInfo ?? [:])
+        }
+    }
+
+    /// What the page is told: the action as it came, the place turned into the web view's own (CSS pixels).
+    static func word(_ info: [AnyHashable: Any], in web: WKWebView) -> [String: Any] {
+        var a: [String: Any] = [:]
+        for k in ["action", "phase", "preferred"] { if let v = info[k] as? String { a[k] = v } }
+        if let x = (info["x"] as? NSNumber)?.doubleValue, let y = (info["y"] as? NSNumber)?.doubleValue, let window = web.window {
+            let top = NSScreen.screens.first?.frame.maxY ?? 0
+            let inWindow = window.convertPoint(fromScreen: NSPoint(x: x, y: top - y))
+            let p = web.convert(inWindow, from: nil), z = max(0.01, web.pageZoom * web.magnification)
+            a["x"] = Double(p.x / z)
+            a["y"] = Double((web.isFlipped ? p.y : web.bounds.height - p.y) / z)
+        }
+        return a
+    }
+
+    static func take(_ info: [AnyHashable: Any]) {
+        guard let w = NSApp.keyWindow?.delegate as? NoteWindow else { return }
+        w.web.evaluateJavaScript("window.MdBoard&&MdBoard.pencil&&MdBoard.pencil(\(jsonString(word(info, in: w.web))))", completionHandler: nil)
+    }
 }

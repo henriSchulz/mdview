@@ -736,6 +736,7 @@
     const draws = k === "pen" || k === "eraser";
     if (draws || (k !== S.kind && !back)) S.pick = [];
     S.kind = k; S.back = back; S.mode = draws ? "draw" : "select";
+    { const t = k === "pen" ? S.pen : k; if (t !== toolCur) { if (toolCur) before = toolCur; toolCur = t; } } // (the tool before: a double tap of the Pencil goes back to it — B.pencil)
     drawSaid();
     if (k === "pen") S.tool = S.pen; else if (k === "eraser") S.tool = "eraser";
     const pal = el.querySelector(".bd-palette"), shown = el.dataset.tray, seen = el.dataset.kind !== "lasso" && !tray.mini, from = pal.getBoundingClientRect();
@@ -1955,6 +1956,7 @@
     post("board-open", { on: false });
     drawSaid(false);
     el.querySelector(".bd-pageno")?.removeAttribute("data-on");
+    squeezeShut();
     delete el.dataset.open; delete el.dataset.ready;
     const done = () => { if (!S) { el.hidden = true; el.style.transform = ""; el.querySelector(".bd-paper").replaceChildren(); } };
     if (s.pdf) { s.pdf.paper.drop(); s.pdf.done?.({ model: s.model, view: { x: s.view.x, y: s.view.y, z: s.view.z }, pages: s.pdf.pages, quick }); } // (whoever shows the PDF: what is on it now, and where one was)
@@ -2003,6 +2005,64 @@
   B.inkPts = (id) => { const it = S && S.model.items.find((x) => x.id === id && x.k === "ink"); return it ? it.pts.map((p) => [p[0], p[1]]) : null; };
   B.pick = (ids) => { if (S) { if (S.mode !== "select") setMode("select"); sel.pick(S.model.items.filter((it) => ids.includes(it.id))); } }; // (for the tests: chosen by name, whatever lies over it)
   /* A new board's text, and what a board's picture shows, for those who put one into a note. */
+  // ---------------------------------------------------------------- the Pencil's own double tap and squeeze (ipad-cast)
+  /* An iPad that is the Mac's screen hands them on (ipad-cast → the macOS shell → here): a.action "tap" | "squeeze", a.phase of a
+   * squeeze, a.preferred — what the iPad's own setting says (Settings › Apple Pencil) —, a.x / a.y where the Pencil hovers, in
+   * the window, if it does. They do what GoodNotes does with them: the eraser and back, the tool before, the colours, the
+   * widths — and a squeeze's own: the tools and colours at the Pencil. */
+  let before = null, toolCur = null; // (the tool in hand, and the one before it — whichever way it was taken: the way back)
+  B.pencil = (a) => {
+    if (!S || S.readonly || !a || !el.hasAttribute("data-ready")) return false;
+    if (a.action === "squeeze" && a.phase && a.phase !== "began") return true; // (a squeeze is one press: its beginning)
+    const what = a.preferred || (a.action === "tap" ? "switchEraser" : "showContextualPalette");
+    const now = S.kind === "pen" ? S.pen : S.kind;
+    const to = (t) => {
+      if (ALL.includes(t)) setTool(t); else setKind(t);
+      said(T(ALL.includes(t) ? "board.tool." + t : "board.kind." + t));
+    };
+    if (what !== "showContextualPalette") squeezeShut();
+    if (what === "switchEraser") { to(now === "eraser" ? (before && before !== "eraser" ? before : S.pen) : "eraser"); return true; }
+    if (what === "switchPrevious") { to(before && before !== now ? before : now === "eraser" ? S.pen : "eraser"); return true; }
+    if (what === "showColorPalette" || what === "showInkAttributes") {
+      const b = el.querySelector(`.bd-palette [data-do="${what === "showColorPalette" ? "hues" : "sizes"}"]`);
+      if (b && b.offsetWidth) options(b, false, what === "showColorPalette" ? "hues" : "opacity");
+      return true;
+    }
+    if (what === "showContextualPalette") { squeezePalette(a); return true; }
+    return false; // (ignore, a shortcut of the system's: the iPad's own)
+  };
+  /* A squeeze's own (iPadOS' "Show Contextual Palette", as GoodNotes shows it): the pens, the eraser and the lasso, and the pen's
+   * three colours, in a small bar at the Pencil — above where it hovers, else in the middle. A tool or a colour taken, a press
+   * beside it, or a squeeze again, shuts it. */
+  function squeezePalette(a) {
+    let bar = el.querySelector(".bd-squeeze");
+    if (bar && bar.dataset.open != null) return squeezeShut();
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.className = "bd-bar bd-squeeze";
+      bar.setAttribute("role", "toolbar");
+      bar.addEventListener("click", (e) => { if (e.target.closest("button")) setTimeout(squeezeShut, 0); });
+      el.appendChild(bar);
+    }
+    const on = (k) => (k === "lasso" ? S.kind === "lasso" : k === "eraser" ? S.kind === "eraser" : S.kind === "pen" && S.pen === k);
+    const tool = (t, attr) => `<button type="button" class="bd-btn" ${attr}="${t}" aria-pressed="${on(t)}" title="${esc(T(ALL.includes(t) ? "board.tool." + t : "board.kind." + t))}" aria-label="${esc(T(ALL.includes(t) ? "board.tool." + t : "board.kind." + t))}">${I[t] || ""}</button>`;
+    const fg = auto(), now = (S.tools[S.pen] || {}).c;
+    const inks = favs[S.pen].map((c) => `<button type="button" class="bd-well" data-ink="${esc(c)}" style="--ink:${esc(c === "auto" ? fg : c)}" aria-checked="${c === now}" aria-label="${esc(T("board.color"))}"></button>`).join("");
+    bar.innerHTML = DRAWS.map((t) => tool(t, "data-tool")).join("") + tool("eraser", "data-tool") + tool("lasso", "data-kind") + `<span class="bd-sep"></span>` + inks;
+    const box = el.getBoundingClientRect(), w = bar.offsetWidth, h = bar.offsetHeight;
+    const x = Number.isFinite(a.x) ? a.x - box.left : box.width / 2, y = Number.isFinite(a.y) ? a.y - box.top : box.height / 2;
+    bar.style.left = Math.max(8, Math.min(box.width - w - 8, x - w / 2)) + "px";
+    bar.style.top = (y - h - 32 >= 8 ? y - h - 32 : Math.min(box.height - h - 8, y + 32)) + "px";
+    bar.dataset.open = "";
+    addEventListener("pointerdown", squeezeAway, true);
+  }
+  function squeezeAway(e) { if (!(e.target.closest && e.target.closest(".bd-squeeze"))) squeezeShut(); }
+  function squeezeShut() {
+    const bar = el && el.querySelector(".bd-squeeze");
+    if (bar) delete bar.dataset.open;
+    removeEventListener("pointerdown", squeezeAway, true);
+  }
+
   B.emptyText = () => B.format.empty();
   /* … and a new notebook's: one page of the paper asked for (board/paper.js). */
   B.notebookText = (bg) => { const m = B.format.fresh(); m.board.paper = B.paper.fresh(bg); m.board.grid = false; return B.format.write(m); };

@@ -74,6 +74,12 @@ final class FilesWebView: WKWebView {
     override func mouseDragged(with event: NSEvent) { penSay(event); super.mouseDragged(with: event) }
     override func mouseUp(with event: NSEvent) { penSay(event); super.mouseUp(with: event) }
     override func mouseMoved(with event: NSEvent) { penSay(event); super.mouseMoved(with: event) }
+    /// The pen gone from over the glass (ipad-cast says it as the system's tablet proximity): the tip the board shows where it
+    /// would come down goes too — WebKit hands no proximity on.
+    override func tabletProximity(with event: NSEvent) {
+        if !event.isEnteringProximity { evaluateJavaScript("window.dispatchEvent(new Event('mdpenout'))", completionHandler: nil) }
+        super.tabletProximity(with: event)
+    }
 
     /// "pen", "touch" (a finger of the cast), or nil: a mouse, a trackpad — said by the event itself.
     static func kind(of e: NSEvent) -> String? {

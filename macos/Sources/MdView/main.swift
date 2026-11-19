@@ -21,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationDidFinishLaunching(_ n: Notification) {
         AppDelegate.shared = self
         ThemeCenter.shared.start()
+        PencilActions.listen()                  // the Pencil's double tap and squeeze from ipad-cast (TouchDraw.swift)
         buildMenu()
         let args = Array(CommandLine.arguments.dropFirst())
         let files = args.filter { !$0.hasPrefix("-") }

@@ -796,7 +796,11 @@ and shut back into it — or a file of the folder, of its own.
   glass beside the pen does nothing; Draw with Finger under More changes that.
   In the macOS app an iPad that is the Mac's screen through ipad-cast is the same: its Apple Pencil is a pen with its
   pressure and tilt (WebKit says it as a mouse; the app says what it is), and its fingers' taps are a finger's — the
-  Mac's own mouse and trackpad stay what they are.
+  Mac's own mouse and trackpad stay what they are. The Pencil held over the iPad's glass shows its tip on the board as
+  on an iPad, and goes when it is taken away. Its double tap and its squeeze (Apple Pencil Pro) do what the iPad's own
+  setting says (Settings › Apple Pencil), as GoodNotes does: the eraser and back (the default), the tool before, the
+  colours, the widths; a squeeze's "Show Contextual Palette" puts a small bar of the pens, the eraser, the lasso and the
+  pen's three colours above the Pencil — a tool or a colour taken, a press beside it, or another squeeze, shuts it.
 - **Pen and fingers together**: what is chosen is moved by a finger laid on it, anywhere in
   its frame. A finger's tap on a thing chooses it, whatever tool is in hand, and the tool
   stays in hand: the finger moves the thing, the pen takes hold of it too — at its dots it

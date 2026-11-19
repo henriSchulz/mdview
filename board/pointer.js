@@ -256,6 +256,9 @@
     stage.addEventListener("pointerup", (e) => up(e, false));
     stage.addEventListener("pointercancel", (e) => up(e, true));
     stage.addEventListener("pointerleave", (e) => { if (!tool) on.hover(null, e); });
+    // the pen gone from over the glass of an iPad that is the Mac's screen (the macOS shell: FilesWebView.tabletProximity) — a
+    // mouse there never leaves the board, so its tip would stay
+    addEventListener("mdpenout", () => { if (!tool && !pen.down) on.hover(null, null); });
     // two fingers on a touchpad, or a wheel: the board moves; with Ctrl (and a touchpad's pinch, where the browser passes it on so): larger and smaller
     stage.addEventListener("wheel", (e) => {
       e.preventDefault();
