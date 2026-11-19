@@ -17,6 +17,12 @@ final class FilesWebView: WKWebView {
         if (!r && /^text\\/uri-list$/i.test(type) && window.__mdDropURIs && window.__mdDropURIs.length) return window.__mdDropURIs.join("\\r\\n");
         return r;
       };
+      // what the shell says of the pointer just before WebKit hands it on (FilesWebView.penSay; board/pointer.js, told)
+      window.__mdPen = function (k, x, y, p, tx, ty) {
+        const a = window.__mdPenSaid || (window.__mdPenSaid = []);
+        a.push({ k: k, x: x, y: y, p: p, tx: tx * 90, ty: ty * 90, t: performance.now() });
+        if (a.length > 48) a.splice(0, a.length - 48);
+      };
       const types = Object.getOwnPropertyDescriptor(DataTransfer.prototype, "types");
       if (types) Object.defineProperty(DataTransfer.prototype, "types", { configurable: true, get() {
         const t = types.get.call(this);
@@ -54,6 +60,39 @@ final class FilesWebView: WKWebView {
         super.init(frame: frame, configuration: configuration)
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    // MARK: the Pencil and the fingers of an iPad that is the Mac's screen
+
+    /// ipad-cast hands an iPad's Pencil on as the system's tablet events (mouse events of the tablet-point kind, with the
+    /// pen's pressure and tilt in their tablet fields) and a finger's tap, or its drag after it rested, as a mouse's. WebKit
+    /// on the Mac makes a mouse of all of it — pointerType "mouse", pressure 0, no tilt (measured 2026-11-19) — so a whiteboard
+    /// had no pressure under the Pencil, and could not tell a pen from a finger (Henri, 2026-11-19: Whiteboard und Notizbuch
+    /// "so gut wie es nur geht auf den Apple Pencil und den Cast optimieren"). Each such event is said to the page first —
+    /// what it is, where, how hard, how tilted — and the board takes the "mouse" there as what it is (board/pointer.js: told).
+    /// A mouse's or a trackpad's own events are not said: they are what WebKit says they are.
+    override func mouseDown(with event: NSEvent) { penSay(event); super.mouseDown(with: event) }
+    override func mouseDragged(with event: NSEvent) { penSay(event); super.mouseDragged(with: event) }
+    override func mouseUp(with event: NSEvent) { penSay(event); super.mouseUp(with: event) }
+    override func mouseMoved(with event: NSEvent) { penSay(event); super.mouseMoved(with: event) }
+
+    /// "pen", "touch" (a finger of the cast), or nil: a mouse, a trackpad — said by the event itself.
+    static func kind(of e: NSEvent) -> String? {
+        guard let c = e.cgEvent else { return nil }
+        if c.getIntegerValueField(.mouseEventSubtype) == Int64(CGEventMouseSubtype.tabletPoint.rawValue) { return "pen" }
+        let pid = c.getIntegerValueField(.eventSourceUnixProcessID)
+        return pid > 0 && pid == CastHost.pid ? "touch" : nil
+    }
+
+    private func penSay(_ e: NSEvent) {
+        guard let k = FilesWebView.kind(of: e), let c = e.cgEvent else { return }
+        let at = convert(e.locationInWindow, from: nil), z = max(0.01, pageZoom * magnification)
+        let x = at.x / z, y = (isFlipped ? at.y : bounds.height - at.y) / z
+        let pen = k == "pen"
+        let p = pen ? max(0, min(1, c.getDoubleValueField(.tabletEventPointPressure))) : 0
+        let tx = pen ? c.getDoubleValueField(.tabletEventTiltX) : 0, ty = pen ? c.getDoubleValueField(.tabletEventTiltY) : 0
+        let f = { (v: Double) in String(format: "%.3f", v.isFinite ? v : 0) }
+        evaluateJavaScript("window.__mdPen&&__mdPen('\(k)',\(f(x)),\(f(y)),\(f(p)),\(f(tx)),\(f(ty)))", completionHandler: nil)
+    }
 
     /// The last right click on the page: a menu the page asks for after it is shown where the system shows its own
     /// (NativeMenu.swift).
@@ -121,5 +160,18 @@ enum Clip {
         guard let img = NSImage(contentsOfFile: file) else { return false }
         pb.clearContents()
         return pb.writeObjects([img])
+    }
+}
+
+/// ipad-cast's host (the iPad as the Mac's screen): its process makes the events of the iPad's fingers. Looked up at most
+/// every 5 s (a restart of the cast is known again within that).
+enum CastHost {
+    static let bundle = "com.henri.ipadcast"
+    private static var known: Int64 = 0, lookedAt = Date.distantPast
+    static var pid: Int64 {
+        if Date().timeIntervalSince(lookedAt) < 5 { return known } // (asked of every event of a mouse: at most every 5 s)
+        lookedAt = Date()
+        known = Int64(NSRunningApplication.runningApplications(withBundleIdentifier: bundle).first?.processIdentifier ?? 0)
+        return known
     }
 }

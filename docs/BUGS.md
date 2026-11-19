@@ -339,6 +339,13 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     (`rest` in `board/pointer.js`: fingers up, a glide run out, the wheel's steps or a host's pinch stopped). The glide back
     runs on a timer too where no frame is drawn, as the board's other glides do. Checks: `dev/tests/boardview.test.mjs`,
     `BoardTests.testANotebookKeepsItsPagesInSight` (macOS).
+125. **What WebKit on the Mac says of a pointer is not what it is** (2026-11-19, the Pencil over ipad-cast). A tablet's
+    events — the system's mouse events of the tablet-point kind, with the pen's pressure and tilt in their own fields —
+    reach a page in WKWebView as `pointerType: "mouse"`, `pressure: 0`, no tilt; a finger the cast turns into a click is a
+    mouse's too. The shell reads the event's fields and says what it is just before WebKit hands it on
+    (`FilesWebView.penSay`, `window.__mdPen`); `board/pointer.js` (`told`, first of the stage's listeners) gives a "mouse"
+    pointer there and then its own kind, pressure and tilt — on the event itself, so whatever asks it later sees the same.
+    Checks: `BoardTests.testThePencilOfTheCastIsAPen` (made-up tablet events through the web view; fails without `told`).
 58. **A panel lies over the window; it does not push it.** Outline, pages and notes of a PDF, the
     panel at the right: nothing makes room, no page moves or is drawn anew, and what scrolls
     inside it never scrolls the window (`scrollIntoView` does — set the list's `scrollTop`).

@@ -794,6 +794,9 @@ and shut back into it — or a file of the folder, of its own.
   band. Held over the board before it touches, its tip shows where it will come down. Once a
   pen has been used, a finger no longer draws but moves the board, and a hand lying on the
   glass beside the pen does nothing; Draw with Finger under More changes that.
+  In the macOS app an iPad that is the Mac's screen through ipad-cast is the same: its Apple Pencil is a pen with its
+  pressure and tilt (WebKit says it as a mouse; the app says what it is), and its fingers' taps are a finger's — the
+  Mac's own mouse and trackpad stay what they are.
 - **Pen and fingers together**: what is chosen is moved by a finger laid on it, anywhere in
   its frame. A finger's tap on a thing chooses it, whatever tool is in hand, and the tool
   stays in hand: the finger moves the thing, the pen takes hold of it too — at its dots it

@@ -185,5 +185,55 @@ final class BoardTests: ShellTest {
             return g[0] >= opened[4] - 1 && g[1] <= g[2] && g[1] > g[2] - 40
         }, "pinched small, the page did not come back whole in the window: \(String(describing: page(w, whole)))")
     }
+
+    /// The Pencil of an iPad that is the Mac's screen (ipad-cast) is a pen on the board, with its pressure and tilt: WebKit says
+    /// the system's tablet events as a mouse with no pressure (measured 2026-11-19), so the shell says what they are first
+    /// (FilesWebView.penSay → board/pointer.js told). A finger of the cast — an event the cast's own process made — is a
+    /// finger; the Mac's own mouse stays a mouse.
+    func testThePencilOfTheCastIsAPen() throws {
+        let sample = Lib.join(ShellTest.checkout, "web/public/welcome/samples/Empty.board.svg")
+        let board = write("assets/C.board.svg", read(sample))
+        let w = open(write("C.md", "# Cast\n\n![](assets/C.board.svg)\n"))
+        page(w, "(MdPage.openBoardFile(\(jsonString(board))), 1)")
+        XCTAssertTrue(wait(10) { (self.page(w, "!!(window.MdBoard && MdBoard.state && MdBoard.state() && document.querySelector('#board[data-ready]'))") as? Bool) == true }, "the board did not open")
+        page(w, "(document.querySelector('#board [data-kind=\"pen\"]').click(), window.__seen = [], document.querySelector('#board .bd-stage').addEventListener('pointermove', (e) => __seen.push([e.pointerType, e.pressure, e.tiltX]), true), 1)")
+        wait(0.3)
+        // a stroke as ipad-cast posts one: mouse events of the tablet-point kind, the pressure rising, tilted to the right
+        let web = w.web, top = NSScreen.screens[0].frame.maxY
+        func at(_ x: CGFloat, _ y: CGFloat) -> CGPoint { // (a point of the web view, from the screen's top left, as events are placed)
+            let inWindow = web.convert(NSPoint(x: x, y: web.isFlipped ? y : web.bounds.height - y), to: nil)
+            let s = w.window.convertPoint(toScreen: inWindow)
+            return CGPoint(x: s.x, y: top - s.y)
+        }
+        func pen(_ type: CGEventType, _ x: CGFloat, _ y: CGFloat, _ p: Double) -> NSEvent {
+            let c = CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: at(x, y), mouseButton: .left)!
+            c.setIntegerValueField(.mouseEventSubtype, value: Int64(CGEventMouseSubtype.tabletPoint.rawValue))
+            c.setDoubleValueField(.tabletEventPointPressure, value: p)
+            c.setDoubleValueField(.tabletEventTiltX, value: 0.25)
+            c.setDoubleValueField(.mouseEventPressure, value: p)
+            return NSEvent(cgEvent: c)!
+        }
+        web.mouseDown(with: pen(.leftMouseDown, 300, 300, 0.2))
+        for i in 1...12 { web.mouseDragged(with: pen(.leftMouseDragged, 300 + CGFloat(i) * 12, 300 + CGFloat(i) * 4, 0.2 + Double(i) * 0.05)); wait(0.02) }
+        web.mouseUp(with: pen(.leftMouseUp, 444, 348, 0))
+        XCTAssertTrue(wait(5) { ((self.page(w, "__seen.length") as? NSNumber)?.intValue ?? 0) > 0 }, "the board saw no move of the pen")
+        let seen = (page(w, "JSON.stringify(__seen)") as? String) ?? "[]"
+        let rows = (try? JSONSerialization.jsonObject(with: Data(seen.utf8))) as? [[Any]] ?? []
+        XCTAssertTrue(rows.allSatisfy { ($0.first as? String) == "pen" }, "not every move was a pen's: \(seen)")
+        let pressures = rows.compactMap { ($0[1] as? NSNumber)?.doubleValue }
+        XCTAssertGreaterThan(pressures.max() ?? 0, 0.6, "the pen's pressure did not come: \(seen)")
+        XCTAssertLessThan(pressures.min() ?? 1, 0.45, "the pressure did not rise: \(seen)")
+        XCTAssertEqual((rows.first?[2] as? NSNumber)?.doubleValue ?? 0, 22.5, accuracy: 0.5, "the tilt did not come")
+        XCTAssertTrue(wait(5) { ((self.page(w, "MdBoard.state().items") as? NSNumber)?.intValue ?? 0) == 1 }, "no stroke on the board")
+        // the Mac's own mouse is still a mouse
+        page(w, "(__seen = [], 1)")
+        wait(0.5) // (what the shell said of the pen is old by now)
+        func mouse(_ type: CGEventType, _ x: CGFloat, _ y: CGFloat) -> NSEvent { NSEvent(cgEvent: CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: at(x, y), mouseButton: .left)!)! }
+        web.mouseDown(with: mouse(.leftMouseDown, 300, 500))
+        for i in 1...6 { web.mouseDragged(with: mouse(.leftMouseDragged, 300 + CGFloat(i) * 15, 500)); wait(0.02) }
+        web.mouseUp(with: mouse(.leftMouseUp, 390, 500))
+        XCTAssertTrue(wait(3) { ((self.page(w, "__seen.length") as? NSNumber)?.intValue ?? 0) > 0 }, "the board saw no move of the mouse")
+        XCTAssertEqual(page(w, "__seen.every((r) => r[0] === 'mouse')") as? Bool, true, "the Mac's mouse was taken for something else: \(String(describing: page(w, "JSON.stringify(__seen)")))")
+    }
 }
 

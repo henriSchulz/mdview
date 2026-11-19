@@ -24,7 +24,32 @@
     requestAnimationFrame(run);
     setTimeout(run, 80);
   }
+  /* An iPad that is a Mac's screen through ipad-cast: WebKit on the Mac says its Pencil as a mouse — no pressure, no tilt, no pen
+   * (measured 2026-11-19: pointerType "mouse", pressure 0, tilt 0 for the system's tablet events) — and a finger's tap or held
+   * drag as a mouse's too. The macOS shell sees what each is (the tablet events' own fields; events the cast's own process made)
+   * and says so just before WebKit hands the event on (FilesWebView.swift → window.__mdPenSaid: kind, place, pressure, tilt). A
+   * "mouse" pointer where and when the shell said a pen (a finger) is one — with the pen's pressure and tilt — for everything on
+   * the board that asks (select.js too: it is the event itself that says so). */
+  function told(e) {
+    const said = window.__mdPenSaid;
+    if (e.pointerType !== "mouse" || !said || !said.length) return e;
+    const now = performance.now();
+    let best = null, near = 4;
+    for (let i = said.length - 1; i >= 0; i--) {
+      const s = said[i];
+      if (now - s.t > 300) break;
+      const d = Math.hypot(s.x - e.clientX, s.y - e.clientY);
+      if (d <= near) { near = d; best = s; if (d < 0.25) break; }
+    }
+    if (!best) return e;
+    const own = (k, v) => { try { Object.defineProperty(e, k, { value: v, configurable: true }); } catch (x) { /* (an event that keeps its own) */ } };
+    own("pointerType", best.k);
+    if (best.k === "pen") { own("pressure", e.type === "pointerup" ? 0 : best.p); own("tiltX", best.tx); own("tiltY", best.ty); }
+    return e;
+  }
   function attach(stage, on) {
+    // (first of all the stage's listeners: what the shell says of a pointer is on the event before anyone asks it)
+    for (const type of ["pointerdown", "pointermove", "pointerup", "pointercancel"]) stage.addEventListener(type, told, true);
     const fingers = new Map(); // touches down: id → { x, y }
     let tool = null, drag = null, pinch = null, twist = null, toolType = "";
     // A hand lying on the glass beside the pen: touches while the pen is down, and for a moment after, are nobody's. (The moment is
@@ -187,6 +212,7 @@
         let all = null;
         try { all = typeof e.getCoalescedEvents === "function" ? e.getCoalescedEvents() : null; } catch (x) { all = null; }
         if (!all || !all.length || !all.every((c) => Number.isFinite(c.clientX) && c.pointerId === e.pointerId)) all = [e];
+        else all = all.map(told); // (each sample a pen's too, where the shell said so)
         // … each once: an iPad's WebKit hands a Pencil's bundle over again with a second move of the same frame — taken twice, the
         // stroke ran back over its last points at every step and its edge was knobbed (#51). Only what is older goes: WebKitGTK
         // counts whole milliseconds, and samples of one millisecond are all the hand's (the newest again, at its place, is no
@@ -266,5 +292,5 @@
     stage.addEventListener("contextmenu", (e) => e.preventDefault());
     return { busy: () => tool != null || drag != null || fingers.size > 0 };
   }
-  B.pointer = { attach, frame: nextFrame };
+  B.pointer = { attach, frame: nextFrame, told };
 })();
