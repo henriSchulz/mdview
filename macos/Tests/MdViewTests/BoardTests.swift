@@ -86,5 +86,41 @@ final class BoardTests: ShellTest {
         XCTAssertEqual(got?.first as? Bool, true, "the pinch is left to the system")
         XCTAssertEqual((got?.last as? NSNumber)?.doubleValue ?? 0, 1.5, accuracy: 0.01, "the board is not one and a half times as large")
     }
+
+    /// With a pen or the eraser in hand on an open board the shell knows it (and says where a finger draws at once: ipad-cast
+    /// made a drag of a finger only after it rested — Henri, 2026-11-19: "man muss beim zeichnen lange drücken"); with the
+    /// pointer in hand, and with the board shut, not.
+    func testThePenInHandIsSaid() throws {
+        let sample = Lib.join(ShellTest.checkout, "web/public/welcome/samples/Empty.board.svg")
+        let board = write("assets/D.board.svg", read(sample))
+        let w = open(write("D.md", "# Draw\n\n![](assets/D.board.svg)\n"))
+        page(w, "(MdPage.openBoardFile(\(jsonString(board))), 1)")
+        XCTAssertTrue(wait(10) { (self.page(w, "!!(window.MdBoard && MdBoard.state && MdBoard.state() && document.querySelector('#board[data-ready]'))") as? Bool) == true }, "the board did not open")
+        page(w, "(document.querySelector('#board [data-kind=\"pen\"]').click(), 1)")
+        XCTAssertTrue(wait(5) { w.boardDraws }, "a pen in hand, and the shell does not know")
+        page(w, "(document.querySelector('#board [data-kind=\"lasso\"]').click(), 1)")
+        XCTAssertTrue(wait(5) { !w.boardDraws }, "the pointer in hand, and a finger would still draw")
+        page(w, "(document.querySelector('#board [data-kind=\"eraser\"]').click(), 1)")
+        XCTAssertTrue(wait(5) { w.boardDraws }, "the eraser in hand")
+        page(w, "(MdBoard.close(), 1)")
+        XCTAssertTrue(wait(5) { !w.boardDraws }, "the board shut, and a finger would still draw")
+
+        // what is said: the window's part under the bar, counted from the screen's top left — and heard by whoever listens
+        let word = TouchDraw.word(window: w.window, on: true)
+        let r = (word["rects"] as? [[Double]])?.first ?? []
+        XCTAssertEqual(r.count, 4)
+        XCTAssertEqual(r[2], Double(w.window.frame.width), accuracy: 0.5)
+        XCTAssertEqual(r[3], Double(w.window.contentLayoutRect.height), accuracy: 0.5)
+        XCTAssertEqual(r[1], Double(NSScreen.screens[0].frame.maxY - w.window.frame.minY - w.window.contentLayoutRect.height), accuracy: 0.5)
+        XCTAssertEqual(word["pid"] as? Int, Int(getpid()))
+        var heard: [AnyHashable: Any]?
+        let o = DistributedNotificationCenter.default().addObserver(forName: TouchDraw.name, object: nil, queue: .main) { heard = $0.userInfo }
+        defer { DistributedNotificationCenter.default().removeObserver(o) }
+        TouchDraw.say(window: w.window, on: true)
+        XCTAssertTrue(wait(5) { heard != nil }, "nothing was said")
+        XCTAssertEqual((heard?["rects"] as? [[Double]])?.first, r)
+        TouchDraw.say(window: w.window, on: false)
+        XCTAssertTrue(wait(5) { (heard?["rects"] as? [Any])?.isEmpty == true }, "the area was not taken back")
+    }
 }
 

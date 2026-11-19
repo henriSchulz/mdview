@@ -125,6 +125,7 @@ export const FROM_PAGE: Record<string, [Does, string]> = {
   "board-watch": ["none", "the desktop looks at the folders of the whiteboards a note shows; a browser has no files to look at"],
   "board-pick": ["none", "the desktop's way to pictures chosen in the system's window; a browser asks with a file field of its own: board-put"],
   "board-open": ["none", "a whiteboard is open or shut: the shell asks the page before the window closes — a browser tells the page itself"],
+  "board-draw": ["none", "a pen or the eraser is in hand on an open whiteboard: the macOS shell tells ipad-cast where a finger draws at once — a browser has the fingers themselves"],
   // decided against: no AI in the web app
   complete: ["none", "the next words suggested while typing"],
   graphic: ["none", "a figure drawn by a model"],

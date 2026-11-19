@@ -260,6 +260,7 @@ or the tests see the old ones.
 | `macos/Sources/MdView/System.swift` | The app and the system around the page (area E): what the page asks of the system — print, full screen, a … |
 | `macos/Sources/MdView/Tabs.swift` | The tabs of a folder window: made, shown, chosen, closed, opened again, moved. Rust: shell/tabs.rs. |
 | `macos/Sources/MdView/Theme.swift` | Colours follow the desktop: Velum's current colours when Velum is installed … |
+| `macos/Sources/MdView/TouchDraw.swift` | Where a finger draws at once. An iPad that is the Mac's screen (ipad-cast) hands its fingers on as a … |
 | `macos/Sources/MdView/main.swift` | Markdown Notes, native: the app, its windows, the Dock. Run: `swift run`, or ./build.sh and open MdView.app. |
 
 ### The web app (the same page in a browser)

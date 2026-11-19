@@ -49,6 +49,7 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
     var boardPaths: Set<String> = []
     var boardDirs: Set<String> = []
     var boardOpen = false
+    var boardDraws = false // (a pen or the eraser in hand on an open board: TouchDraw.swift)
     var keptDirs: Set<String> = []
     var dirWatch: Set<String> = []
     let scanner = Scanner()
@@ -516,6 +517,7 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
             let p = str("path")
             if Lib.isFile(p) && Lib.isMd(p) { openPath(p, fragment: "^line=\(Int((msg["line"] as? Double) ?? 0))", push: true) }
         case "board-open": boardOpen = truthy(msg["on"])
+        case "board-draw": boardDraws = truthy(msg["on"]); tellDrawArea()
         case "board-watch":
             boardDirs = Set((msg["paths"] as? [String] ?? []).prefix(16).map { foundAsset(Lib.resolve($0)) }.filter { Lib.isBoard($0) && Lib.isFile($0) }.map { Lib.dir($0) })
             watch()
@@ -592,6 +594,7 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
     }
 
     func windowWillClose(_ n: Notification) {
+        TouchDraw.say(window: window, on: false) // (no finger draws where the window was)
         stopAssistant() // (its talks and figures: run on for minutes with nobody to answer — review 2026-11-17)
         _ = settleQuick()
         settleFresh(last: true)

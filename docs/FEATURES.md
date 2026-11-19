@@ -856,7 +856,7 @@ them is not there).
   goes with it, and `Ctrl+Z` brings both back. Delete Page is in the paper's menu too, for the page
   in sight (a tablet has no right click). The one page left cannot be deleted.
 - **Moving about** as on a PDF's pages: two fingers or the wheel move down the pages (a push runs
-  on), a pinch or `Ctrl` with the wheel makes them larger and smaller, up to 1600 % (in the macOS app a pinch on the trackpad too, and so two fingers on an iPad that is the Mac's screen through ipad-cast); `Ctrl+0` shows
+  on), a pinch or `Ctrl` with the wheel makes them larger and smaller, up to 1600 % (in the macOS app a pinch on the trackpad too, and so two fingers on an iPad that is the Mac's screen through ipad-cast); there a finger draws at once while a pen or the eraser is in hand — the app tells ipad-cast where the board is, which otherwise makes a drag only of a finger that rested —, and scrolls as ever with the pointer in hand; `Ctrl+0` shows
   the page in sight whole. It opens with the page it was left at whole in the window.
 - **The file**: a whiteboard's file whose first line says it is a notebook — its paper, its colour,
   its size, how many pages (`"paper":{"bg":"grid","color":"white","size":"a4","n":2}`). Its

@@ -689,6 +689,7 @@
     const draws = k === "pen" || k === "eraser";
     if (draws || (k !== S.kind && !back)) S.pick = [];
     S.kind = k; S.back = back; S.mode = draws ? "draw" : "select";
+    drawSaid();
     if (k === "pen") S.tool = S.pen; else if (k === "eraser") S.tool = "eraser";
     const pal = el.querySelector(".bd-palette"), shown = el.dataset.tray, seen = el.dataset.kind !== "lasso" && !tray.mini, from = pal.getBoundingClientRect();
     paint();
@@ -698,6 +699,16 @@
       pal.animate([{ width: from.width + "px", height: from.height + "px", overflow: "hidden" }, { width: to.width + "px", height: to.height + "px", overflow: "hidden" }], { duration: 300, easing: SPRING });
       for (const part of pal.children) if (part.offsetWidth) part.animate([{ opacity: 0, transform: "scale(0.9)" }, { opacity: 1, transform: "none" }], { duration: 260, easing: SPRING });
     }
+  }
+  /* The shell is told while a pen or the eraser is in hand on an open board (board-draw): where fingers reach the Mac as a
+   * trackpad's (an iPad that is its screen, through ipad-cast), one finger scrolls and only a held one drags — "man muss beim
+   * zeichnen lange drücken, bis erst der touch ankommt" (Henri, 2026-11-19). The macOS shell says on where the board is, and
+   * a finger there draws at once. With the pointer in hand a finger moves the board, as before. */
+  let drawing = false;
+  function drawSaid(on = !!S && S.mode === "draw" && !S.readonly) {
+    if (on === drawing) return;
+    drawing = on;
+    post("board-draw", { on });
   }
   const setMode = (m) => { if (m === "draw") { if (S.mode !== "draw") setKind("pen"); } else if (S.kind !== "lasso" || S.back) setKind("lasso"); };
   function setTool(t) {
@@ -1835,6 +1846,7 @@
       } else s.view.fit(bounds()); // (shown as the picture in the note shows it — the whole of it, in the middle: one steps into what one saw, whatever was last looked at, on whatever screen)
       if (model.lost) chip(T("board.lost", model.lost));
       el.dataset.ready = "";
+      drawSaid();
       return true;
     };
     const fail = () => { if (S === s) { s.readonly = true; B.close(); } core.toast(T("board.cantOpen")); return false; };
@@ -1887,6 +1899,7 @@
     document.removeEventListener("paste", pasted, true);
     core.lockScroll(false);
     post("board-open", { on: false });
+    drawSaid(false);
     delete el.dataset.open; delete el.dataset.ready;
     const done = () => { if (!S) { el.hidden = true; el.style.transform = ""; el.querySelector(".bd-paper").replaceChildren(); } };
     if (s.pdf) { s.pdf.paper.drop(); s.pdf.done?.({ model: s.model, view: { x: s.view.x, y: s.view.y, z: s.view.z }, pages: s.pdf.pages, quick }); } // (whoever shows the PDF: what is on it now, and where one was)
