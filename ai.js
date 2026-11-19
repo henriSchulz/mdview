@@ -63,6 +63,39 @@
     return to > from ? { from, to } : null;
   }
 
+  // ---------------------------------------------------------------- the note and its whiteboards (Henri, 2026-11-19: „besseres
+  // Zusammenspiel zwischen whiteboard und notizen und dessen KIs“)
+  /* Draw on a Whiteboard: what is chosen in the note (range: a block's own) written and drawn by Claude, by hand, on a whiteboard
+   * of the note — the one right under it, else a new one made there —, opened and asked as from its bubble (board.js: askSoon). */
+  Ai.toBoard = async (view, range = null) => {
+    const A = window.MdActive, r = range || (A && chosen(view, true));
+    if (!A || !r || !core.ai.on()) return;
+    const state = view.state, md = String(A.clip.markdownOf(state, state.doc.slice(r.from, r.to)) || "").trim();
+    if (!md) return;
+    const text = `Put this part of the note on the board, by hand, as someone who understands it would on a whiteboard: its key words in short lines, its formulas (with the step "write", as LaTeX between dollars), and a sketch or a diagram where one makes it clearer — not the whole text copied out. Below what is on the board already.\n\n<from-note>\n${md.slice(0, 20000)}\n</from-note>\n\n(Write in the language of the note.)`;
+    const words = md.replace(/\s+/g, " "), shown = T("ai.toBoard") + " · " + (words.length > 60 ? words.slice(0, 60) + "…" : words);
+    try { await core.board.load(); } catch (e) { return core.toast("Couldn't open the whiteboard"); }
+    window.MdBoard.askSoon(text, shown);
+    const at = Math.min(r.to, state.doc.content.size), dom = state.doc.resolve(at).nodeAfter ? view.nodeDOM(at) : null, img = dom && dom.querySelector ? dom.querySelector("img") : null;
+    if (img && core.board.is(img) && core.board.open(img)) return; // (the board right under it)
+    A.context.INSERT.board(view, at); // (else a new one there: made, put in and opened — viewer/modes.js)
+  };
+  /* To the Note (board.js): what a board's bubble wrote for the note, put in under that board's picture — at the note's end where
+   * the note does not show it. One step back in the note. → whether it was put in */
+  Ai.putUnder = async (markdown, file) => {
+    if (!active()) {
+      if (!core.current || core.current.readonly || core.current.kind === "pdf") return false;
+      window.MdView.setMode("active");
+      for (let i = 0; i < 60 && !active(); i++) await new Promise((res) => setTimeout(res, 50));
+      if (!active()) return false;
+    }
+    const put = core.fenceSvg(String(markdown)).trim(), text = core.ai.fileText();
+    if (!put) return false;
+    const lines = text.split("\n"), enc = encodeURIComponent(file), at = lines.findIndex((l) => /!\[[^\]]*\]\(/.test(l) && (l.includes(file) || l.includes(enc)));
+    const head = at < 0 ? text.replace(/\s+$/, "") : lines.slice(0, at + 1).join("\n"), rest = at < 0 ? "" : lines.slice(at + 1).join("\n").replace(/^\s*\n/, "");
+    return core.ai.setFileText(head + "\n\n" + put + "\n" + (rest.trim() ? "\n" + rest : ""));
+  };
+
   // ---------------------------------------------------------------- Transform with AI
   /* What is asked for with one press: [name, what Claude is told]. */
   const PRESETS = [
@@ -407,6 +440,34 @@
   }
   /* shown: what the conversation shows of it — a ready-made choice of a board's bubble, by its name (Claude is told text);
    * what is typed in the field stays there then. */
+  /* A whiteboard's picture as the note shows it, on white, its longer side at most 1600 — as a PNG's base64 (active/graphic.js
+   * draws it so for a figure: the note's own picture of it, never its file's text). */
+  async function shot(img) {
+    if (!img.complete || !img.naturalWidth) await new Promise((res, rej) => { img.addEventListener("load", res, { once: true }); img.addEventListener("error", () => rej(new Error("no picture")), { once: true }); setTimeout(() => rej(new Error("too slow")), 4000); });
+    const w = img.naturalWidth || 800, h = img.naturalHeight || 600, k = Math.min(3, 1600 / Math.max(w, h)), c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+    const g = c.getContext("2d");
+    g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
+    g.drawImage(img, 0, 0, c.width, c.height);
+    return c.toDataURL("image/png").split(",")[1];
+  }
+  /* The whiteboards the chat is to see, as pictures (Henri, 2026-11-19: the note's chat could not read what was written on a
+   * board — it had a board's file as text, its strokes as numbers): those the note shows, and boards given to read beside
+   * it. → [{ name, of: "note" | "given", png }], six at most */
+  const BOARD_FILE = /\.board\.svg$/i;
+  async function boardPictures(withNote, given) {
+    const out = [], seen = new Set(), files = String((window.MdHost || {}).files || "");
+    const nameOf = (src) => { try { return decodeURIComponent(src.split("/").pop() || "").replace(BOARD_FILE, ""); } catch (e) { return ""; } };
+    const take = async (img, of) => {
+      const src = String(img.getAttribute("src") || img.src || "").split(/[?#]/)[0];
+      if (!src || seen.has(src) || out.length >= 6) return;
+      seen.add(src);
+      try { out.push({ name: nameOf(src), of, png: await shot(img) }); } catch (e) { /* (one that will not draw is left out) */ }
+    };
+    if (withNote && core.board) for (const img of document.querySelectorAll("#content img, #active img")) if (core.board.is(img) && img.isConnected && !img.closest("[hidden]")) await take(img, "note");
+    for (const c of given) { const img = new Image(); img.src = files + (c.path.startsWith("/") ? "" : "/") + c.path.split("/").map(encodeURIComponent).join("/"); await take(img, "given"); }
+    return out;
+  }
   async function say(text, shown = null) {
     text = String(text || "").trim();
     if (!text || talking) return;
@@ -431,8 +492,10 @@
     const t = (talking = { id: null, talk: mine, text: "", el: null });
     // (a whiteboard open: what is on it goes along, and the steps Claude answers with are done on it as they come — board.js)
     const board = onBoard ? await B.claudeChat.context() : null, steps = board ? B.claudeChat.steps() : null;
+    // (no board open: the note's boards, and boards given beside it, go as pictures — not as their files' text)
+    const given = extra.filter((c) => BOARD_FILE.test(c.path || "")), boards = onBoard ? [] : await boardPictures(useDoc, given);
     if (talking !== t) return;
-    t.id = ask("chat", { ...(board || {}), edit, where: useDoc ? core.ai.where().join(" › ") : "", note: useDoc ? core.ai.fileText() : "", name: useDoc ? name : "", selection, context: extra.map((c) => ({ kind: c.kind, path: c.path })), messages: mine.messages.map((m) => ({ role: m.role, text: m.text || "" })).filter((m) => m.text) },
+    t.id = ask("chat", { ...(board || {}), edit, where: useDoc ? core.ai.where().join(" › ") : "", note: useDoc ? core.ai.fileText() : "", name: useDoc ? name : "", selection, context: extra.filter((c) => !BOARD_FILE.test(c.path || "")).map((c) => ({ kind: c.kind, path: c.path })), boards, messages: mine.messages.map((m) => ({ role: m.role, text: m.text || "" })).filter((m) => m.text) },
       (piece) => { t.text += piece; if (steps) steps.feed(piece); drawLive(); },
       (all, error) => {
         if (talking === t) talking = null;

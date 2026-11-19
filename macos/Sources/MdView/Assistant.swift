@@ -311,8 +311,11 @@ extension NoteWindow {
             system = AIPrompts.improve
             prompt = "The strokes chosen:\n<strokes>\n\(aiTake(str("strokes"), 120_000))\n</strokes>"
         } else if channel == "board" {
+            // (a board that stands in a note: the note goes along — its task, its words — Henri, 2026-11-19: „besseres
+            // Zusammenspiel zwischen whiteboard und notizen“)
             system = AIPrompts.boardSystem(chat: false)
-            prompt = "\(board)What the user asks: \(aiTake(str("instruction"), 4000))"
+            let inNote = whole.isEmpty ? "" : "\(whole)The board stands in this note: what it is about is said there.\n\n"
+            prompt = "\(inNote)\(board)What the user asks: \(aiTake(str("instruction"), 4000))"
         } else if channel == "transform" {
             system = AIPrompts.transform
             prompt = "\(whole)The selected part of the note:\n<selection>\n\(aiTake(str("selection"), 60_000))\n</selection>\n\nWhat to do with the selected part: \(aiTake(str("instruction"), 4000))\n\nReply with the Markdown that takes its place, and nothing else."
@@ -331,8 +334,22 @@ extension NoteWindow {
         // what else the chat was given to read: other notes of the folder, the whole folder, files chosen in the system's window
         var more = "", attach: [String] = []
         // (what the window shows of the board, as a picture the page drew — a PNG that goes with the question)
-        var picture: Data?
-        if !(board.isEmpty && channel != "improve"), let d = Data(base64Encoded: str("picture")), d.count <= 20_000_000, d.starts(with: [0x89, 0x50, 0x4E, 0x47]) { picture = d }
+        var pictures: [(String, Data)] = []
+        let png = { (b64: String) -> Data? in Data(base64Encoded: b64).flatMap { $0.count <= 20_000_000 && $0.starts(with: [0x89, 0x50, 0x4E, 0x47]) ? $0 : nil } }
+        if !(board.isEmpty && channel != "improve"), let d = png(str("picture")) {
+            pictures.append((channel == "improve" ? "The strokes chosen, as they look:" : "What the window shows of the whiteboard now:", d))
+        }
+        // (no board open: the whiteboards of the note, and those given beside it, as the note shows them — their files' text
+        // says nothing Claude can read)
+        if channel == "chat" && board.isEmpty {
+            var room = 30_000_000
+            for b in ((msg["boards"] as? [[String: Any]]) ?? []).prefix(6) {
+                guard let d = png(b["png"] as? String ?? ""), d.count <= room else { continue }
+                room -= d.count
+                let name = aiTake(b["name"] as? String ?? "", 120)
+                pictures.append(((b["of"] as? String) == "note" ? "The whiteboard “\(name)” that stands in the note, as it looks:" : "The whiteboard “\(name)” the user gave you to read, as it looks:", d))
+            }
+        }
         if channel == "chat" {
             var room = 400_000   // (letters of other documents, all told: what fits a question)
             func put(_ p: String) -> Bool {
@@ -364,12 +381,12 @@ extension NoteWindow {
             if !more.isEmpty { more = "Other documents the user gave you to read:\n\n\(more)" }
         }
         let effort = (board.isEmpty && channel != "improve") ? "" : "low"   // (a board's answer is watched as it comes: begun soon)
-        startTalk(Talk(id: id, channel: channel, system: system, prompt: more + prompt, model: model, attach: attach, picture: picture, effort: effort))
+        startTalk(Talk(id: id, channel: channel, system: system, prompt: more + prompt, model: model, attach: attach, pictures: pictures, effort: effort))
     }
 
     struct Talk {
         var id: Any, channel: String, system: String, prompt: String, model: String
-        var attach: [String], picture: Data?, effort: String
+        var attach: [String], pictures: [(String, Data)], effort: String // (pictures: each said by its words before it)
     }
 
     /// Claude asked through the command line tool, its answer handed on as it comes. One talk for each channel: a new
@@ -416,7 +433,8 @@ extension NoteWindow {
             else if t.system == AIPrompts.chatEdit { said = third ?? second ?? first }
             else if t.channel == "chat" { said = second ?? first }
             else { said = first }
-            said = said.replacingOccurrences(of: "CHANNEL", with: t.channel).replacingOccurrences(of: "PICTURE", with: t.picture != nil ? "with a picture" : "without a picture")
+            said = said.replacingOccurrences(of: "CHANNEL", with: t.channel).replacingOccurrences(of: "PICTURES", with: "\(t.pictures.count) pictures").replacingOccurrences(of: "PICTURE", with: !t.pictures.isEmpty ? "with a picture" : "without a picture")
+                .replacingOccurrences(of: "NOTED", with: t.prompt.contains("<note>\n") ? "with the note" : "without the note")
                 .replacingOccurrences(of: "SEEN", with: t.prompt.contains("<document name=\"other.md\">\n# Other\n\nother note text") ? "Seen: other note text." : "")
             if t.prompt.contains("please fail") { Thread.sleep(forTimeInterval: 0.15); throw fail("Claude: asked to fail") }
             let chars = Array(said), cut = chars.count / 2
@@ -449,16 +467,15 @@ extension NoteWindow {
         args += ["--strict-mcp-config", "--disable-slash-commands", "--no-session-persistence", "--output-format", "stream-json", "--include-partial-messages", "--verbose"]
         args += AIPrompts.settings
         // (a picture with the question: the question as a message of its own, the picture in it)
-        if t.picture != nil { args += ["--input-format", "stream-json"] }
+        if !t.pictures.isEmpty { args += ["--input-format", "stream-json"] }
         if !t.effort.isEmpty { args += ["--effort", t.effort] }
         if !t.model.isEmpty { args += ["--model", t.model] }
         var input: Data
-        if let png = t.picture {
-            let message: [String: Any] = ["type": "user", "message": ["role": "user", "content": [
-                ["type": "text", "text": t.channel == "improve" ? "The strokes chosen, as they look:" : "What the window shows of the whiteboard now:"],
-                ["type": "image", "source": ["type": "base64", "media_type": "image/png", "data": png.base64EncodedString()]],
-                ["type": "text", "text": prompt],
-            ]]]
+        if !t.pictures.isEmpty {
+            let shown: [[String: Any]] = t.pictures.flatMap { said, png -> [[String: Any]] in
+                [["type": "text", "text": said], ["type": "image", "source": ["type": "base64", "media_type": "image/png", "data": png.base64EncodedString()]]]
+            }
+            let message: [String: Any] = ["type": "user", "message": ["role": "user", "content": shown + [["type": "text", "text": prompt]]]]
             input = (try? JSONSerialization.data(withJSONObject: message)) ?? Data()
             input.append(10)
         } else { input = Data(prompt.utf8) }

@@ -201,7 +201,7 @@
     const para = (kind, key, more) => item(key, go(PARAGRAPH[kind]), { checked: kind === "quote" ? b.quote : b.kind === kind, ...more });
     const items = [
       // Claude asked to work on the block the caret is in, or on the blocks the selection reaches (ai.js)
-      ...(window.MdView.core.ai.on() ? [item("ai.transform", () => window.MdView.core.ai.transform(view), { label: T("ai.transform") + "…" }), null] : []),
+      ...(window.MdView.core.ai.on() ? [item("ai.transform", () => window.MdView.core.ai.transform(view), { label: T("ai.transform") + "…" }), item("ai.toBoard", () => window.MdView.core.ai.toBoard(view)), null] : []),
       item("menu.cut", () => clipboard(view, "cut"), { key: "Ctrl+X", disabled: empty }),
       item("menu.copy", () => clipboard(view, "copy"), { key: "Ctrl+C", disabled: empty }),
       item("menu.paste", () => { view.focus(); post("pasteclip"); }, { key: "Ctrl+V" }),

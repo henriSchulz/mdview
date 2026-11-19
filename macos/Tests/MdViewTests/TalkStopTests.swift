@@ -26,7 +26,7 @@ final class TalkStopTests: ShellTest {
         guard let p = Int32((try? String(contentsOfFile: pidFile, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "") else { return false }
         return kill(p, 0) == 0
     }
-    func talk() -> NoteWindow.Talk { NoteWindow.Talk(id: 1, channel: "chat", system: "", prompt: "hello", model: "", attach: [], picture: nil, effort: "") }
+    func talk() -> NoteWindow.Talk { NoteWindow.Talk(id: 1, channel: "chat", system: "", prompt: "hello", model: "", attach: [], pictures: [], effort: "") }
 
     func testATalkStoppedAtOnceEnds() {
         let w = open(write("N.md", "# N\n"))

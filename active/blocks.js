@@ -692,7 +692,7 @@
     const UI = window.MdView.core.UI, I = (A.slash && A.slash.icons) || {};
     return [
       // Claude asked to work on the selected blocks (ai.js)
-      ...(window.MdView.core.ai.on() ? [{ label: T("ai.transform") + "…", icon: UI.spark, run: () => window.MdView.core.ai.transform(v) }, null] : []),
+      ...(window.MdView.core.ai.on() ? [{ label: T("ai.transform") + "…", icon: UI.spark, run: () => window.MdView.core.ai.transform(v) }, { label: T("ai.toBoard"), icon: UI.board, run: () => window.MdView.core.ai.toBoard(v) }, null] : []),
       { label: T("menu.cut"), icon: UI.cut, run: clip("cut"), key: "Ctrl+X" },
       { label: T("menu.copy"), icon: UI.copy, run: clip("copy"), key: "Ctrl+C" },
       { label: T("menu.paste"), icon: UI.clip, run: () => { v.focus(); post("pasteclip"); }, key: "Ctrl+V" },

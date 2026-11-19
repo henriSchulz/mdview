@@ -583,7 +583,7 @@ body[data-ai-chat] #board [data-do="chat"] { color: var(--accent); } /* (the cha
    what they do, four more as squares under them; a choice that has nothing to work on is pale */
 .bd-ask-about[data-view] svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .bd-ask-big { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 4px; }
-.bd-ask-chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 4px; }
+.bd-ask-chips { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; margin-bottom: 4px; } /* (four, or five with To the Note) */
 .bd-ask-do { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 0; min-height: 54px; box-sizing: border-box; padding: 7px 4px; border: 0; border-radius: 12px;
   background: color-mix(in srgb, var(--fg) 6%, transparent); color: var(--fg); font: inherit; font-size: 12px; text-align: center; cursor: default; -webkit-tap-highlight-color: transparent;
   transition: background-color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy), opacity var(--dur-fast) var(--ease-out); }

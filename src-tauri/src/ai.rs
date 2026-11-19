@@ -134,7 +134,7 @@ pub struct Talk {
     pub prompt: String,
     pub model: String, // "": claude's own
     pub attach: Vec<PathBuf>, // files Claude is to read itself (a PDF, a picture): copied beside it, and the tool to read them given
-    pub picture: Option<Vec<u8>>, // a PNG that goes with the question itself — what a whiteboard's window shows: no tool, no round to read it
+    pub pictures: Vec<(String, Vec<u8>)>, // PNGs that go with the question itself, each said by its words — what a whiteboard's window shows, the note's whiteboards: no tool, no round to read them
     pub effort: &'static str, // "": claude's own; "low" where an answer is watched as it comes (a whiteboard), and thinking long first is waiting
 }
 
@@ -206,7 +206,7 @@ fn talk(t: &Talk, tx: &Sender<Event>, pid: impl Fn(Option<u32>), current: impl F
         let mut both = fake.splitn(3, "||");
         let (first, second, third) = (both.next().unwrap_or(""), both.next(), both.next());
         let board = std::env::var(if t.channel == "improve" { "MDVIEW_IMPROVE_FAKE" } else { "MDVIEW_BOARD_FAKE" }).ok().filter(|_| t.channel == "board" || t.channel == "improve");
-        let said = if let Some(b) = &board { b.as_str() } else if t.system == CHAT_EDIT_SYSTEM { third.or(second).unwrap_or(first) } else if t.channel == "chat" { second.unwrap_or(first) } else { first }.replace("CHANNEL", &t.channel).replace("PICTURE", if t.picture.is_some() { "with a picture" } else { "without a picture" }).replace("SEEN", if t.prompt.contains("<document name=\"other.md\">\n# Other\n\nother note text") { "Seen: other note text." } else { "" });
+        let said = if let Some(b) = &board { b.as_str() } else if t.system == CHAT_EDIT_SYSTEM { third.or(second).unwrap_or(first) } else if t.channel == "chat" { second.unwrap_or(first) } else { first }.replace("CHANNEL", &t.channel).replace("PICTURES", &format!("{} pictures", t.pictures.len())).replace("PICTURE", if t.pictures.is_empty() { "without a picture" } else { "with a picture" }).replace("NOTED", if t.prompt.contains("<note>\n") { "with the note" } else { "without the note" }).replace("SEEN", if t.prompt.contains("<document name=\"other.md\">\n# Other\n\nother note text") { "Seen: other note text." } else { "" });
         if t.prompt.contains("please fail") {
             std::thread::sleep(Duration::from_millis(150));
             return Err("Claude: asked to fail".into());
@@ -247,7 +247,7 @@ fn talk(t: &Talk, tx: &Sender<Event>, pid: impl Fn(Option<u32>), current: impl F
     cmd.args(SETTINGS);
     // (a picture with the question: the question as a message of its own, the picture in it — measured, 2026-11-02: a picture
     // to be read with the tool cost Claude a round and some ten seconds of thought before its first line)
-    if t.picture.is_some() {
+    if !t.pictures.is_empty() {
         cmd.args(["--input-format", "stream-json"]);
     }
     if !t.effort.is_empty() {
@@ -270,18 +270,17 @@ fn talk(t: &Talk, tx: &Sender<Event>, pid: impl Fn(Option<u32>), current: impl F
     let mut child = cmd.spawn().map_err(|e| format!("Couldn't run claude: {e}"))?;
     pid(Some(child.id()));
     if let Some(mut stdin) = child.stdin.take() {
-        let _ = match &t.picture {
-            Some(png) => {
-                use base64::Engine;
-                let data = base64::engine::general_purpose::STANDARD.encode(png);
-                let message = json!({ "type": "user", "message": { "role": "user", "content": [
-                    { "type": "text", "text": if t.channel == "improve" { "The strokes chosen, as they look:" } else { "What the window shows of the whiteboard now:" } },
-                    { "type": "image", "source": { "type": "base64", "media_type": "image/png", "data": data } },
-                    { "type": "text", "text": prompt },
-                ] } });
-                stdin.write_all(format!("{message}\n").as_bytes())
-            }
-            None => stdin.write_all(prompt.as_bytes()),
+        let _ = if t.pictures.is_empty() {
+            stdin.write_all(prompt.as_bytes())
+        } else {
+            use base64::Engine;
+            let mut content: Vec<Value> = t.pictures.iter().flat_map(|(said, png)| [
+                json!({ "type": "text", "text": said }),
+                json!({ "type": "image", "source": { "type": "base64", "media_type": "image/png", "data": base64::engine::general_purpose::STANDARD.encode(png) } }),
+            ]).collect();
+            content.push(json!({ "type": "text", "text": prompt }));
+            let message = json!({ "type": "user", "message": { "role": "user", "content": content } });
+            stdin.write_all(format!("{message}\n").as_bytes())
         };
     }
     let err = child.stderr.take().map(|mut p| {
@@ -737,7 +736,7 @@ mod tests {
     use std::sync::mpsc::{channel, Receiver};
 
     fn asked(label: &str) -> Talk {
-        Talk { label: label.into(), id: json!(label), channel: "chat".into(), system: String::new(), prompt: "hello".into(), model: String::new(), attach: vec![], picture: None, effort: "" }
+        Talk { label: label.into(), id: json!(label), channel: "chat".into(), system: String::new(), prompt: "hello".into(), model: String::new(), attach: vec![], pictures: vec![], effort: "" }
     }
     /// The windows whose talk came to an end within a while, in turn.
     fn ended(rx: &Receiver<Event>, n: usize) -> Vec<String> {

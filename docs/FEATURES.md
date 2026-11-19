@@ -585,6 +585,13 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
   and higher at its left and upper edge, or set to Small, Medium or Large under ⋯. `Enter`
   sends, `Shift+Enter` breaks the line, `Esc` shuts the chat, and so does a press anywhere
   outside it (the note, the toolbar, the sidebar) — the press still does what it does there.
+  **The note's whiteboards** go along as pictures, as the note shows them (six at most), and so does a whiteboard
+  added with + — never their files' text, which says nothing Claude can read: "write the calculation on the
+  whiteboard out as LaTeX here", "explain the sketch" are answered without opening the board.
+- **Draw on a Whiteboard** (the active mode; under Transform with AI in a right click on selected blocks or in the
+  text): what is chosen is put on a whiteboard by Claude, by hand — its key words, its formulas, a sketch where one
+  helps, not the text copied out —: on the whiteboard right under it, else on a new one made there; the board opens
+  and is drawn on as from its bubble, and the chat says it (“Draw on a Whiteboard · …”).
 - **The chat's Edit mode** (the pill beside +, which says Ask or Edit; it is kept): in Edit,
   what is written is not answered in the chat but **done in the note** — Claude says in a line
   what it changes and the changes are made at once, wherever in the note they belong (a
@@ -601,15 +608,17 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
 - **Graphics by Claude** (Insert › Graphic by Claude…, and Draw Clean with Claude… on a
   whiteboard) belong to it, and go with it when AI is off.
 - **Claude on a whiteboard** — on a note's board, a board of its own, a notebook (told its pages and their paper, and
-  writing on them) and the board over a PDF:
+  writing on them) and the board over a PDF; a board that stands in the note on screen is told that note too (its
+  task, its words), whatever is asked of it:
   **Ask Claude** (the star in the board's bar at the upper right; beside it the chat's own button, then ⋯) opens the
   **bubble**: ready-made choices to press — no keys needed for the usual — and under them a field to say anything else.
   The choices work on what is chosen, else on what the window shows (the bubble says which): **Tidy Handwriting**
   (Improve, below: the user's own hand set straight), **Redraw Neatly** (Claude takes it away and writes and draws the same
   again, clean, where it was and as large), **Check** (mistakes ringed or underlined in red, the correction written beside
   them; a green ✓ where all is right), **Solve** (the task solved, or the calculation carried on to its end, by hand under
-  it), **Explain** (in the chat) and **As LaTeX** (the handwriting written out in the chat as text and LaTeX, with Insert
-  and Copy); a choice with nothing to work on is pale, and on an empty board there are none. Claude answers in the language
+  it), **Explain** (in the chat), **As LaTeX** (the handwriting written out in the chat as text and LaTeX, with Insert
+  and Copy) and — on a board that stands in a note — **To the Note** (written out as text and LaTeX straight into the
+  note, under the board's picture: one step of Undo in the note); a choice with nothing to work on is pale, and on an empty board there are none. Claude answers in the language
   of what is written there. Opened with a pen or a finger the field does not take the keys (an iPad's keyboard would come
   up over the board); opened with the mouse it does. In the field: say what to draw or change and press `Enter`
   (`Shift+Enter` breaks the line). Claude is told what is on the board (each thing

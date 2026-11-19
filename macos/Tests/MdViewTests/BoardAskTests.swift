@@ -47,10 +47,10 @@ final class BoardAskTests: ShellTest {
     }
     func bubble(_ w: NoteWindow) -> Bool { page(w, "__bd.bubble()") as? Bool == true }
     func chat(_ w: NoteWindow) -> Bool { page(w, "!!(window.MdAi && MdAi.chat.open)") as? Bool == true }
-    func idle(_ w: NoteWindow) -> Bool { page(w, "(() => { const s = MdBoard.state(); return !s.claude.busy && !s.improving && !(window.MdAi && MdAi.state().talking); })()") as? Bool == true }
+    func idle(_ w: NoteWindow) -> Bool { page(w, "(() => { const s = window.MdBoard && MdBoard.state(); return (!s || (!s.claude.busy && !s.improving)) && !(window.MdAi && MdAi.state().talking); })()") as? Bool == true }
     /// The last thing asked in the chat: what it shows, what Claude was told, and the answer after it.
     func last(_ w: NoteWindow) -> (shown: String, told: String, answer: String) {
-        let r = page(w, "(() => { const t = __bd.talk(), i = t.map((m) => m.role).lastIndexOf('user'); if (i < 0) return ['', '', '']; const a = t[i + 1] || {}; return [t[i].shown || t[i].text, t[i].text, a.text || a.error || '']; })()") as? [String] ?? []
+        let r = page(w, "(() => { const t = window.MdAi ? MdAi.state().talk : [], i = t.map((m) => m.role).lastIndexOf('user'); if (i < 0) return ['', '', '']; const a = t[i + 1] || {}; return [t[i].shown || t[i].text, t[i].text, a.text || a.error || '']; })()") as? [String] ?? []
         return r.count == 3 ? (r[0], r[1], r[2]) : ("", "", "")
     }
 
@@ -79,7 +79,7 @@ final class BoardAskTests: ShellTest {
         XCTAssertTrue(wait(3) { self.bubble(w) })
         wait(0.3)
         let ks = page(w, "[...__bd.pop().querySelectorAll('[data-m=\"preset\"]')].map((b) => b.dataset.p + (b.disabled ? '-' : '+'))") as? [String] ?? []
-        XCTAssertEqual(ks, ["tidy+", "redraw+", "check+", "solve+", "explain+", "latex+"], "the ready-made choices")
+        XCTAssertEqual(ks, ["tidy+", "redraw+", "check+", "solve+", "explain+", "latex+", "tonote+"], "the ready-made choices (To the Note: the board stands in a note)")
         XCTAssertEqual(page(w, "!!__bd.pop().querySelector('.bd-ask-about[data-view]')") as? Bool, true, "nothing chosen: not said that it is about what the window shows")
         XCTAssertEqual(page(w, "document.activeElement === __bd.pop().querySelector('.bd-ask-field')") as? Bool, false, "opened with a pen, the field took the keys")
         page(w, "__bd.press('#board .bd-actions [data-do=\"claude\"]')") // (shut)
@@ -120,6 +120,63 @@ final class BoardAskTests: ShellTest {
         page(w, "__bd.press('#board .bd-vpop [data-p=\"tidy\"]', 'pen')")
         XCTAssertTrue(wait(10) { self.last(w).shown == "Tidy Handwriting" && !self.last(w).answer.isEmpty && self.idle(w) }, "Tidy is not in the chat: \(last(w))")
         XCTAssertEqual(page(w, "MdBoard.state().picked.length") as? Int, 0, "Tidy on what the window shows chose what it made")
+    }
+
+    // MARK: the note and its whiteboards (Henri, 2026-11-19: „besseres Zusammenspiel zwischen whiteboard und notizen und
+    // dessen KIs“)
+
+    /// The board's own question is told the note the board stands in (its task, its words) — not only the board.
+    func testTheBoardsQuestionKnowsItsNote() {
+        setenv("MDVIEW_BOARD_FAKE", "Gelöst, NOTED.\n<board>\n{\"add\":\"ink\",\"d\":\"M 300 300 L 340 340\"}\n</board>\n", 1)
+        let w = boardWithAStroke()
+        page(w, "__bd.press('#board .bd-actions [data-do=\"claude\"]', 'pen')")
+        XCTAssertTrue(wait(3) { self.bubble(w) })
+        page(w, "__bd.press('#board .bd-vpop [data-p=\"solve\"]', 'pen')")
+        XCTAssertTrue(wait(10) { self.last(w).shown == "Solve" && self.idle(w) }, "Solve: \(last(w))")
+        XCTAssertTrue(last(w).answer.contains("with the note"), "the board's question was not told its note: \(last(w).answer)")
+    }
+
+    /// The note's chat, no board open, sees the note's whiteboards as pictures — never their files' text.
+    func testTheNotesChatSeesItsBoards() {
+        setenv("MDVIEW_TALK_FAKE", "transform||Gesehen: PICTURES.", 1)
+        let w = boardWithAStroke()
+        page(w, "(MdBoard.close(), 1)")
+        XCTAssertTrue(wait(10) { (self.page(w, "!MdBoard.shown && [...document.querySelectorAll('#content img, #active img')].some((i) => MdView.core.board.is(i) && i.complete && i.naturalWidth > 0)") as? Bool) == true }, "the board's picture is not in the note")
+        page(w, "MdView.core.ai.load().then((ai) => (ai.chat.show(), 1))")
+        XCTAssertTrue(wait(3) { self.chat(w) })
+        page(w, "(() => { const f = document.querySelector('#ai-chat .ai-field'); f.value = 'Was steht auf dem Whiteboard?'; f.dispatchEvent(new Event('input', { bubbles: true })); f.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); return 1; })()")
+        XCTAssertTrue(wait(10) { self.last(w).answer.hasPrefix("Gesehen") && self.idle(w) }, "the chat did not answer: \(last(w))")
+        XCTAssertEqual(last(w).answer, "Gesehen: 1 pictures.", "the note's board did not go as a picture")
+    }
+
+    /// To the Note: what the board holds is written out under the board's picture in the note — and stands in the chat.
+    func testToTheNotePutsItUnderTheBoard() {
+        setenv("MDVIEW_TALK_FAKE", "transform||Abgeschrieben.\n<insert>\n$$x^2 = 4$$\n</insert>", 1)
+        let w = boardWithAStroke()
+        let note = Lib.join(dir, "A.md")
+        page(w, "__bd.press('#board .bd-actions [data-do=\"claude\"]', 'pen')")
+        XCTAssertTrue(wait(3) { self.bubble(w) })
+        XCTAssertEqual(page(w, "!!__bd.pop().querySelector('[data-p=\"tonote\"]:not([disabled])')") as? Bool, true, "a board in a note has no To the Note")
+        page(w, "__bd.press('#board .bd-vpop [data-p=\"tonote\"]', 'pen')")
+        XCTAssertTrue(wait(10) { self.last(w).shown == "To the Note" && self.idle(w) }, "To the Note is not in the chat: \(last(w))")
+        XCTAssertTrue(wait(8) { self.read(note).contains("![](assets/A.board.svg)\n\n$$x^2 = 4$$") }, "not written under the board:\n\(read(note))")
+        XCTAssertFalse(chat(w), "To the Note opened the chat")
+    }
+
+    /// Draw on a Whiteboard: a paragraph of the note chosen, a whiteboard is made under it, opened, and Claude asked to put
+    /// it there by hand — told the paragraph, shown in the chat by the row's name.
+    func testDrawOnAWhiteboardFromTheNote() {
+        setenv("MDVIEW_BOARD_FAKE", "Skizziert.\n<board>\n{\"add\":\"ink\",\"d\":\"M 100 100 L 200 160\"}\n</board>\n", 1)
+        let note = write("P.md", "# Pythagoras\n\nIm rechtwinkligen Dreieck gilt $a^2 + b^2 = c^2$.\n")
+        let w = openPainted(note)
+        page(w, "(MdView.setMode('active'), 1)")
+        XCTAssertTrue(wait(10) { (self.page(w, "!!(window.MdActive && MdActive.view && MdActive.view.pm)") as? Bool) == true }, "no active mode")
+        page(w, "(() => { const v = MdActive.view.pm; let at = 0; v.state.doc.descendants((n, pos) => { if (!at && n.isTextblock && n.textContent.startsWith('Im recht')) at = pos + 2; }); v.dispatch(v.state.tr.setSelection(PM.state.TextSelection.create(v.state.doc, at, at + 5))); MdView.core.ai.toBoard(v); return 1; })()")
+        XCTAssertTrue(wait(15) { (self.page(w, "!!(window.MdBoard && MdBoard.shown && document.querySelector('#board[data-open]'))") as? Bool) == true }, "no board was opened")
+        XCTAssertTrue(wait(15) { self.last(w).shown.hasPrefix("Draw on a Whiteboard · Im rechtwinkligen") && self.idle(w) }, "not asked, or not in the chat: \(last(w))")
+        XCTAssertTrue(last(w).told.contains("<from-note>") && last(w).told.contains("$a^2 + b^2 = c^2$"), "Claude was not told the paragraph: \(last(w).told.prefix(300))")
+        XCTAssertEqual(page(w, "MdBoard.state().items") as? Int, 1, "the steps were not done on the new board")
+        XCTAssertTrue(wait(8) { self.read(note).range(of: #"\$\.\n\n!\[[^\]]*\]\([^)]*\.board\.svg\)"#, options: .regularExpression) != nil }, "the board does not stand under the paragraph:\n\(read(note))")
     }
 
     /// Pictures of the bubble (not a check): only with MDVIEW_SNAP=<folder>.

@@ -35,7 +35,10 @@ impl Win {
                 let (system, prompt) = if channel == "improve" {
                     (ai::IMPROVE_SYSTEM.to_string(), format!("The strokes chosen:\n<strokes>\n{}\n</strokes>", take(text_of("strokes"), 120_000)))
                 } else if channel == "board" {
-                    (ai::board_system(false), format!("{board}What the user asks: {}", take(text_of("instruction"), 4000)))
+                    // (a board that stands in a note: the note goes along — its task, its words — Henri, 2026-11-19: „besseres
+                    // Zusammenspiel zwischen whiteboard und notizen“)
+                    let in_note = if whole.is_empty() { String::new() } else { format!("{whole}The board stands in this note: what it is about is said there.\n\n") };
+                    (ai::board_system(false), format!("{in_note}{board}What the user asks: {}", take(text_of("instruction"), 4000)))
                 } else if channel == "transform" {
                     (ai::TRANSFORM_SYSTEM.to_string(), format!("{whole}The selected part of the note:\n<selection>\n{}\n</selection>\n\nWhat to do with the selected part: {}\n\nReply with the Markdown that takes its place, and nothing else.", take(text_of("selection"), 60_000), take(text_of("instruction"), 4000)))
                 } else {
@@ -53,7 +56,27 @@ impl Win {
                 let (mut more, mut attach) = (String::new(), Vec::new());
                 // (what the window shows of the board, as a picture the page drew — a PNG that goes with the question; the page sends
                 // one only where the board's text does not say all: ink, pictures, a PDF)
-                let picture = if board.is_empty() && channel != "improve" { None } else { base64::engine::general_purpose::STANDARD.decode(text_of("picture")).ok().filter(|d| d.len() <= 20_000_000 && d.starts_with(b"\x89PNG")) };
+                let png = |b64: &str| base64::engine::general_purpose::STANDARD.decode(b64).ok().filter(|d| d.len() <= 20_000_000 && d.starts_with(b"\x89PNG"));
+                let mut pictures: Vec<(String, Vec<u8>)> = Vec::new();
+                if !(board.is_empty() && channel != "improve") {
+                    if let Some(d) = png(text_of("picture")) {
+                        pictures.push((if channel == "improve" { "The strokes chosen, as they look:" } else { "What the window shows of the whiteboard now:" }.to_string(), d));
+                    }
+                }
+                // (no board open: the whiteboards of the note, and those given beside it, as the note shows them — their files'
+                // text says nothing Claude can read)
+                if channel == "chat" && board.is_empty() {
+                    let mut room = 30_000_000usize;
+                    for b in msg["boards"].as_array().map(Vec::as_slice).unwrap_or_default().iter().take(6) {
+                        let Some(d) = png(b["png"].as_str().unwrap_or("")) else { continue };
+                        if d.len() > room {
+                            continue;
+                        }
+                        room -= d.len();
+                        let name = take(b["name"].as_str().unwrap_or(""), 120);
+                        pictures.push((if b["of"] == "note" { format!("The whiteboard “{name}” that stands in the note, as it looks:") } else { format!("The whiteboard “{name}” the user gave you to read, as it looks:") }, d));
+                    }
+                }
                 if channel == "chat" {
                     let mut room = 400_000usize; // (letters of other documents, all told: what fits a question)
                     let put = |more: &mut String, path: &Path, room: &mut usize| -> bool {
@@ -96,7 +119,7 @@ impl Win {
                     }
                 }
                 let effort = if board.is_empty() && channel != "improve" { "" } else { "low" }; // (a board's answer is watched as it comes: begun soon)
-                app.talker.ask(Talk { label: self.label.clone(), id, channel, system, prompt: format!("{more}{prompt}"), model, attach, picture, effort });
+                app.talker.ask(Talk { label: self.label.clone(), id, channel, system, prompt: format!("{more}{prompt}"), model, attach, pictures, effort });
             }
             // files for Claude to read, chosen in the system's own window; what was chosen comes back as "ai-picked", with this window's word
             "ai-pick" => {

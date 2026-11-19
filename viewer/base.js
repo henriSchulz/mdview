@@ -160,7 +160,7 @@
     "menu.openLink": "external", "Copy Link": "link", "Copy Image": "picture", "Go to PDF": "pdf", "menu.openPdf": "pdf",
     "Show Large": "zoom", "menu.showLarge": "zoom", "menu.propsHide": "eyeOff", "menu.propsShow": "eye",
     "menu.outlineHide": "eyeOff", "menu.outlineShow": "eye", "prefs.open": "gear",
-    "menu.delete": "trash", "ai.transform": "spark",
+    "menu.delete": "trash", "ai.transform": "spark", "ai.toBoard": "board",
     // a whiteboard's (board/select.js: context; board.js: pageRows)
     "board.duplicate": "duplicate", "board.front": "front", "board.toBack": "back", "board.link": "connect",
     "board.group": "group", "board.ungroup": "ungroup", "board.lock": "lock", "board.unlock": "unlock",

@@ -47,6 +47,7 @@
     solve: svg('<path d="M4.5 9.5h7M4.5 14.5h7"/><path d="M15 8l4 4-4 4"/>'),
     explain: svg('<circle cx="12" cy="12" r="8.5"/><path d="M9.7 9.6a2.4 2.4 0 1 1 3.3 2.2c-.6.3-1 .8-1 1.5v.3"/><circle cx="12" cy="16.4" r=".5" fill="currentColor"/>'),
     latex: svg('<path d="M17.5 5.5h-11l5.5 6.5-5.5 6.5h11"/>'),
+    tonote: svg('<path d="M13.5 3.5H7.5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V8.5z"/><path d="M13.5 3.5v5h5M12 10.5v6.5M9.3 14.3 12 17l2.7-2.7"/>'),
     send: svg('<path d="M12 19V5M6 11l6-6 6 6"/>'),
     chat: svg('<path d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v7a2.5 2.5 0 0 1-2.5 2.5H11l-4 3.5V16A2.5 2.5 0 0 1 5 13.5z"/>'),
     stop: svg('<rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" stroke="none"/>'),
@@ -902,7 +903,7 @@
       const tile = (k, big) => `<button type="button" class="bd-ask-do${big ? " bd-ask-do-big" : ""}" data-m="preset" data-p="${k}" title="${esc(T("board.do." + k + ".tip"))}"${off(k)}>${I[PRESETS[k].icon]}<b>${esc(T("board.do." + k))}</b>${big ? `<small>${esc(T("board.do." + k + ".sub"))}</small>` : ""}</button>`;
       html = `<div class="bd-ask"${any ? " data-presets" : ""}>` +
         (t.chosen ? `<span class="bd-ask-about">${I.spark}${esc(T(t.items.length === 1 ? "board.ask.about.one" : "board.ask.about", t.items.length))}</span>` : any ? `<span class="bd-ask-about" data-view>${I.frame}${esc(T("board.ask.view"))}</span>` : "") +
-        (any ? `<div class="bd-ask-big">${tile("tidy", true)}${tile("redraw", true)}</div><div class="bd-ask-chips">${["check", "solve", "explain", "latex"].map((k) => tile(k, false)).join("")}</div>` : "") +
+        (any ? `<div class="bd-ask-big">${tile("tidy", true)}${tile("redraw", true)}</div><div class="bd-ask-chips">${["check", "solve", "explain", "latex", ...(noteOf() ? ["tonote"] : [])].map((k) => tile(k, false)).join("")}</div>` : "") +
         `<textarea class="bd-ask-field" rows="1" placeholder="${esc(T(any ? "board.ask.or" : S.pick.length ? "board.ask.chosen" : "board.ask.what"))}" aria-label="${esc(T("board.claude"))}" maxlength="4000" spellcheck="false"></textarea>` +
         `<div class="bd-ask-menu" role="menu"></div>` +
         `<div class="bd-ask-foot"><span class="bd-ask-left">` +
@@ -1351,6 +1352,16 @@
     menu(null);
     core.ai.load().then((ai) => ai.chat.toggle()).catch(() => {});
   }
+  /* The note the board stands in, when that note is the one on screen (a board of its own, a notebook, a PDF's: none): its name
+   * and its text — what Claude is told besides the board (Henri, 2026-11-19: „besseres Zusammenspiel zwischen whiteboard und
+   * notizen und dessen KIs“), and where To the Note writes. */
+  function noteOf() {
+    const c = core.current, file = String((S && S.ref) || "").split("/").pop();
+    if (!S || S.pdf || !file || !c || !c.path || c.readonly || !/\.(md|markdown)$/i.test(c.path) || !core.ai || !core.ai.fileText) return null;
+    const text = core.ai.fileText() || "";
+    if (!text.includes(file) && !text.includes(encodeURIComponent(file))) return null;
+    return { name: String(c.name || "").replace(/\.(md|markdown)$/i, ""), text, file };
+  }
   /* What a ready-made choice of the bubble is about: what is chosen — else what the window shows, its things and its ink. */
   function aiTarget() {
     const mine = (it) => !it.foreign, inks = (items) => items.filter((it) => it.k === "ink" && !it.lock && !it.foreign);
@@ -1368,6 +1379,7 @@
     check: { icon: "check", needs: (t) => t.items.length > 0 || !!S.pdf, ask: (of) => `Check ${of} for mistakes — arithmetic, algebra, signs, indices, units, logic, spelling. Change and take away nothing that is there. Mark each mistake where it stands, in red (#e5484d): a ring round it or a line under it, and the correction written small beside it by hand. Where all of it is right, a small green (#30a46c) ✓ beside it. In your one sentence say what you found.` },
     solve: { icon: "solve", needs: (t) => t.items.length > 0 || !!S.pdf, ask: (of) => `Go on with ${of}: solve the task, or carry the calculation, derivation or proof on to its end — step by step, by hand, under what is there (where there is room; on a notebook on its page, else on the next one), as large as it is written there and in its colour, formulas with the step "write" as LaTeX between dollars. In your one sentence say the result.` },
     explain: { icon: "explain", chat: true, needs: (t) => t.items.length > 0 || !!S.pdf, ask: (of) => `Explain ${of} to me: what it says and why, step by step, briefly. Answer here in the chat; draw nothing on the board.` },
+    tonote: { icon: "tonote", note: true, needs: (t) => (t.items.length > 0 || !!S.pdf) && !!noteOf(), ask: (of) => `Write ${of} out for the note the board stands in: its words as text, every formula as LaTeX ($…$ within a line, $$…$$ for one on a line of its own), headings and lists where the writing has them — as Markdown in one <insert>, exactly as it is written, nothing added, left out or corrected. Draw nothing on the board.` },
     latex: { icon: "latex", chat: true, needs: (t) => t.items.length > 0 || !!S.pdf, ask: (of) => `Write ${of} out exactly as it is written by hand: its words as text, every formula as LaTeX ($…$ within a line, $$…$$ for one on a line of its own), as Markdown in one <insert> — nothing added, left out or corrected. Draw nothing on the board.` },
   };
   /* A ready-made choice pressed: done on what is chosen, else on what the window shows — and said in the chat as its name. */
@@ -1379,7 +1391,33 @@
     const of = t.chosen ? "what is chosen (the things named as chosen above)" : S.pdf ? "what the window shows (the page of the PDF in view, and what is drawn on it)" : "what the window shows of the board (the strokes and things in view)";
     const text = P.ask(of) + `\n\n(Write in the language of what is written there; where nothing is written, in ${T("board.do.lang")}.)`;
     if (P.chat) return core.ai.load().then((ai) => ai.chat.ask(text, shown)).catch(() => note(T("board.ask.failed"), true));
+    if (P.note) return toNote(text, shown);
     return claude.go(text, shown);
+  }
+  /* To the Note: what is written on the board, as Markdown under the board's picture in the note — asked as the chat asks
+   * (its <insert>), put in at once, and said in the chat as all the bubble does. One step back in the note. */
+  async function toNote(text, shown) {
+    const s = S, n = noteOf();
+    if (!n || claude.job || improve.job || !claude.on()) return;
+    busy(true);
+    claude.pending = true;
+    let ai = null, picture = "";
+    try { [ai, picture] = await Promise.all([core.ai.load(), aiPicture().catch(() => "")]); } catch (e) { /* (ai.js could not be loaded) */ }
+    if (!claude.pending || S !== s) return;
+    claude.pending = false;
+    if (!ai || !ai.ask) { busy(false); return note(T("board.ask.failed"), true); }
+    const job = { ai, s, steps: { end: () => Promise.resolve(0) } };
+    job.id = ai.ask("chat", { board: aiBoard(), picture, note: n.text, name: n.name, edit: false, where: "", selection: "", context: [], messages: [{ role: "user", text }] }, () => {}, async (whole, error) => {
+      if (claude.job === job) { claude.job = null; busy(false); }
+      if (error === "stopped") return;
+      const md = (String(whole || "").match(/<insert>\n?([\s\S]*?)\n?<\/insert>/) || [])[1] || "";
+      const put = !error && md.trim() ? await ai.putUnder(md, n.file) : false;
+      ai.record?.(text, error ? { error } : { text: whole }, shown);
+      if (S !== s) return;
+      note(error ? (error === "AI is turned off in the settings" ? T("board.ask.off") : error) : T(put ? "board.tonote.done" : "board.tonote.none"), !!error || !put);
+      claude.said = setTimeout(() => { if (S === s && !claude.job) note(""); }, 8000);
+    });
+    claude.job = job;
   }
   const claude = {
     prefs: null, // (styleOf(), when first asked for)
@@ -1421,7 +1459,8 @@
       const steps = aiSteps(s, () => { if (claude.job === job) note(T("board.ask.busy")); });
       const job = { ai, s };
       job.steps = steps;
-      job.id = ai.ask("board", { board, picture, instruction: text + styleAsk() }, (piece) => steps.feed(piece), async (whole, error) => {
+      const n = noteOf(); // (the note the board stands in, told with it: its task, its words)
+      job.id = ai.ask("board", { board, picture, instruction: text + styleAsk(), ...(n ? { note: n.text, name: n.name } : {}) }, (piece) => steps.feed(piece), async (whole, error) => {
         const n = await steps.end();
         if (claude.job === job) { claude.job = null; busy(false); }
         if (S !== s) return;
@@ -2003,8 +2042,21 @@
       if (late.error) return fail();
       try { take(late.text); } catch (e) { return fail(); }
     }
+    asked(s);
     return true;
   };
+  /* Asked from the note (ai.js: Draw on a Whiteboard — the board is opened, or made, for it): once the board is open and
+   * read, Claude is asked as from the bubble. Kept a little while; a board opened later is not asked. */
+  let soon = null;
+  B.askSoon = (text, shown) => { soon = { text, shown, until: Date.now() + 20000 }; if (S && el.dataset.open != null) asked(S); };
+  function asked(s) {
+    const q = soon;
+    if (!q || S !== s || s.readonly) return;
+    soon = null;
+    if (Date.now() > q.until || !claude.on()) return;
+    claude.prefs = claude.prefs || styleOf();
+    setTimeout(() => { if (S === s) claude.go(q.text, q.shown); }, 120);
+  }
   /* quick: no way back to watch (the note under the board is being left). */
   B.close = (quick = false) => {
     if (!S) return;
