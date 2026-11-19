@@ -61,5 +61,30 @@ final class BoardTests: ShellTest {
         page(w, "(dispatchEvent(new Event('blur')), 1)")
         XCTAssertEqual(page(w, "document.querySelector('#board .bd-stage').dataset.space === undefined") as? Bool, true, "Space is still held after the window was left")
     }
+
+    /// A pinch — a Mac's trackpad, fingers on an iPad that is the Mac's screen (ipad-cast) — makes the board larger and
+    /// smaller: WebKit on the Mac says it as gesture events (Henri, 2026-11-19; until then nothing took them).
+    func testAPinchSizesTheBoard() throws {
+        let sample = Lib.join(ShellTest.checkout, "web/public/welcome/samples/Empty.board.svg")
+        let board = write("assets/P.board.svg", read(sample))
+        let w = open(write("P.md", "# Pinch\n\n![](assets/P.board.svg)\n"))
+        page(w, "(MdPage.openBoardFile(\(jsonString(board))), 1)")
+        XCTAssertTrue(wait(10) { (self.page(w, "!!(window.MdBoard && MdBoard.state && MdBoard.state() && document.querySelector('#board[data-ready]'))") as? Bool) == true }, "the board did not open")
+        wait(0.5)
+        let pinch = """
+        const stage = document.querySelector('#board .bd-stage'), r = stage.getBoundingClientRect(), z0 = MdBoard.state().zoom;
+        const say = (type, scale) => { const e = new Event(type, { bubbles: true, cancelable: true }); Object.assign(e, { scale, rotation: 0, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }); stage.dispatchEvent(e); return e.defaultPrevented; };
+        const taken = say('gesturestart', 1);
+        for (const s of [1.1, 1.25, 1.4, 1.5]) say('gesturechange', s);
+        say('gestureend', 1.5);
+        return [taken, MdBoard.state().zoom / z0];
+        """
+        var got: [Any]?
+        var done = false
+        w.web.callAsyncJavaScript(pinch, arguments: [:], in: nil, in: .page) { r in if case .success(let v) = r { got = v as? [Any] }; done = true }
+        wait(5) { done }
+        XCTAssertEqual(got?.first as? Bool, true, "the pinch is left to the system")
+        XCTAssertEqual((got?.last as? NSNumber)?.doubleValue ?? 0, 1.5, accuracy: 0.01, "the board is not one and a half times as large")
+    }
 }
 

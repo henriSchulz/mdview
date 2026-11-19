@@ -238,6 +238,20 @@
       pushed(dx, dy, now);
       lifted = setTimeout(() => coast(performance.now()), 45);
     }, { passive: false });
+    // A pinch on a Mac — two fingers on its trackpad, or on an iPad that is the Mac's screen (ipad-cast makes the same events
+    // of them) — is no wheel with Ctrl there: WebKit says it as gesture events, each with the size since the pinch began. The
+    // board grows and shrinks with it, around where the pointer is (Henri, 2026-11-19: whiteboards by touch over ipadcast —
+    // until then a pinch did nothing in the Mac app). Not while fingers are on the glass themselves (an iPad's own Safari says
+    // both): those are the pinch already.
+    let pinched = 1;
+    stage.addEventListener("gesturestart", (e) => { e.preventDefault(); pinched = e.scale > 0 ? e.scale : 1; });
+    stage.addEventListener("gesturechange", (e) => {
+      e.preventDefault();
+      const now = e.scale > 0 ? e.scale : pinched;
+      if (!fingers.size && now !== pinched) { halt(); const p = at(e); on.zoom(now / pinched, p.x, p.y, false); }
+      pinched = now;
+    });
+    stage.addEventListener("gestureend", (e) => e.preventDefault());
     stage.addEventListener("contextmenu", (e) => e.preventDefault());
     return { busy: () => tool != null || drag != null || fingers.size > 0 };
   }
