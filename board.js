@@ -204,7 +204,10 @@
     clearTimeout(said.t);
     said.t = setTimeout(() => { delete hud.dataset.on; }, 900);
   }
-  const size = () => ({ w: el.clientWidth, h: el.clientHeight });
+  // (the window's size, measured once per size: asked at every step of a move — by the edges of a board of pages too — a fresh
+  // measure made WebKit work out the page's styles anew each time, Henri: "fühlt sich nicht flüssig an")
+  let dims = null;
+  const size = () => dims || (dims = { w: el.clientWidth, h: el.clientHeight });
   const paged = () => S && (S.pdf || S.book); // (pages under the board: a PDF's, or a notebook's — paper.js)
   /* A board of pages keeps them in sight, as GoodNotes' notebooks do (board/view.js, limit): the pages — and under a notebook's
    * last one the way to one more —, the room the bars take (the name and the actions at the top, the tray where it stands), the
@@ -392,7 +395,7 @@
       const uris = (e.dataTransfer?.getData("text/uri-list") || "").split(/\r?\n/).filter((u) => u && !u.startsWith("#"));
       if (uris.length) ask("board-drop", { path: S.ref, uris }).then(([names, error]) => placed(names, error, at));
     }, true);
-    new ResizeObserver(() => { if (!S) return; room = null; if (S.view.limit && !S.view.settling) S.view.settle(true); paint(); }).observe(el);
+    new ResizeObserver(() => { dims = null; if (!S) return; room = null; if (S.view.limit && !S.view.settling) S.view.settle(true); paint(); }).observe(el);
     const mine = () => S && S.mode === "select" && !S.readonly;
     const begun = (pt, e) => {
       if (!S || S.readonly) return mine() ? sel.start(pt, e) : start(pt);
@@ -505,7 +508,7 @@
     if (!tag) { tag = document.createElement("div"); tag.className = "bd-pageno"; tag.setAttribute("aria-hidden", "true"); el.appendChild(tag); }
     const text = `${B.pdf.near(on.pages, S.view, size()).n} / ${on.pages.length}`;
     if (tag.textContent !== text) tag.textContent = text;
-    tag.dataset.on = "";
+    if (!tag.hasAttribute("data-on")) tag.dataset.on = ""; // (set once: set at every step, the page's styles were worked out anew each time)
     clearTimeout(pageNo.t);
     pageNo.t = setTimeout(() => { delete tag.dataset.on; }, 900);
   }
@@ -1909,6 +1912,7 @@
     const reading = (pdf ? pdfText(pdf.path) : read(ref, img.src)).then((text) => ({ text }), (error) => ({ error }));
     // from the picture's place to the whole window
     el.hidden = false;
+    dims = null;
     el.style.transition = "none";
     el.style.transform = from();
     el.style.opacity = "0";

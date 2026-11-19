@@ -43,12 +43,14 @@ test("pulled down past the first page, it gives way less and less, and goes back
   assert.ok(!v.bent());
 });
 
-test("at the page's width it does not go sideways for good, and the last page stops above the foot", () => {
-  const v = book(), x = v.x;
+test("at the page's width it does not go sideways at all — the side of a push down moves nothing — and the last page stops above the foot", () => {
+  const v = book(), x = v.x, y = v.y;
   v.panBy(-400, 0);
-  assert.notEqual(v.x, x);
+  assert.equal(v.x, x, "pulled sideways at the page's width, it moved");
+  v.panBy(-12, -300); // (a push down with a little to the side, as a finger makes it)
+  assert.equal(v.x, x, "a push down swayed it sideways");
+  assert.ok(v.y > y, "the push down did not move it down the pages");
   v.settle(true);
-  assert.ok(Math.abs(v.x - x) * v.z < 0.5, "sideways after it was let go");
   v.panBy(0, -1e6);
   v.settle(true);
   const foot = (pages[2].y + PH + 168 - v.y) * v.z;

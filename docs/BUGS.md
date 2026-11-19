@@ -339,6 +339,12 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     (`rest` in `board/pointer.js`: fingers up, a glide run out, the wheel's steps or a host's pinch stopped). The glide back
     runs on a timer too where no frame is drawn, as the board's other glides do. Checks: `dev/tests/boardview.test.mjs`,
     `BoardTests.testANotebookKeepsItsPagesInSight` (macOS).
+    Then (Henri, same evening: „es reagiert zu langsam wenn man sich weg von der Seite bewegt und fühlt sich nicht flüssig
+    an"): the way the pages fit whole has no rubber at all — at the page's width the side of every push down made the
+    notebook sway —; a glide (the system's, ipad-cast's) that runs into an edge is let go at once, not held out there to its
+    last step (`glided` in board/pointer.js: shrinking steps beyond the edge); and nothing asked at every step measures the
+    window anew (`size` in board.js is kept per size). WebKit at the cast's size gave 60 frames a second with 200 strokes
+    both before and after: what was felt was the sway and the hang, not the drawing.
 125. **What WebKit on the Mac says of a pointer is not what it is** (2026-11-19, the Pencil over ipad-cast). A tablet's
     events — the system's mouse events of the tablet-point kind, with the pen's pressure and tilt in their own fields —
     reach a page in WKWebView as `pointerType: "mouse"`, `pressure: 0`, no tilt; a finger the cast turns into a click is a

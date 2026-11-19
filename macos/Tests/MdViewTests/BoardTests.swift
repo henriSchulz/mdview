@@ -213,9 +213,13 @@ final class BoardTests: ShellTest {
             c.setDoubleValueField(.mouseEventPressure, value: p)
             return NSEvent(cgEvent: c)!
         }
-        web.mouseDown(with: pen(.leftMouseDown, 300, 300, 0.2))
-        for i in 1...12 { web.mouseDragged(with: pen(.leftMouseDragged, 300 + CGFloat(i) * 12, 300 + CGFloat(i) * 4, 0.2 + Double(i) * 0.05)); wait(0.02) }
-        web.mouseUp(with: pen(.leftMouseUp, 444, 348, 0))
+        // (the application hears them before any view — FilesWebView's monitor: a window nobody sees gets no events of the
+        // system's, so what it says is asked here, then WebKit is handed the event)
+        let fw = web as! FilesWebView
+        func send(_ e: NSEvent) { fw.penSay(e); switch e.type { case .leftMouseDown: web.mouseDown(with: e); case .leftMouseUp: web.mouseUp(with: e); default: web.mouseDragged(with: e) } }
+        send(pen(.leftMouseDown, 300, 300, 0.2))
+        for i in 1...12 { send(pen(.leftMouseDragged, 300 + CGFloat(i) * 12, 300 + CGFloat(i) * 4, 0.2 + Double(i) * 0.05)); wait(0.02) }
+        send(pen(.leftMouseUp, 444, 348, 0))
         XCTAssertTrue(wait(5) { ((self.page(w, "__seen.length") as? NSNumber)?.intValue ?? 0) > 0 }, "the board saw no move of the pen")
         let seen = (page(w, "JSON.stringify(__seen)") as? String) ?? "[]"
         let rows = (try? JSONSerialization.jsonObject(with: Data(seen.utf8))) as? [[Any]] ?? []
@@ -229,9 +233,9 @@ final class BoardTests: ShellTest {
         page(w, "(__seen = [], 1)")
         wait(0.5) // (what the shell said of the pen is old by now)
         func mouse(_ type: CGEventType, _ x: CGFloat, _ y: CGFloat) -> NSEvent { NSEvent(cgEvent: CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: at(x, y), mouseButton: .left)!)! }
-        web.mouseDown(with: mouse(.leftMouseDown, 300, 500))
-        for i in 1...6 { web.mouseDragged(with: mouse(.leftMouseDragged, 300 + CGFloat(i) * 15, 500)); wait(0.02) }
-        web.mouseUp(with: mouse(.leftMouseUp, 390, 500))
+        send(mouse(.leftMouseDown, 300, 500))
+        for i in 1...6 { send(mouse(.leftMouseDragged, 300 + CGFloat(i) * 15, 500)); wait(0.02) }
+        send(mouse(.leftMouseUp, 390, 500))
         XCTAssertTrue(wait(3) { ((self.page(w, "__seen.length") as? NSNumber)?.intValue ?? 0) > 0 }, "the board saw no move of the mouse")
         XCTAssertEqual(page(w, "__seen.every((r) => r[0] === 'mouse')") as? Bool, true, "the Mac's mouse was taken for something else: \(String(describing: page(w, "JSON.stringify(__seen)")))")
     }

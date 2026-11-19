@@ -83,12 +83,14 @@
       },
       /* Where the view may stand at size z: (x, y) moved the least way that keeps the pages over the window — where they are
        * narrower (lower) than the room between the bars, in its middle. */
-      inside(x, y, z) {
+      inside(x, y, z) { return v.fits(x, y, z).at; },
+      /* Where the view may stand at size z (at), and whether the pages fit across and down the room between the bars there. */
+      fits(x, y, z) {
         const { w, h } = size(), L = v.limit(), [x0, y0, x1, y1] = L.box;
         const across = w - L.left - L.right, down = h - L.top - L.bottom;
         const nx = (x1 - x0) * z <= across ? (x0 + x1) / 2 - (L.left + across / 2) / z : Math.min(Math.max(x, x0 - L.left / z), x1 - (w - L.right) / z);
         const ny = (y1 - y0) * z <= down ? (y0 + y1) / 2 - (L.top + down / 2) / z : Math.min(Math.max(y, y0 - L.top / z), y1 - (h - L.bottom) / z);
-        return [nx, ny];
+        return { at: [nx, ny], across: (x1 - x0) * z <= across + 0.5, down: (y1 - y0) * z <= down + 0.5 };
       },
       /* Where the hand has the view, the rubber taken off what is shown (the view stopped beyond an edge, then taken again). */
       unbent() {
@@ -118,7 +120,7 @@
         const from = { x: v.x, y: v.y, z: v.z };
         let last = performance.now(), k = 0;
         const frame = (t) => {
-          k = 1 - (1 - k) * Math.exp(-Math.max(0, t - last) / 70);
+          k = 1 - (1 - k) * Math.exp(-Math.max(0, t - last) / 55);
           last = t;
           const done = k > 0.995, zz = done ? z : from.z * Math.pow(z / from.z, k);
           // the anchor's board point moves from where it was to where it ends, in screen terms, as the size goes
@@ -136,8 +138,11 @@
      * within the edges as far as that goes, and beyond them by the rubber. What the hand has is kept while it is beyond them:
      * the next step goes on from there, not from what is shown. */
     function place(x, y, z, hz = z) {
-      const { w, h } = size(), [ix, iy] = v.inside(x, y, z);
-      const ox = (x - ix) * z, oy = (y - iy) * z; // (how far beyond, in screen pixels)
+      const { w, h } = size(), f = v.fits(x, y, z), [ix, iy] = f.at;
+      // (how far beyond, in screen pixels — none the way the pages fit whole: there the hand moves nothing, as an iPad's list
+      // that is not wider than the window does not move sideways at all; the side of every push down a notebook at the page's
+      // width made it sway, Henri: "fühlt sich nicht flüssig an")
+      const ox = f.across ? 0 : (x - ix) * z, oy = f.down ? 0 : (y - iy) * z;
       v.z = z;
       v.x = ix + (Math.abs(ox) > 1e-3 ? rubber(ox, w) / z : 0);
       v.y = iy + (Math.abs(oy) > 1e-3 ? rubber(oy, h) / z : 0);

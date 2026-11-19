@@ -70,15 +70,25 @@ final class FilesWebView: WKWebView {
     /// "so gut wie es nur geht auf den Apple Pencil und den Cast optimieren"). Each such event is said to the page first —
     /// what it is, where, how hard, how tilted — and the board takes the "mouse" there as what it is (board/pointer.js: told).
     /// A mouse's or a trackpad's own events are not said: they are what WebKit says they are.
-    override func mouseDown(with event: NSEvent) { penSay(event); super.mouseDown(with: event) }
-    override func mouseDragged(with event: NSEvent) { penSay(event); super.mouseDragged(with: event) }
-    override func mouseUp(with event: NSEvent) { penSay(event); super.mouseUp(with: event) }
-    override func mouseMoved(with event: NSEvent) { penSay(event); super.mouseMoved(with: event) }
-    /// The pen gone from over the glass (ipad-cast says it as the system's tablet proximity): the tip the board shows where it
-    /// would come down goes too — WebKit hands no proximity on.
-    override func tabletProximity(with event: NSEvent) {
-        if !event.isEnteringProximity { evaluateJavaScript("window.dispatchEvent(new Event('mdpenout'))", completionHandler: nil) }
-        super.tabletProximity(with: event)
+    /// Heard as the application takes them, before any view does: WebKit hands a move to its own tracking object, and a press
+    /// to whichever of its views is hit — a method of this view's own heard only some of them (a hover never).
+    private var penMonitor: Any?
+    deinit { if let m = penMonitor { NSEvent.removeMonitor(m) } }
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if let m = penMonitor { NSEvent.removeMonitor(m); penMonitor = nil }
+        guard window != nil else { return }
+        penMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp, .mouseMoved, .tabletProximity]) { [weak self] e in
+            guard let self, let w = self.window else { return e }
+            if e.type == .tabletProximity {
+                // the pen gone from over the glass: the tip the board shows where it would come down goes too — WebKit hands
+                // no proximity on (ipad-cast says it as the system's tablet proximity)
+                if !e.isEnteringProximity, w.isKeyWindow { self.evaluateJavaScript("window.dispatchEvent(new Event('mdpenout'))", completionHandler: nil) }
+                return e
+            }
+            if e.window === w { self.penSay(e) }
+            return e
+        }
     }
 
     /// "pen", "touch" (a finger of the cast), or nil: a mouse, a trackpad — said by the event itself.
@@ -89,9 +99,10 @@ final class FilesWebView: WKWebView {
         return pid > 0 && pid == CastHost.pid ? "touch" : nil
     }
 
-    private func penSay(_ e: NSEvent) {
+    func penSay(_ e: NSEvent) {
         guard let k = FilesWebView.kind(of: e), let c = e.cgEvent else { return }
         let at = convert(e.locationInWindow, from: nil), z = max(0.01, pageZoom * magnification)
+        guard bounds.contains(at) || e.type != .mouseMoved else { return } // (a move over the window's bars is no one's here)
         let x = at.x / z, y = (isFlipped ? at.y : bounds.height - at.y) / z
         let pen = k == "pen"
         let p = pen ? max(0, min(1, c.getDoubleValueField(.tabletEventPointPressure))) : 0

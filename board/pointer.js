@@ -68,7 +68,7 @@
     // board is let go when none has come for a moment — unless it runs on by itself, which says so when it stops.
     let still = 0;
     const rest = () => { clearTimeout(still); if (on.rest) on.rest(); };
-    const restSoon = (ms = 140) => { clearTimeout(still); still = setTimeout(() => { if (!glide && !slide) rest(); }, ms); };
+    const restSoon = (ms = 90) => { clearTimeout(still); still = setTimeout(() => { if (!glide && !slide) rest(); }, ms); };
     // A wheel's large step — a mouse's notch, a hard push on a touchpad — is not taken at once: the board goes there as a glide,
     // and a step more while it goes only adds to the way. (Small steps, a touchpad's stream of them, are taken as they come.)
     const BIG = 30;
@@ -260,6 +260,7 @@
     // mouse there never leaves the board, so its tip would stay
     addEventListener("mdpenout", () => { if (!tool && !pen.down) on.hover(null, null); });
     // two fingers on a touchpad, or a wheel: the board moves; with Ctrl (and a touchpad's pinch, where the browser passes it on so): larger and smaller
+    let glided = null, shrinking = 0, lastStep = 0; // (a glide that ran into an edge: below)
     stage.addEventListener("wheel", (e) => {
       e.preventDefault();
       cancelAnimationFrame(glide); glide = 0; clearTimeout(lifted); // (a run of its own ends where the wheel takes over; a glide to where it leads goes on)
@@ -267,7 +268,19 @@
       // (a large step said so, for whoever makes a glide of the size too)
       if (e.ctrlKey || e.metaKey) { const notch = Math.abs(e.deltaY * unit) >= BIG; on.zoom(Math.exp((-e.deltaY * unit) / (notch ? 400 : 240)), p.x, p.y, notch); if (!notch) restSoon(); return; }
       const dx = e.shiftKey && !e.deltaX ? -e.deltaY * unit : -e.deltaX * unit, dy = e.shiftKey && !e.deltaX ? 0 : -e.deltaY * unit;
-      if (Math.hypot(dx, dy) >= BIG) return slideBy(dx, dy);
+      // A flick run out against an edge of a board of pages — the system's glide, or ipad-cast's: its steps grow ever smaller —
+      // goes back at once, as an iPad's list does, instead of hanging out there till the last step (Henri, 2026-11-19: "es
+      // reagiert zu langsam wenn man sich weg von der Seite bewegt"). Shrinking steps beyond the edge are that glide: the
+      // board is let go, and the rest of the glide is not taken — until steps grow again, or stop a moment (a hand again).
+      const step = Math.hypot(dx, dy), t = performance.now();
+      if (glided && (t - glided.t > 120 || step > glided.step * 1.15)) glided = null;
+      if (glided) { glided.t = t; glided.step = step; return; }
+      if (on.beyond && on.beyond() && step > 0) {
+        shrinking = lastStep > 0 && step < lastStep * 0.97 ? shrinking + 1 : 0;
+        lastStep = step;
+        if (shrinking >= 2) { glided = { t, step }; shrinking = 0; clearTimeout(lifted); return rest(); }
+      } else { shrinking = 0; lastStep = step; }
+      if (step >= BIG) return slideBy(dx, dy);
       if (slide) { slide.x += dx; slide.y += dy; } else on.pan(dx, dy);
       restSoon();
       // Two fingers lifted off a touchpad while the board was moving: where the host says so (coasts — pages are read by pushing them
