@@ -9,18 +9,32 @@ import AppKit
 import WebKit
 
 enum FromDevice {
-    /// What came on the pasteboard: a scan is a PDF; a photo or a sketch a picture (a JPEG as it is; anything else a PNG
-    /// where it is see-through — a sketch —, else a JPEG).
+    /// What came on the pasteboard: a scan is a PDF; a photo or a sketch a picture (a JPEG or a PNG as it is; anything
+    /// else — TIFF, HEIC, whatever the system can read as a picture, a file it names — a PNG where it is see-through,
+    /// a sketch, else a JPEG).
     static func read(_ pb: NSPasteboard) -> (data: Data, ext: String, scan: Bool)? {
         if let d = pb.data(forType: .pdf), !d.isEmpty { return (d, ".pdf", true) }
         for (t, ext) in [("public.jpeg", ".jpg"), ("public.png", ".png")] {
             if let d = pb.data(forType: NSPasteboard.PasteboardType(t)), !d.isEmpty { return (d, ext, false) }
         }
-        for t in [NSPasteboard.PasteboardType.tiff, NSPasteboard.PasteboardType("public.heic")] {
-            guard let d = pb.data(forType: t), let rep = NSBitmapImageRep(data: d) else { continue }
-            if rep.hasAlpha, let png = rep.representation(using: .png, properties: [:]) { return (png, ".png", false) }
-            if let jpg = rep.representation(using: .jpeg, properties: [.compressionFactor: 0.9]) { return (jpg, ".jpg", false) }
+        // (a file handed over by its address)
+        if let urls = pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL], let u = urls.first,
+           let d = try? Data(contentsOf: u), !d.isEmpty {
+            let e = u.pathExtension.lowercased()
+            if e == "pdf" { return (d, ".pdf", true) }
+            if ["jpg", "jpeg", "png"].contains(e) { return (d, e == "png" ? ".png" : ".jpg", false) }
+            if let got = picture(NSImage(data: d)) { return got }
         }
+        for t in pb.types ?? [] {
+            if let d = pb.data(forType: t), !d.isEmpty, let got = picture(NSImage(data: d)) { return got }
+        }
+        return picture(NSImage(pasteboard: pb))
+    }
+
+    private static func picture(_ image: NSImage?) -> (data: Data, ext: String, scan: Bool)? {
+        guard let image, let tiff = image.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff), rep.pixelsWide > 0 else { return nil }
+        if rep.hasAlpha, let png = rep.representation(using: .png, properties: [:]) { return (png, ".png", false) }
+        if let jpg = rep.representation(using: .jpeg, properties: [.compressionFactor: 0.9]) { return (jpg, ".jpg", false) }
         return nil
     }
 
@@ -56,8 +70,28 @@ extension NoteWindow {
 
     /// What the device sent, put where it belongs. → whether it was taken
     @discardableResult func takeFromDevice(_ pb: NSPasteboard) -> Bool {
-        guard takesFromDevice, let got = FromDevice.read(pb) else { return false }
+        guard takesFromDevice else { return false }
+        guard let got = FromDevice.read(pb) else {
+            // (said, and written down with what did come: the system only says "the operation couldn't be completed")
+            NSLog("MdView: from the device, nothing that is a picture or a PDF — types: %@", (pb.types ?? []).map(\.rawValue).joined(separator: ", "))
+            toast("Nothing came that is a picture or a PDF")
+            return false
+        }
         let stem = FromDevice.stem(scan: got.scan)
+        NSLog("MdView: from the device, %d bytes of %@ — types: %@", got.data.count, got.ext, (pb.types ?? []).map(\.rawValue).joined(separator: ", "))
+        // a whiteboard open over the window: onto the board, as a file dropped on it (the board keeps it beside itself)
+        if boardOpen {
+            let tmp = Lib.join(NSTemporaryDirectory(), "mdview-device-\(UUID().uuidString)")
+            do {
+                try Lib.fm.createDirectory(atPath: tmp, withIntermediateDirectories: true)
+                let file = Lib.join(tmp, stem + got.ext)
+                try got.data.write(to: URL(fileURLWithPath: file))
+                web.evaluateJavaScript("(window.MdBoard && MdBoard.drop ? MdBoard.drop([\(jsonString(URL(fileURLWithPath: file).absoluteString))]) : false)") { _, _ in
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 20) { try? Lib.fm.removeItem(atPath: tmp) }
+                }
+                return true
+            } catch { toast("Couldn't save: \(error.localizedDescription)"); return false }
+        }
         let overview = (chrome?.state["overview"] as? Bool) == true
         if let note = path, !overview {
             // (while it is read, and where only the active mode takes a file at the caret: at the note's end)

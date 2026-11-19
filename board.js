@@ -1939,6 +1939,9 @@
     zoom: S.view.z, dirty: S.dirty, readonly: S.readonly, undo: S.undo.length, redo: S.redo.length,
     lost: S.model.lost, claude: { busy: el.hasAttribute("data-claude"), chip: claude.note }, improving: !!improve.job } : null);
   B.page = (op, i) => { if (S && S.book) ({ before: () => pageIn(i), after: () => pageIn(i + 1), delete: () => pageGone(i) })[op]?.(); }; // (for the tests: what the page's menu does, page i counted from 0)
+  /* Files handed to the board by the shell (a photo or a scan from the iPhone: macos FromDevice.swift), by their addresses:
+   * taken as files dropped on it are — kept beside the board, put in the middle of what is seen. → whether it took them */
+  B.drop = (uris) => { const s = S; if (!s || s.readonly || !Array.isArray(uris) || !uris.length) return false; ask("board-drop", { path: s.ref, uris }).then(([names, error]) => { if (S === s) placed(names, error); }); return true; };
   B.put = (kind, more = {}) => { if (S && !S.readonly) { setMode("select"); sel.insert(kind, more); } }; // (for the tests: a thing of a kind in the middle of what is seen, as the keys and the menus put one there)
   // (for the tests: strokes put on the board by name, as a hand would have drawn them — [{ id, pts: [[x, y], …], c, tool, w }] — and their points read)
   B.inkPut = (list) => { if (!S || S.readonly) return; for (const o of list) S.model.items.push({ ...B.claude.stroke(o.pts, o), id: o.id }); changed(); paint(); };
