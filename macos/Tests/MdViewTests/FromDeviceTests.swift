@@ -82,4 +82,20 @@ final class FromDeviceTests: ShellTest {
         XCTAssertFalse(w.takeFromDevice(pasteboard { $0.setString("just text", forType: .string) }))
         XCTAssertEqual(read(Lib.join(dir, "N.md")), "# N\n")
     }
+
+    /// The hand-over as the system makes it: it asks the web view for a requestor and sends that one
+    /// readSelectionFromPasteboard: — by that name (the app's own method had another, and WebKit's answered: error 66563).
+    func testTheSystemsHandOverReachesTheApp() {
+        let note = write("N.md", "# N\n")
+        let w = open(note)
+        _ = page(w, "(MdPage.setMode('read'), 1)")
+        let pb = pasteboard { $0.setData(self.jpeg, forType: NSPasteboard.PasteboardType("public.jpeg")) }
+        let requestor = w.web.validRequestor(forSendType: nil, returnType: NSPasteboard.PasteboardType("public.jpeg")) as? NSObject
+        let sel = NSSelectorFromString("readSelectionFromPasteboard:")
+        XCTAssertEqual(requestor?.responds(to: sel), true)
+        typealias Read = @convention(c) (AnyObject, Selector, NSPasteboard) -> Bool
+        let read = unsafeBitCast(requestor!.method(for: sel), to: Read.self)
+        XCTAssertTrue(read(requestor!, sel, pb), "the system's hand-over is refused")
+        XCTAssertTrue(wait(5) { self.read(note).contains("![](assets/Photo%20") }, "the photo did not reach the note: \(self.read(note))")
+    }
 }

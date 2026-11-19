@@ -42,7 +42,10 @@ final class FilesWebView: WKWebView {
         if sendType == nil, FromDevice.takes(returnType), (window?.delegate as? NoteWindow)?.takesFromDevice == true { return self }
         return super.validRequestor(forSendType: sendType, returnType: returnType)
     }
-    @objc func readSelection(from pboard: NSPasteboard) -> Bool {
+    /// (Named as the system calls it — readSelectionFromPasteboard: —, said outright: written as a method of this class
+    /// alone, Swift called it readSelectionFrom:, the system reached WebKit's own instead, and that one takes nothing:
+    /// "The operation couldn't be completed. (Cocoa error 66563.)", Henri, 2026-11-19, twice.)
+    @objc(readSelectionFromPasteboard:) func readSelection(from pboard: NSPasteboard) -> Bool {
         (window?.delegate as? NoteWindow)?.takeFromDevice(pboard) ?? false
     }
 
