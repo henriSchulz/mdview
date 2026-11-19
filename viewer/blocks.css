@@ -163,3 +163,11 @@ figure.fig:has(> .table-wrap:not(.wide)) { width: fit-content; max-width: 100%; 
 /* a table whose columns are as wide as it says (cols=…: viewer/markdown.js), and the line between two that is pulled (active/tableui.js) */
 table.has-cols { table-layout: fixed; width: 100%; }
 table.has-cols :is(td, th) { overflow-wrap: anywhere; }
+
+/* an HTML block (a fence of "htmlblock"): the HTML it holds in a frame of its own, as wide as the text and as high as what it
+ * holds (viewer/markdown.js htmlDress); in the small pictures of a note (a tile, a sheet) it is left out */
+.html-block { margin: 0 0 1em; }
+.html-frame { display: block; width: 100%; height: 3em; border: 0; background: transparent; color-scheme: inherit; }
+:is(.ov-prev, .sb-prev) .html-frame { display: none; }
+/* (in the active mode the block is pressed, chosen and opened as any island: the frame takes no pointer there) */
+.ProseMirror .html-frame { pointer-events: none; }

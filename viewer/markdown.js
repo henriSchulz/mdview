@@ -615,7 +615,39 @@
       return out.join("");
     }).join("\n");
   }
-  // --- code fences: highlight, copy button, mermaid, math, svg
+  /* A fence of "htmlblock" is the HTML it holds, shown: any HTML, with styles and style sheets of its own (Henri,
+   * 2026-11-19: "einen htmlblock … wie jeglicher html mit css styles usw geladen werden kann"). It stands in a frame of its
+   * own, so nothing of it reaches the window — a note's own HTML among its text may not bring styles for that reason
+   * (safeHtml, above) — and the frame is shut: no scripts, no forms, nowhere to go (sandbox; the page's policy holds in it
+   * too, so a handler or a script written there does not run, and pictures come from where the note's do). The frame is as
+   * high as what it holds (htmlDress, below, once it has loaded — whoever put it into the window). */
+  const htmlFrame = (code) => `<iframe class="html-frame" sandbox="allow-same-origin" srcdoc="${esc(code)}" title="HTML" scrolling="no" tabindex="-1"></iframe>`;
+  /* A frame that has loaded: the note's letters and colour as what it begins with (its own styles come after and win), no
+   * margin around it; as high as its content, and again whenever that changes (a picture that came, a narrower window); a
+   * link in it is opened as a link of the note is, never in the frame. */
+  function htmlDress(frame) {
+    let d;
+    try { d = frame.contentDocument; } catch (e) { return; }
+    if (!d || !d.documentElement || frame._dressed === d) return;
+    frame._dressed = d;
+    const cs = getComputedStyle(frame.parentElement || frame), st = d.createElement("style");
+    st.textContent = `html { color-scheme: ${getComputedStyle(document.documentElement).colorScheme || "normal"}; }\n` +
+      `body { margin: 0; overflow: hidden; background: transparent; color: ${cs.color}; font: ${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize}/${cs.lineHeight} ${cs.fontFamily}; }`;
+    (d.head || d.documentElement).prepend(st);
+    const fit = () => { const h = Math.ceil(d.documentElement.getBoundingClientRect().height); if (h > 0 && frame.style.height !== h + "px") frame.style.height = h + "px"; };
+    fit();
+    if (typeof ResizeObserver === "function") new ResizeObserver(fit).observe(d.documentElement);
+    d.addEventListener("click", (e) => {
+      const a = e.target && e.target.closest ? e.target.closest("a[href]") : null;
+      if (!a) return;
+      e.preventDefault();
+      if (/^https?:/i.test(a.href)) P.post("link", { href: a.href });
+    });
+  }
+  // (a frame's load does not rise through the page, but it is caught on its way down: wherever the block was put in)
+  document.addEventListener("load", (e) => { if (e.target && e.target.classList && e.target.classList.contains("html-frame")) htmlDress(e.target); }, true);
+
+  // --- code fences: highlight, copy button, mermaid, math, svg, html
   md.renderer.rules.fence = (toks, idx) => {
     const t = toks[idx];
     const lang = t.info.trim().split(/\s+/)[0].toLowerCase();
@@ -623,6 +655,7 @@
       const svg = svgPicture(t.content);
       if (svg) return `<div class="svg-block"${lineAttr(t)}>${svg}</div>`;
     }
+    if (lang === "htmlblock") return `<div class="html-block"${lineAttr(t)}>${htmlFrame(t.content)}</div>`;
     if (lang === "mermaid") {
       return `<div class="mermaid-block"${lineAttr(t)}><pre class="mermaid">${esc(t.content)}</pre></div>`;
     }
@@ -799,5 +832,5 @@
 
   // what the page's other files use of this one
   Object.assign(P, { md, safeHtml, tex, texHtml, imageSize, picTail, picText, alignMark, calloutKind, calloutTitle, LINK_ROW, linkMark,
-    svgPicture, codeHidden, codeLang, plainCode, headColor, tableLook, tableMark, tableStyle, colsOf, ruleLook, isExternal });
+    svgPicture, htmlFrame, codeHidden, codeLang, plainCode, headColor, tableLook, tableMark, tableStyle, colsOf, ruleLook, isExternal });
 })();

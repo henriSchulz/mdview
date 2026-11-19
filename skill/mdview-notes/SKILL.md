@@ -128,6 +128,7 @@ The daily tools:
 | table with a coloured head | a line `<!-- table head=cyan -->` right before it (the seven colours or `#rrggbb`); `<!-- table narrow -->` as wide as its content |
 | callout | `> [!note] Title` then `> text` lines; kinds: note, info, abstract, tip, example, question, warning, danger, quote, important; `[!tip]-` folded. One a section at most, with a plain title ("Definition", "Satz", "Hinweis") |
 | figure | an `svg` fence, as above; caption `: text` on the line under it (a picture, a PDF region and a `$$` block take one too) |
+| HTML shown | an `htmlblock` fence: any HTML with its own `<style>`, shown in a frame of its own (no scripts run); only where Markdown and an `svg` figure cannot say it |
 | link to a note | `[[Note]]`, `[[Note\|text]]`, `[[Note#Heading]]`; `![[Note]]` shows it in place |
 | footnote | `text[^1]` and `[^1]: the note` |
 | highlight | `==text==` |

@@ -411,6 +411,28 @@ A fence named `svg` holding one `<svg>` element is drawn as the picture, centred
 handlers and foreign content are left out. Code that is not valid SVG stays a code block.
 `fill="currentColor"` takes the text's colour, so it reads in light and dark.
 
+### HTML blocks
+
+A fence named `htmlblock` is shown as the HTML it holds — any HTML, with `<style>` and style sheets
+of its own:
+
+````markdown
+```htmlblock
+<style>
+  .card { padding: 16px 20px; border-radius: 12px; background: linear-gradient(135deg, #6ea8fe, #b197fc); color: #fff; }
+</style>
+<div class="card">HTML</div>
+```
+````
+
+The block stands in a frame of its own, as wide as the text and as high as what it holds. Its
+styles hold inside it alone, and begin with the note's letters and colour. Nothing in it runs: no
+scripts, no handlers, no forms; pictures come from where the note's come (beside the note, the
+web); a link to the web opens as a note's link does. A fence named `html` stays code. In the active
+mode the block is an island like a diagram: pressed twice it opens its code, with the block shown
+beside it; the panel's Insert has a tile **HTML**. In the small pictures of a note (All Notes'
+tiles, the sidebar's sheets) it is left out.
+
 ### Pictures and other files
 
 ```markdown

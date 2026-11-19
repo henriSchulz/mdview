@@ -40,6 +40,7 @@
     table: pic('<rect x="5" y="5" width="34" height="7.4" rx="2.5" fill="currentColor" opacity="0.12"/><rect x="5" y="5" width="34" height="22" rx="2.5" fill="none" stroke="currentColor" stroke-opacity="0.38"/><path d="M5 12.4h34M5 19.7h34M16.4 5v22M27.7 5v22" stroke="currentColor" stroke-opacity="0.26" fill="none"/>'),
     code: pic('<rect x="4" y="4" width="36" height="24" rx="4" fill="currentColor" opacity="0.09"/>' + tint(8, 9, 9, "--c-magenta") + tint(19, 9, 12, "--c-blue") + tint(11, 14.5, 16, "--c-green") + tint(11, 20, 7, "--c-orange") + bar(20, 20, 12)),
     formula: pic('<text x="22" y="22.5" text-anchor="middle" font-family="KaTeX_Main, Georgia, serif" font-style="italic" font-size="18" fill="currentColor" opacity="0.82">√x</text>'),
+    html: pic('<rect x="4" y="4" width="36" height="24" rx="4" fill="currentColor" opacity="0.09"/><path d="m15 11-5 5 5 5M29 11l5 5-5 5" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="m24.500 9.500-5 13" fill="none" stroke="currentColor" stroke-opacity="0.5" stroke-width="1.6" stroke-linecap="round"/>'),
     mermaid: pic('<rect x="5" y="6" width="13" height="8" rx="2.5" fill="none" stroke="var(--accent)" stroke-width="1.4"/><rect x="26" y="18" width="13" height="8" rx="2.5" fill="none" stroke="var(--accent)" stroke-width="1.4"/><path d="M18 10h6a4 4 0 0 1 4 4v3.5M25.5 15l2.5 2.5 2.5-2.5" fill="none" stroke="currentColor" stroke-opacity="0.5" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>'),
     footnote: pic(bar(6, 9, 20) + '<text x="29" y="12" font-size="9" font-weight="700" fill="var(--accent)">1</text>' + bar(6, 15, 30, 0.16) + '<path d="M6 21.5h12" stroke="currentColor" stroke-opacity="0.3"/><text x="6" y="28.5" font-size="6.5" font-weight="700" fill="var(--accent)">1</text>' + bar(11, 25, 18, 0.16)),
     graphic: pic('<path d="m20 6 2.6 6.8 6.8 2.6-6.8 2.6L20 24.8 17.4 18l-6.8-2.6 6.8-2.6Z" fill="var(--accent)" opacity="0.85"/><path d="M32 19v6M29 22h6" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round"/>'),
@@ -81,6 +82,8 @@
   };
   const CALLOUTS = ["note", "info", "tip", "success", "question", "warning", "error", "bug", "example", "important"];
   /* [section, [label key, n], more words it is found by, picture, run(view, at), drag (false: only by a click)] */
+  // an HTML block: a fence of "htmlblock", shown as the HTML it holds (viewer/markdown.js) — put in with a beginning, its dialog open
+  const htmlBlock = (v, at) => { const pos = A.context.putBlock(v, A.context.island('```htmlblock\n<style>\n  .card { padding: 16px 20px; border-radius: 12px; background: linear-gradient(135deg, #6ea8fe, #b197fc); color: #fff; font-weight: 600; }\n</style>\n<div class="card">HTML</div>\n```', "code"), false, at); setTimeout(() => A.islands.open(v, pos, true), 0); };
   const linePic = (d) => `<svg class="rp-pic rp-line" viewBox="0 0 88 24" aria-hidden="true">${d}</svg>`;
   const ITEMS = [
     ["panel.blocks", ["menu.text"], "text paragraph absatz", PIC.text, put(para)],
@@ -89,6 +92,7 @@
     ["panel.blocks", ["menu.codeBlock"], "code", PIC.code, (v, at) => A.context.INSERT.code(v, at)],
     ["panel.blocks", ["menu.formula"], "formula math latex equation formel", PIC.formula, (v, at) => A.context.INSERT.math(v, at)],
     ["panel.blocks", ["panel.mermaid"], "mermaid diagram chart diagramm", PIC.mermaid, mermaid],
+    ["panel.blocks", ["panel.html"], "html css web block style", PIC.html, htmlBlock],
     ["panel.blocks", ["menu.footnote"], "footnote note fußnote", PIC.footnote, (v) => A.context.INSERT.footnote(v), false],
     ["panel.blocks", ["panel.graphic"], "graphic figure ai claude grafik zeichnung ki", PIC.graphic, (v) => A.context.INSERT.graphic(v), false],
     ["panel.lists", ["menu.bullet"], "list bullet aufzählung liste", PIC.bullet, put(list(N.bullet_list))],
