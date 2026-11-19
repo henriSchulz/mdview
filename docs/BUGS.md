@@ -754,6 +754,15 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     language field under the bar's (the same day). A new thing that fills the window says so the same way. Checks: `ChromeTests.testAWhiteboardHasTheWindowsTop`, `testABlocksDialogHasTheWindowsTop`; a picture:
     `chrome-light-board.png` of `ChromeTests/testPictures`.
 
+126. **In full screen the Mac's bar is a window of its own, with a ground of its own: what runs up behind it out of full
+    screen begins under it there.** The system's sidebar card runs up behind the window's buttons, the bar being
+    see-through; in full screen the bar lay over the card's top and its round corners (Henri, 2026-11-19: „überlappung
+    bug“, the app full screen on the iPad's display). In full screen the card begins under the bar
+    (`contentLayoutRect`), the search at its top, and it is laid out again when full screen is entered or left
+    (`NativeSidebar.relayout`). And a group row of a source list is drawn the table's whole width, without the rows'
+    indent: the folders' heading lay on the card's rim — its text begins where the rows' signs do. Checks:
+    `SidebarNativeTests.testInFullScreenTheCardBeginsUnderTheBar`, `testTheFoldersHeadingStandsInLineWithTheRows`.
+
 ### Touch (iPad)
 
 24. **Chromium hands a touch near a small target to that target**: decide by

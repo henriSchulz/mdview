@@ -282,10 +282,13 @@ final class MacChrome: NSObject, NSToolbarDelegate {
 extension NoteWindow {
     // (full screen: the bar's height changes with it — and left by the window's own button, the page's focus ends too,
     // which it did not hear of before)
-    func windowDidEnterFullScreen(_ n: Notification) { chrome?.tellHeight(); chrome?.fit() } // (… and the window's buttons are gone: the gap begins further left)
+    // (… and the window's buttons are gone: the gap begins further left; the sidebar's card begins under the bar, which is a
+    // window of its own now)
+    func windowDidEnterFullScreen(_ n: Notification) { chrome?.tellHeight(); chrome?.fit(); sidebarCard?.relayout() }
     func windowDidExitFullScreen(_ n: Notification) {
         chrome?.tellHeight()
         chrome?.fit()
+        sidebarCard?.relayout()
         if ready { web.evaluateJavaScript("document.body.hasAttribute('data-focus') && window.MdPage && MdPage.setFocus && MdPage.setFocus(false)", completionHandler: nil) }
     }
 }

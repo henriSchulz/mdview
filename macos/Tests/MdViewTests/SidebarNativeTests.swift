@@ -37,6 +37,42 @@ final class SidebarNativeTests: ShellTest {
         XCTAssertEqual(page(w, "getComputedStyle(document.querySelector('#sidebar .sb-lib')).visibility") as? String, "hidden", "the page's card shows too")
     }
 
+    /// In full screen the window's bar is a window of its own over the page, with a ground of its own: the card begins under
+    /// it, its top and its round corners in sight (Henri, 2026-11-19: „überlappung bug“ — the bar lay over the card's top).
+    /// Out of full screen it runs up behind the window's buttons, as the system's sidebars do. (Full screen itself is not
+    /// entered here: it would take a Space of his screen — the window is told it is.)
+    func testInFullScreenTheCardBeginsUnderTheBar() {
+        let w = folderWindow()
+        let sb = w.sidebarCard!, ground = w.window.contentView!
+        let bar = ground.bounds.height - w.window.contentLayoutRect.maxY
+        XCTAssertGreaterThan(bar, 20, "the window has no bar to lie under")
+        XCTAssertEqual(sb.card.frame.maxY, ground.bounds.height - 8, accuracy: 0.5, "out of full screen the card runs up behind the buttons")
+        sb.fullScreenNow = { true }
+        sb.relayout()
+        XCTAssertEqual(sb.card.frame.maxY, w.window.contentLayoutRect.maxY - 8, accuracy: 0.5, "in full screen the bar lies over the card's top")
+        sb.card.layoutSubtreeIfNeeded()
+        let search = sb.search.convert(sb.search.bounds, to: sb.card)
+        XCTAssertLessThan(sb.card.bounds.height - search.maxY, 20, "the search stands as far down as under a see-through bar")
+        sb.fullScreenNow = { false }
+        sb.relayout()
+        XCTAssertEqual(sb.card.frame.maxY, ground.bounds.height - 8, accuracy: 0.5)
+    }
+
+    /// The folders' heading begins where the rows' signs begin — not at the card's very edge, where it lay on the card's rim
+    /// (a group row is drawn the table's whole width, without the rows' indent).
+    func testTheFoldersHeadingStandsInLineWithTheRows() {
+        let w = folderWindow()
+        let t = w.sidebarCard!.table
+        t.layoutSubtreeIfNeeded()
+        let cap = index(w, "Folders"), first = 0
+        guard let capView = t.view(atColumn: 0, row: cap, makeIfNecessary: true),
+              let rowView = t.view(atColumn: 0, row: first, makeIfNecessary: true) as? NSTableCellView, let sign = rowView.imageView else { return XCTFail("no views") }
+        capView.layoutSubtreeIfNeeded(); rowView.layoutSubtreeIfNeeded()
+        let text = (capView as? NSTableCellView)?.textField ?? capView
+        let capX = text.convert(text.bounds, to: t).minX, signX = sign.convert(sign.bounds, to: t).minX
+        XCTAssertEqual(capX, signX, accuracy: 2, "the heading at \(capX), the signs at \(signX)")
+    }
+
     /// A row clicked is the page's row clicked: All Notes, a folder in All Notes — and the row shown is the card's chosen one.
     func testARowClickedIsThePages() {
         let w = folderWindow()

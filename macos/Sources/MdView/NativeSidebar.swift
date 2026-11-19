@@ -53,6 +53,9 @@ final class NativeSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegate,
     private(set) var stand = "closed"
     private var width: CGFloat = 260
     private var placing = false
+    private var barTop: CGFloat = 52 // (the window's bar's height, as the page has it: --mac-bar)
+    /// Whether the window is full screen now (a test says it is: full screen itself would take a Space of the screen).
+    var fullScreenNow: () -> Bool = { false }
 
     init(_ w: NoteWindow) {
         self.w = w
@@ -152,6 +155,18 @@ final class NativeSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegate,
             ground.addSubview(card, positioned: .above, relativeTo: w.web)
         }
         card.moved = { [weak self] p in self?.pointer(at: p) }
+        fullScreenNow = { [weak w] in w?.window.styleMask.contains(.fullScreen) == true }
+    }
+
+    /// Laid out again where the window's bar changed (full screen entered or left): NoteWindow.windowDidEnterFullScreen.
+    func relayout() {
+        guard let w, let ground = w.window.contentView else { return }
+        fitTop()
+        place(in: ground, animate: false)
+    }
+    private func fitTop() {
+        let want = fullScreenNow() ? 12 : barTop - 8 + 2 // (in full screen the card begins under the bar: the search at its top)
+        if abs(searchTop.constant - want) > 0.5 { searchTop.constant = want }
     }
 
     private var searchTop: NSLayoutConstraint!
@@ -172,8 +187,8 @@ final class NativeSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         selectShown()
         if let q = s["search"] as? String, q != search.stringValue, w.window.firstResponder !== search.currentEditor() { search.stringValue = q }
         if let hist = s["hist"] as? String { history.contentTintColor = hist == "warn" ? .systemOrange : hist == "quiet" ? .tertiaryLabelColor : .secondaryLabelColor }
-        let top = CGFloat((s["top"] as? NSNumber)?.doubleValue ?? 52)
-        if abs(searchTop.constant - (top - 8 + 2)) > 0.5 { searchTop.constant = top - 8 + 2 }
+        barTop = CGFloat((s["top"] as? NSNumber)?.doubleValue ?? 52)
+        fitTop()
         let sbw = CGFloat((s["sbw"] as? NSNumber)?.doubleValue ?? 260)
         let was = stand
         stand = use ? (s["state"] as? String ?? "closed") : "closed"
@@ -186,7 +201,11 @@ final class NativeSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         let inset: CGFloat = 8
         let wide = width - inset - 4 // (the page's grip at the card's edge stays free to pull: #sb-grip, 8 px over the edge)
         let shown = stand == "open" || stand == "peek"
-        let frame = NSRect(x: shown ? inset : -wide - 24, y: inset, width: wide, height: ground.bounds.height - 2 * inset)
+        // (full screen: the window's bar is a window of its own over the page, with a ground of its own — it lay over the
+        // card's top and its round corners, Henri 2026-11-19 „überlappung bug“; out of it the bar is see-through and the card
+        // runs up behind the window's buttons, as the system's sidebars do)
+        let under = fullScreenNow() ? max(0, ground.bounds.height - (w?.window.contentLayoutRect.maxY ?? ground.bounds.height)) : 0
+        let frame = NSRect(x: shown ? inset : -wide - 24, y: inset, width: wide, height: ground.bounds.height - 2 * inset - under)
         if shown { card.isHidden = false }
         card.autoresizingMask = [.height]
         if !animate || card.frame.width < 1 {
@@ -221,11 +240,17 @@ final class NativeSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegate,
 
     func tableView(_ t: NSTableView, viewFor col: NSTableColumn?, row: Int) -> NSView? {
         let r = rows[row], kind = r["kind"] as? String ?? ""
-        if kind == "cap" {
-            let f = NSTextField(labelWithString: r["label"] as? String ?? "")
+        if kind == "cap" { // (a group row is drawn the table's whole width, without the rows' indent: the heading begins where their signs do)
+            let cell = NSTableCellView(), f = NSTextField(labelWithString: r["label"] as? String ?? "")
             f.font = .systemFont(ofSize: NSFont.smallSystemFontSize, weight: .semibold)
             f.textColor = .secondaryLabelColor
-            return f
+            f.translatesAutoresizingMaskIntoConstraints = false
+            cell.addSubview(f)
+            cell.textField = f
+            NSLayoutConstraint.activate([f.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: NativeSidebar.capIndent),
+                                         f.trailingAnchor.constraint(lessThanOrEqualTo: cell.trailingAnchor, constant: -8),
+                                         f.centerYAnchor.constraint(equalTo: cell.centerYAnchor)])
+            return cell
         }
         let cell = NSTableCellView()
         let img = NSImageView(), label = NSTextField(labelWithString: r["label"] as? String ?? ""), n = NSTextField(labelWithString: r["n"] as? String ?? "")
@@ -253,6 +278,8 @@ final class NativeSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         return cell
     }
 
+    /// Where the folders' heading begins in its row: where a row's sign begins (the source list's indent 16 + the sign's 4).
+    static let capIndent: CGFloat = 20
     /// The Library's rows have the system's signs; a folder the folder's own (its colour, or the sign chosen for it).
     static let smartSigns = ["smart:all": "square.stack", "smart:recent": "clock", "smart:today": "calendar", "smart:tasks": "checkmark.circle",
                              "smart:shared": "person.2", "smart:boards": "scribble.variable"]
