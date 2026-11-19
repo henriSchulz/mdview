@@ -108,6 +108,40 @@ a flowchart of the note's own structure.
 - The caption says what is shown; no title inside the picture. No scripts, event attributes or
   `foreignObject` (they are removed).
 
+## HTML blocks
+
+A fence named `htmlblock` is shown as the HTML it holds, with a `<style>` of its own — in a frame as
+wide as the text and as high as its content. It is for what neither Markdown nor an `svg` figure can
+say: a small dashboard at the head of an overview note (a row of cards with a number each), a
+layout of several boxes side by side with colour, a timeline, a legend with swatches. Text,
+tables, lists, callouts and figures stay what they are; a note is not written in HTML.
+
+````markdown
+```htmlblock
+<style>
+  .row { display: flex; gap: 12px; }
+  .card { flex: 1; padding: 14px 18px; border-radius: 12px; background: color-mix(in srgb, currentColor 8%, transparent); }
+  .card b { display: block; font-size: 1.6em; }
+</style>
+<div class="row">
+  <div class="card"><b>12</b>open tasks</div>
+  <div class="card"><b>3</b>due this week</div>
+</div>
+```
+````
+
+- The block begins with the note's letters and text colour and has no ground of its own: write
+  colours with `currentColor` and `color-mix(in srgb, currentColor …%, transparent)`, or give both a
+  ground and a text colour, so it reads in the light and the dark theme.
+- Its styles hold in the block alone: nothing of the note can be styled from it, and each block
+  needs its own `<style>`. Lay it out for any width (`flex`, `grid`, percentages), never a fixed
+  width over 600 px; its height is its content's — no `height: 100vh`, no `position: fixed`.
+- Nothing runs: `<script>`, `onclick` and the like, forms and frames do nothing. No interaction is
+  planned for; what must be shown is in the HTML as written.
+- Pictures are addressed as in the note (relative to it, or the web); a link to the web opens in the
+  browser, a link to a note is written in the note's text instead (`[[Note]]` does not work inside).
+- A fence named `html` is code shown as code. One block a note is the rule.
+
 ## The file
 
 - `# Title` as the first line after the properties; the file is named like the title
@@ -128,7 +162,7 @@ The daily tools:
 | table with a coloured head | a line `<!-- table head=cyan -->` right before it (the seven colours or `#rrggbb`); `<!-- table narrow -->` as wide as its content |
 | callout | `> [!note] Title` then `> text` lines; kinds: note, info, abstract, tip, example, question, warning, danger, quote, important; `[!tip]-` folded. One a section at most, with a plain title ("Definition", "Satz", "Hinweis") |
 | figure | an `svg` fence, as above; caption `: text` on the line under it (a picture, a PDF region and a `$$` block take one too) |
-| HTML shown | an `htmlblock` fence: any HTML with its own `<style>`, shown in a frame of its own (no scripts run); only where Markdown and an `svg` figure cannot say it |
+| HTML shown | an `htmlblock` fence, as above: HTML with its own `<style>`, in a frame of its own; nothing in it runs |
 | link to a note | `[[Note]]`, `[[Note\|text]]`, `[[Note#Heading]]`; `![[Note]]` shows it in place |
 | footnote | `text[^1]` and `[^1]: the note` |
 | highlight | `==text==` |
