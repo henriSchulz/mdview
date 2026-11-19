@@ -12,7 +12,9 @@
    *       tap(pt, e): such a pointer went up again without having moved;
    *       menu(pt, e): a mouse's right button went up again without having moved;
    *       taps(n): n fingers (two, three) touched the board together and went up again at once;
-   *       space() → held?; twist(points) → true: two fingers on one thing turn it — twisting(degrees), twisted() }
+   *       space() → held?; twist(points) → true: two fingers on one thing turn it — twisting(degrees), twisted();
+   *       rest(): the hand has let the board go — fingers up, a glide run out, a wheel or a pinch of the host's at rest (a board of
+   *       pages goes back within its edges then: view.js, settle); halt(): something came down — a glide of the view's own stops }
    * A point is { x, y } in the stage's pixels plus pressure, tilt, azimuth, time, type. */
   /* The next step of a glide: with the next frame — or, where the window draws none (it is out of sight), a moment later all the
    * same: a glide is where the board is going, and it gets there whether or not anyone watches. */
@@ -36,7 +38,12 @@
     let glide = 0;
     const calm = matchMedia("(prefers-reduced-motion: reduce)");
     const pushed = (dx, dy, t) => { const dt = Math.max(1, t - speed.t); if (dt > 120) { speed.x = speed.y = 0; } else { speed.x += (dx / dt - speed.x) * 0.5; speed.y += (dy / dt - speed.y) * 0.5; } speed.t = t; };
-    const halt = () => { cancelAnimationFrame(glide); glide = 0; slide = null; clearTimeout(lifted); };
+    const halt = () => { cancelAnimationFrame(glide); glide = 0; slide = null; clearTimeout(lifted); clearTimeout(still); if (on.halt) on.halt(); };
+    // A wheel's steps (a touchpad's, a mouse's, the fingers of an iPad that is a Mac's screen) or a host's pinch just stop: the
+    // board is let go when none has come for a moment — unless it runs on by itself, which says so when it stops.
+    let still = 0;
+    const rest = () => { clearTimeout(still); if (on.rest) on.rest(); };
+    const restSoon = (ms = 140) => { clearTimeout(still); still = setTimeout(() => { if (!glide && !slide) rest(); }, ms); };
     // A wheel's large step — a mouse's notch, a hard push on a touchpad — is not taken at once: the board goes there as a glide,
     // and a step more while it goes only adds to the way. (Small steps, a touchpad's stream of them, are taken as they come.)
     const BIG = 30;
@@ -50,20 +57,21 @@
         const k = 1 - Math.exp(-Math.max(0, now - sl.last) / 55), done = Math.hypot(sl.x, sl.y) < 0.75, mx = done ? sl.x : sl.x * k, my = done ? sl.y : sl.y * k;
         sl.last = now; sl.x -= mx; sl.y -= my;
         on.pan(mx, my);
-        if (done) slide = null; else nextFrame(frame);
+        if (done) { slide = null; restSoon(); } else nextFrame(frame);
       };
       nextFrame(frame);
     }
     function coast(t) {
       halt();
-      if (calm.matches || t - speed.t > 80 || Math.hypot(speed.x, speed.y) < 0.2) return; // (it stood still when it was let go)
+      if (calm.matches || t - speed.t > 80 || Math.hypot(speed.x, speed.y) < 0.2) return rest(); // (it stood still when it was let go)
       let vx = speed.x, vy = speed.y, last = performance.now();
       const frame = (now) => {
         const dt = Math.min(40, now - last), k = Math.pow(0.9965, dt);
         last = now;
         on.pan(vx * dt, vy * dt);
         vx *= k; vy *= k;
-        glide = Math.hypot(vx, vy) > 0.03 ? requestAnimationFrame(frame) : 0;
+        glide = Math.hypot(vx, vy) > 0.03 && !(on.beyond && on.beyond()) ? requestAnimationFrame(frame) : 0;
+        if (!glide) rest(); // (run out — or run into an edge of a board of pages: it goes back from there)
       };
       glide = requestAnimationFrame(frame);
     }
@@ -208,12 +216,14 @@
         touched = null;
         if (!cancelled && was.n >= 2 && was.n <= 3 && !was.moved && e.timeStamp - was.t < 320 && on.taps) on.taps(was.n);
       }
+      if (e.pointerType === "touch" && !fingers.size && !(drag && e.pointerId === drag.id && drag.far)) rest(); // (two fingers that pulled, or one that came down: let go)
       if (drag && e.pointerId === drag.id) {
         const tapped = !cancelled && drag.hold && !drag.far, asked = !cancelled && drag.right && !drag.far, flung = !cancelled && drag.far && e.pointerType === "touch"; // (a finger that came down to move the board and went up again without having moved: a tap)
         clearTimeout(drag.hold); drag = null; delete stage.dataset.panning;
         if (tapped && on.tap) on.tap(point(e), e);
         if (asked && on.menu) on.menu(point(e), e);
         if (flung) coast(e.timeStamp);
+        else if (!tapped && !asked && e.pointerType !== "touch") rest(); // (a mouse's pull of the board, let go — a finger's was above)
       }
       if (tool === e.pointerId) { tool = null; if (cancelled) on.cancel(); else on.end(e); }
     };
@@ -226,10 +236,11 @@
       cancelAnimationFrame(glide); glide = 0; clearTimeout(lifted); // (a run of its own ends where the wheel takes over; a glide to where it leads goes on)
       const p = at(e), unit = e.deltaMode === 1 ? 32 : e.deltaMode === 2 ? 400 : 1;
       // (a large step said so, for whoever makes a glide of the size too)
-      if (e.ctrlKey || e.metaKey) { const notch = Math.abs(e.deltaY * unit) >= BIG; return on.zoom(Math.exp((-e.deltaY * unit) / (notch ? 400 : 240)), p.x, p.y, notch); }
+      if (e.ctrlKey || e.metaKey) { const notch = Math.abs(e.deltaY * unit) >= BIG; on.zoom(Math.exp((-e.deltaY * unit) / (notch ? 400 : 240)), p.x, p.y, notch); if (!notch) restSoon(); return; }
       const dx = e.shiftKey && !e.deltaX ? -e.deltaY * unit : -e.deltaX * unit, dy = e.shiftKey && !e.deltaX ? 0 : -e.deltaY * unit;
       if (Math.hypot(dx, dy) >= BIG) return slideBy(dx, dy);
       if (slide) { slide.x += dx; slide.y += dy; } else on.pan(dx, dy);
+      restSoon();
       // Two fingers lifted off a touchpad while the board was moving: where the host says so (coasts — pages are read by pushing them
       // on) it runs on, ever slower, as under a finger. The steps just stop coming; had the system run them out itself they would
       // have slowed to nothing first, and nothing is added.
@@ -251,7 +262,7 @@
       if (!fingers.size && now !== pinched) { halt(); const p = at(e); on.zoom(now / pinched, p.x, p.y, false); }
       pinched = now;
     });
-    stage.addEventListener("gestureend", (e) => e.preventDefault());
+    stage.addEventListener("gestureend", (e) => { e.preventDefault(); if (!fingers.size) restSoon(60); });
     stage.addEventListener("contextmenu", (e) => e.preventDefault());
     return { busy: () => tool != null || drag != null || fingers.size > 0 };
   }

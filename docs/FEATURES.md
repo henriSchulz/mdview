@@ -879,7 +879,17 @@ them is not there).
   in sight (a tablet has no right click). The one page left cannot be deleted.
 - **Moving about** as on a PDF's pages: two fingers or the wheel move down the pages (a push runs
   on), a pinch or `Ctrl` with the wheel makes them larger and smaller, up to 1600 % (in the macOS app a pinch on the trackpad too, and so two fingers on an iPad that is the Mac's screen through ipad-cast); there a finger draws at once while a pen or the eraser is in hand — the app tells ipad-cast where the board is, which otherwise makes a drag only of a finger that rested —, and scrolls as ever with the pointer in hand; `Ctrl+0` shows
-  the page in sight whole. It opens with the page it was left at whole in the window.
+  the page in sight whole. It opens where it was left, as large as it was; a new one with its first page across the
+  window, its top under the bars, as GoodNotes opens one.
+- **Its edges**, as GoodNotes' notebooks have them: the pages never go out of the window. Pulled past the first page's
+  top, a side, or below the last page (and the sheet with Add Page) they give way less and less, as a list on an iPad does,
+  and go back when the hand lets go — fingers up, a push run out, the wheel's or the trackpad's steps stopped. They are
+  never made smaller than the page in sight whole between the bars (pinched smaller, they come back to that), and a size
+  let go within a tenth of the page across the window, or whole in it, becomes it. Narrower than the window, the pages
+  stand in its middle; zoomed in, they move to their own edges and no further. The bars' room counts: the page's top
+  stops under the name and the actions, its side beside the tray where it stands upright. The same holds over a PDF's
+  pages on a whiteboard.
+- **The page in sight** is said at the top, between the bars ("3 / 12"), while the pages move, and fades a moment after.
 - **The file**: a whiteboard's file whose first line says it is a notebook — its paper, its colour,
   its size, how many pages (`"paper":{"bg":"grid","color":"white","size":"a4","n":2}`). Its
   picture, in the sidebar, in All Notes and in a note, is its first page.

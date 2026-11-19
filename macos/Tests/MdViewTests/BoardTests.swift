@@ -122,5 +122,68 @@ final class BoardTests: ShellTest {
         TouchDraw.say(window: w.window, on: false)
         XCTAssertTrue(wait(5) { (heard?["rects"] as? [Any])?.isEmpty == true }, "the area was not taken back")
     }
+
+    /// A notebook keeps its pages in sight, as GoodNotes' do (Henri, 2026-11-19: "nicht intuitiv … das verschieben des
+    /// notizbuches, das ist man ganz noch außerhalb des bildes"): it opens with its first page across the window under the
+    /// bars; two fingers (wheel steps, as a trackpad and ipad-cast's fingers send them) pulled past its top give way less
+    /// and less and it goes back when they stop; a pinch smaller than a page whole comes back to the page whole.
+    func testANotebookKeepsItsPagesInSight() throws {
+        let book = """
+        <svg xmlns="http://www.w3.org/2000/svg" width="640" height="900" viewBox="0 0 640 900">
+        <metadata id="mdview-board"><![CDATA[
+        {"board":1,"bg":"auto","grid":false,"paper":{"bg":"grid","color":"white","size":"a4","n":4}}
+        ]]></metadata>
+        </svg>
+        """
+        let board = write("assets/Heft.board.svg", book)
+        let w = open(write("H.md", "# Heft\n\n![](assets/Heft.board.svg)\n"))
+        page(w, "(MdPage.openBoardFile(\(jsonString(board))), 1)")
+        XCTAssertTrue(wait(10) { (self.page(w, "!!(window.MdBoard && MdBoard.state && MdBoard.state() && MdBoard.state().book && document.querySelector('#board[data-ready]'))") as? Bool) == true }, "the notebook did not open")
+        wait(0.6)
+        let sheet = "(() => { const b = document.querySelector('#board'), r = b.getBoundingClientRect(), s = b.querySelector('.bd-sheet').getBoundingClientRect(), t = b.querySelector('.bd-title'); return [s.left - r.left, s.top - r.top, s.width, r.width, t.offsetTop + t.offsetHeight, MdBoard.state().view.z]; })()"
+        let opened = (page(w, sheet) as? [NSNumber])?.map(\.doubleValue) ?? []
+        XCTAssertEqual(opened.count, 6)
+        guard opened.count == 6 else { return }
+        XCTAssertGreaterThan(opened[1], opened[4], "the first page's top lies under the bars")
+        XCTAssertLessThan(opened[1], opened[4] + 20, "the first page's top is not right under the bars")
+        XCTAssertGreaterThan(opened[2], opened[3] * 0.75, "the first page is not across the window")
+        // two fingers pulled down past the top (a trackpad's stream of small steps), then still — how far the page came down is
+        // read from the view, in the window's pixels: the page itself is moved with the next frame, which a hidden window may not draw
+        let pull = """
+        const stage = document.querySelector('#board .bd-stage'), r = stage.getBoundingClientRect();
+        const v0 = MdBoard.state().view;
+        for (let i = 0; i < 50; i++) stage.dispatchEvent(new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: -20, deltaMode: 0, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }));
+        const v1 = MdBoard.state().view;
+        return (v0.y - v1.y) * v1.z;
+        """
+        var pulled: Double?
+        var done = false
+        w.web.callAsyncJavaScript(pull, arguments: [:], in: nil, in: .page) { r in
+            switch r { case .success(let v): pulled = (v as? NSNumber)?.doubleValue; if pulled == nil { print("pull said", v) }; case .failure(let e): print("pull failed", e) }
+            done = true
+        }
+        wait(5) { done }
+        let by = pulled ?? 0
+        XCTAssertGreaterThan(by, 40, "1000 px pulled, and the page did not give way")
+        XCTAssertLessThan(by, 600, "1000 px pulled, and the page went \(by) — no edge")
+        XCTAssertTrue(wait(3) { abs(((self.page(w, sheet) as? [NSNumber])?[1].doubleValue ?? 0) - opened[1]) < 1 }, "the page did not go back under the bars")
+        // a pinch to a fifth: back to the page whole in the window
+        let pinch = """
+        const stage = document.querySelector('#board .bd-stage'), r = stage.getBoundingClientRect();
+        const say = (type, scale) => { const e = new Event(type, { bubbles: true, cancelable: true }); Object.assign(e, { scale, rotation: 0, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }); stage.dispatchEvent(e); };
+        say('gesturestart', 1);
+        for (const s of [0.8, 0.6, 0.4, 0.3, 0.2]) say('gesturechange', s);
+        say('gestureend', 0.2);
+        return 1;
+        """
+        done = false
+        w.web.callAsyncJavaScript(pinch, arguments: [:], in: nil, in: .page) { _ in done = true }
+        wait(5) { done }
+        let whole = "(() => { const b = document.querySelector('#board'), r = b.getBoundingClientRect(), s = b.querySelector('.bd-sheet').getBoundingClientRect(); return [s.top - r.top, s.bottom - r.top, r.height]; })()"
+        XCTAssertTrue(wait(3) {
+            guard let g = (self.page(w, whole) as? [NSNumber])?.map(\.doubleValue), g.count == 3 else { return false }
+            return g[0] >= opened[4] - 1 && g[1] <= g[2] && g[1] > g[2] - 40
+        }, "pinched small, the page did not come back whole in the window: \(String(describing: page(w, whole)))")
+    }
 }
 

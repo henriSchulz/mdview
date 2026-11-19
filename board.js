@@ -186,6 +186,7 @@
     if (!["tl", "tr", "bl", "br"].includes(tray.mini)) tray.mini = null;
     if (tray.edge === "bottom") delete el.dataset.palette; else el.dataset.palette = tray.edge;
     if (tray.mini) el.dataset.mini = tray.mini; else delete el.dataset.mini;
+    room = null;
     if (keep) { try { localStorage.setItem(KEEP + ":tray", JSON.stringify(tray)); } catch (e) { /* (not kept) */ } }
     if (S) { options(null); paint(); }
   }
@@ -205,6 +206,35 @@
   }
   const size = () => ({ w: el.clientWidth, h: el.clientHeight });
   const paged = () => S && (S.pdf || S.book); // (pages under the board: a PDF's, or a notebook's — paper.js)
+  /* A board of pages keeps them in sight, as GoodNotes' notebooks do (board/view.js, limit): the pages — and under a notebook's
+   * last one the way to one more —, the room the bars take (the name and the actions at the top, the tray where it stands), the
+   * least size (the page in sight whole in the window) and the sizes a size let go near becomes: the page in sight across the
+   * room between the bars, and whole in it. The bars' room is measured once per window size and place of the tray. */
+  let room = null;
+  function edges() {
+    const on = paged(), pages = on.pages, { w, h } = size(), gap = 8, edge = 12;
+    let r = room;
+    if (!r) {
+      const bar = (q) => { const b = el.querySelector(q); return b && b.offsetWidth ? b : null; };
+      const top = Math.max(...[".bd-title", ".bd-actions"].map((q) => { const b = bar(q); return b ? b.offsetTop + b.offsetHeight + gap : edge; }));
+      const pal = bar(".bd-palette"), at = el.dataset.mini ? "" : el.dataset.palette || "bottom";
+      r = { top, bottom: pal && at === "bottom" ? h - pal.offsetTop + gap : edge, left: pal && at === "left" ? pal.offsetLeft + pal.offsetWidth + gap : edge, right: pal && at === "right" ? w - pal.offsetLeft + gap : edge };
+      if (bar(".bd-title") && pal) room = r; // (kept once the bars are laid out: before, asked again)
+    }
+    let x0 = Infinity, x1 = -Infinity;
+    for (const p of pages) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x + p.w); }
+    const first = pages[0], last = pages[pages.length - 1], more = S.book && !S.readonly ? 3 * B.pdf.GAP + 120 : 0; // (the button for one more page: paper.js)
+    const page = B.pdf.near(pages, S.view, size()), across = (w - r.left - r.right) / page.w, whole = (h - r.top - r.bottom) / page.h;
+    return { box: [x0, first.y, x1, last.y + last.h + more], ...r, least: Math.min(across, whole), sizes: [across, whole] };
+  }
+  /* Page i of a board of pages in the window: its top under the bars, as large as the view is (across the room between the bars,
+   * where the view is larger than that). */
+  function showPage(i, z = S.view.z) {
+    const p = paged().pages[i];
+    if (!p) return;
+    const L = edges();
+    S.view.set(p.x - L.left / z, p.y - L.top / z, z); // (narrower than the room: in its middle — view.js, inside)
+  }
   const auto = () => (S && S.book ? B.paper.ink(S.model.board.paper) : paged() ? B.render.AUTO : getComputedStyle(el).getPropertyValue("--fg").trim() || "#1d1d1f"); // (on pages: ink for paper, whatever the theme)
   const button = (name, key, more = "") => `<button type="button" class="bd-btn" data-do="${name}" title="${esc(T(key))}" aria-label="${esc(T(key))}"${more}>${I[name] || ""}</button>`;
   const DRAWS = ["pen", "mono", "marker", "pencil"], ALL = [...DRAWS, "eraser"];
@@ -362,7 +392,7 @@
       const uris = (e.dataTransfer?.getData("text/uri-list") || "").split(/\r?\n/).filter((u) => u && !u.startsWith("#"));
       if (uris.length) ask("board-drop", { path: S.ref, uris }).then(([names, error]) => placed(names, error, at));
     }, true);
-    new ResizeObserver(() => { if (S) paint(); }).observe(el);
+    new ResizeObserver(() => { if (!S) return; room = null; if (S.view.limit && !S.view.settling) S.view.settle(true); paint(); }).observe(el);
     const mine = () => S && S.mode === "select" && !S.readonly;
     const begun = (pt, e) => {
       if (!S || S.readonly) return mine() ? sel.start(pt, e) : start(pt);
@@ -399,6 +429,9 @@
       // two fingers tapped: the last step is taken back; three: done again (as drawing on a tablet has it)
       taps: (n) => { if (!S || S.readonly || S.act || sel.busy || sel.editing) return; const list = n === 2 ? S.undo : S.redo; if (!list.length) return; step(n === 2 ? -1 : 1); said(T(n === 2 ? "board.undo" : "board.redo")); },
       pan: (dx, dy) => { if (S) { fast = true; S.view.panBy(dx, dy); fast = false; } },
+      rest: () => { if (S && S.view.limit) S.view.settle(); }, // (the hand let go: a notebook's pages go back within its edges)
+      halt: () => { if (S) S.view.stop(); },
+      beyond: () => !!S && S.view.bent(), // (a glide that runs into a page's edge ends there, and goes back)
       coasts: () => !!paged(), // (over pages the wheel's push runs on: rule 26 keeps a whiteboard where two fingers left it)
       zoom: (f, cx, cy, notch) => { if (!S) return; if (notch && !calm.matches) return glideTo(f, cx, cy); gliding = null; fast = true; S.view.zoomAt(cx, cy, S.view.z * f); fast = false; } });
     // where the pointer is: what a touchpad's pinch makes larger and smaller is what lies under it (the host says how much, not where) — where it was last seen: a pinch may begin with the pointer said to have left
@@ -430,7 +463,7 @@
   let aim = null, gliding = null;
   function glideTo(f, cx, cy) {
     const s = S, v = s.view, g = gliding || (gliding = { want: v.z, last: performance.now(), on: false });
-    g.want = Math.max(v.min, Math.min(v.max, g.want * f)); g.cx = cx; g.cy = cy;
+    g.want = Math.max(v.limit ? v.limit().least : v.min, Math.min(v.max, g.want * f)); g.cx = cx; g.cy = cy;
     if (g.on) return;
     g.on = true; g.last = performance.now();
     const frame = (now) => {
@@ -438,7 +471,7 @@
       const k = 1 - Math.exp(-Math.max(0, now - g.last) / 55), done = Math.abs(Math.log(g.want / v.z)) < 0.004;
       g.last = now;
       fast = true; v.zoomAt(g.cx, g.cy, done ? g.want : v.z * Math.pow(g.want / v.z, k)); fast = false;
-      if (done) gliding = null; else B.pointer.frame(frame);
+      if (done) { gliding = null; if (v.limit) v.settle(); } else B.pointer.frame(frame);
     };
     B.pointer.frame(frame);
   }
@@ -464,8 +497,22 @@
    * The picture reaches past the window on each side (reach), and is drawn anew while the hand goes on — before what it holds
    * beyond the window runs out, or once it is shown too far from its own size — as often as drawing it lets the frames go on:
    * drawn only at rest, the ink came into a part moved into sight, or sharp after a zoom, only when the hand stopped (#35). */
-  function viewMoved() {
+  /* The page in sight, said at the top while a board of pages moves — as GoodNotes says it —, gone a moment after it rests. */
+  function pageNo() {
+    const on = paged();
+    if (!on || on.pages.length < 2) return;
+    let tag = el.querySelector(".bd-pageno");
+    if (!tag) { tag = document.createElement("div"); tag.className = "bd-pageno"; tag.setAttribute("aria-hidden", "true"); el.appendChild(tag); }
+    const text = `${B.pdf.near(on.pages, S.view, size()).n} / ${on.pages.length}`;
+    if (tag.textContent !== text) tag.textContent = text;
+    tag.dataset.on = "";
+    clearTimeout(pageNo.t);
+    pageNo.t = setTimeout(() => { delete tag.dataset.on; }, 900);
+  }
+  function viewMoved(moving = false) {
     if (!S) return;
+    if (moving !== true) pageNo();
+    if (moving === true && !fast) { fast = true; try { viewMoved(); } finally { fast = false; } return; } // (the view going back within a notebook's edges: board/view.js, settle)
     if (!fast || !inkAt || S.ruler) return paint();
     if (!slideFrame) slideFrame = requestAnimationFrame(slide);
     clearTimeout(rested);
@@ -936,7 +983,7 @@
     const paper = S.model.board.paper;
     if (S.readonly || paper.n >= B.paper.MAX) return;
     // (the view goes with it: to the page that came, and back to the last one when it is taken away again)
-    const n = paper.n, to = (k) => () => { S.model.board.paper.n = k; pagesNow(); S.view.fit(B.pdf.boxOf(S.book.pages[k - 1]), 64, S.view.z); };
+    const n = paper.n, to = (k) => () => { S.model.board.paper.n = k; pagesNow(); showPage(k - 1); };
     to(n + 1)();
     did({ undo: to(n), redo: to(n + 1) });
     paint();
@@ -970,13 +1017,14 @@
   /* A page put in at i (0: before the first), and the view on it. */
   function pageIn(i) {
     pagesShift(i, 1);
-    if (S.book.pages[i]) S.view.fit(B.pdf.boxOf(S.book.pages[i]), 64, S.view.z);
+    if (S.book.pages[i]) showPage(i);
   }
   /* Page i taken out, with what is on it. */
   function pageGone(i) {
     pagesShift(i, -1);
     const pages = S.book.pages, last = pages[pages.length - 1];
-    if (S.view.y > last.y + last.h) S.view.fit(B.pdf.boxOf(last), 64, S.view.z); // (the last page was taken out under the view: the one before it)
+    if (S.view.y > last.y + last.h) showPage(pages.length - 1); // (the last page was taken out under the view: the one before it)
+    else S.view.settle(true); // (fewer pages: the view within their edges)
   }
   /* The rows a right click on page i adds to the board's menu. */
   const pageRows = (i) => S.readonly ? [] : [[esc(T("board.page.before")), "", true, () => pageIn(i), "", core.sign("board.page.before")], [esc(T("board.page.after")), "", true, () => pageIn(i + 1), "", core.sign("board.page.after")],
@@ -1836,13 +1884,19 @@
         el.querySelector(".bd-name").textContent = nameOf(ref) || T("board.name.book");
         model.board.grid = false;
         s.view.max = 16; // (a page is written on closer than a board is looked at: board/pdf.js)
-        const was = model.board.view; // (the page it was left at, whole in the window)
-        s.view.fit(B.pdf.boxOf(was ? B.pdf.near(pages, was, size()) : pages[0]));
+        room = null;
+        s.view.limit = edges; // (its pages stay in sight: board/view.js)
+        // where it was left, as large as it was — a new one with its first page across the window, under the bars, as GoodNotes opens one
+        const was = model.board.view;
+        if (was && Number.isFinite(was.x) && Number.isFinite(was.y) && was.z > 0) s.view.set(was.x, was.y, was.z);
+        else showPage(0, edges().sizes[0]);
       } else if (pdf) { // (the pages where they stood in the window: one goes on where one was)
         model.board.grid = false;
         s.view.max = 16; // (a page is read and written on far closer than a board is looked at: sixteen times, sharp all the way — board/pdf.js)
         const p = pdf.pages[Math.max(0, Math.min(pdf.pages.length - 1, (pdf.at.n || 1) - 1))], z = pdf.at.width / p.w;
         s.view.set(p.x - pdf.at.left / z, p.y - pdf.at.top / z, z);
+        room = null;
+        s.view.limit = edges; // (its pages stay in sight, as a notebook's — set after it came up where the viewer had it: rule 59)
       } else s.view.fit(bounds()); // (shown as the picture in the note shows it — the whole of it, in the middle: one steps into what one saw, whatever was last looked at, on whatever screen)
       if (model.lost) chip(T("board.lost", model.lost));
       el.dataset.ready = "";
@@ -1900,6 +1954,7 @@
     core.lockScroll(false);
     post("board-open", { on: false });
     drawSaid(false);
+    el.querySelector(".bd-pageno")?.removeAttribute("data-on");
     delete el.dataset.open; delete el.dataset.ready;
     const done = () => { if (!S) { el.hidden = true; el.style.transform = ""; el.querySelector(".bd-paper").replaceChildren(); } };
     if (s.pdf) { s.pdf.paper.drop(); s.pdf.done?.({ model: s.model, view: { x: s.view.x, y: s.view.y, z: s.view.z }, pages: s.pdf.pages, quick }); } // (whoever shows the PDF: what is on it now, and where one was)

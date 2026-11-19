@@ -330,6 +330,15 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     whiteboard and over a PDF. Where the host says only how much (a touchpad's pinch on the
     desktop), the page remembers where the pointer is. A step that comes in notches (a mouse's
     wheel) is a glide to where it leads, never a jump.
+124. **A board of pages keeps its pages in sight** (2026-11-19, Henri: „im Notizbuch finde ich es vor allem nicht intuitiv
+    … das Zoom-Verhalten und das Verschieben des Notizbuches, das ist man ganz noch außerhalb des Bildes … damit man als
+    Nutzer keinen Grund hat, zu GoodNotes zurückzugehen"). A notebook — and a PDF under a board — moved as freely as the
+    endless whiteboard: pulled off the page into nothing, pinched to a speck, opened with a page small in the middle. The
+    view has edges where it has pages (`limit`, `inside`, `settle` in `board/view.js`; `edges` in board.js measures the bars'
+    room): a pull beyond them is a rubber band and goes back when the hand lets go — and every way a hand lets go says so
+    (`rest` in `board/pointer.js`: fingers up, a glide run out, the wheel's steps or a host's pinch stopped). The glide back
+    runs on a timer too where no frame is drawn, as the board's other glides do. Checks: `dev/tests/boardview.test.mjs`,
+    `BoardTests.testANotebookKeepsItsPagesInSight` (macOS).
 58. **A panel lies over the window; it does not push it.** Outline, pages and notes of a PDF, the
     panel at the right: nothing makes room, no page moves or is drawn anew, and what scrolls
     inside it never scrolls the window (`scrollIntoView` does — set the list's `scrollTop`).
