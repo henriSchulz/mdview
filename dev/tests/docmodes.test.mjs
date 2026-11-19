@@ -31,6 +31,21 @@ async function page(text, mode) {
 }
 const saves = (posts) => posts.filter((m) => m.type === "save");
 
+// (Henri, 2026-11-19: "dieses menu soll auch in der readonly ansicht da sein" — the rail, until then the active mode's alone)
+test("read: the rail stands beside the reading view, Insert and Format dimmed, and opens the panel at Style", async () => {
+  const { w, body, panel } = await page(HEAD + BODY, "read");
+  assert.equal(body.dataset.view, "read");
+  assert.ok(body.hasAttribute("data-rail"), "the rail is there");
+  const off = [...panel.rail.querySelectorAll(".rp-tab")].filter((b) => b.disabled).map((b) => b.dataset.tab);
+  assert.deepEqual(off, ["insert", "format"]);
+  panel.show(false);
+  w.MdPrefs = { ...w.MdPrefs, panelTab: "insert" };
+  assert.ok(!body.hasAttribute("data-panel") && body.hasAttribute("data-rail"), "closed, the rail stays");
+  panel.rail.querySelector('.rp-tab[data-tab="style"]').click();
+  assert.ok(body.hasAttribute("data-panel"));
+  assert.equal(panel.el.dataset.tab, "style");
+});
+
 for (const mode of ["edit", "split"]) {
   test(`${mode}: the panel shows with the document's tabs, the others dimmed, no rail`, async () => {
     const { P, body, panel } = await page(HEAD + BODY, mode);
@@ -40,7 +55,7 @@ for (const mode of ["edit", "split"]) {
     assert.equal(panel.el.dataset.tab, "style");
     const off = [...panel.rail.querySelectorAll(".rp-tab")].filter((b) => b.disabled).map((b) => b.dataset.tab);
     assert.deepEqual(off, ["insert", "format"]);
-    assert.ok(!body.hasAttribute("data-rail"), "the rail is the active mode's");
+    assert.ok(!body.hasAttribute("data-rail"), "no rail beside the source");
     assert.ok(!panel.el.querySelector(".rp-ground").disabled, "a ground can be chosen");
     panel.toggle(); // (Ctrl+Alt+P)
     assert.ok(!body.hasAttribute("data-panel"));

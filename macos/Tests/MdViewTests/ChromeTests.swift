@@ -55,6 +55,23 @@ final class ChromeTests: ShellTest {
         XCTAssertTrue(wait(5) { nav?.subitems.last?.isEnabled == true }, "forward stays dimmed")
     }
 
+    /// What stands after the sidebar's button stands beside the pinned sidebar, not over its edge (Henri, 2026-11-19: "bug
+    /// überlappt" — All Notes and the sync sign lay half on the sidebar's card); with the sidebar shut, nothing is kept free.
+    func testTheBarsButtonsStandBesideTheSidebar() {
+        let (w, _) = folderWindow()
+        w.window.setContentSize(NSSize(width: 1024, height: 706))
+        _ = page(w, "(MdPage.showSidebar(true, false), 1)")
+        let sbw = { CGFloat((self.page(w, "parseFloat(document.documentElement.style.getPropertyValue('--sb-w')) || 260") as? NSNumber)?.doubleValue ?? 260) }
+        // (beside it: at its edge or after, and no further than the bar's own space between two)
+        XCTAssertTrue(wait(5) { let e = w.chrome?.gapEnd ?? 0; return e >= sbw() && e < sbw() + 24 }, "back and forward begin at \(w.chrome?.gapEnd ?? -1), the sidebar ends at \(sbw())")
+        // pulled wider, they go with its edge
+        _ = page(w, "(document.documentElement.style.setProperty('--sb-w', '340px'), document.body.dataset.sidebar = 'closed', document.body.dataset.sidebar = 'open', 1)")
+        XCTAssertTrue(wait(5) { let e = w.chrome?.gapEnd ?? 0; return e >= 340 && e < 364 }, "a wider sidebar: \(w.chrome?.gapEnd ?? -1)")
+        _ = page(w, "(MdPage.showSidebar(false, false), 1)")
+        XCTAssertTrue(wait(5) { w.chrome?.gapEnd == nil }, "room kept free for a sidebar that is shut")
+        if #available(macOS 15, *) { XCTAssertEqual(item(w, .mdGap)?.isHidden, true) }
+    }
+
     /// A folder's window opens where it was closed, as large as it was.
     func testAWindowOpensWhereItStood() {
         let app = AppDelegate.shared!

@@ -69,7 +69,8 @@
   const noteLabel = (n) => (folder && folder.quick ? quickOf(n).title : (sbTitles && n.title) || n.name);
   function sortNotes(notes) {
     const key = sortKey(), by = key === "opened" ? "opened" : key === "modified" ? "mtime" : null;
-    return [...notes].sort((a, b) => (by && (b[by] || 0) - (a[by] || 0)) || collator.compare(noteLabel(a), noteLabel(b)));
+    // (a note that says "top: true" stands before the others, whatever the order — its folder's overview)
+    return [...notes].sort((a, b) => (b.top ? 1 : 0) - (a.top ? 1 : 0) || (by && (b[by] || 0) - (a[by] || 0)) || collator.compare(noteLabel(a), noteLabel(b)));
   }
   function setSort(key) {
     if (key === sortKey()) return;
@@ -87,7 +88,7 @@
   function entriesOf(dir) {
     const dirs = dir.dirs.map((d) => ({ key: d.path, dir: d, label: d.name }));
     const notes = sortNotes(dir.notes).map((n) => ({ key: n.path, note: n, label: noteLabel(n) }));
-    return [...dirs.sort(byLabel), ...notes];
+    return [...notes.filter((e) => e.note.top), ...dirs.sort(byLabel), ...notes.filter((e) => !e.note.top)]; // (… and before the folders)
   }
   const rowIcon = (path) => (/\.board\.svg$/i.test(path) ? ICON.board : /\.(md|markdown|mdown|txt)$/i.test(path) ? ICON.note : /\.pdf$/i.test(path) ? ICON.pdf : /\.(pptx?|ppsx?|odp)$/i.test(path) ? ICON.slides
     : /\.(png|jpe?g|gif|webp|svg|avif|bmp|tiff?|heic)$/i.test(path) ? ICON.picture : ICON.file);
@@ -121,6 +122,7 @@
       if (label.textContent !== e.label) label.textContent = e.label;
       row.title = e.note ? e.note.path.slice(folder.root.length + 1) : "";
       el.classList.toggle("is-hidden", !!(e.note || e.dir).hidden); // (put away, and shown all the same: dimmed)
+      el.classList.toggle("is-top", !!(e.note && e.note.top)); // (first in its folder, by its own property: marked)
       el.classList.toggle("is-coming", !!(e.note && e.note.coming)); // (on its way into the repository: a file added in the browser, until a commit has it)
       row.classList.toggle("picked", sbPicked.has(e.key));
       dressRow(el, e);

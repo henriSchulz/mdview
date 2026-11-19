@@ -711,6 +711,13 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     (`.ov-acts`, never broken), New stands at the title's right, the choices on a line of their own under it.
     `web/test/library.test.mjs` (the head beside the sidebar at every width, Home among the choices).
 
+122. **What the Mac's bar holds after the sidebar's button stands beside the pinned sidebar, never over its edge.** The
+    window's buttons and the bar's first items are together wider than the sidebar; left where the bar puts them, a capsule
+    lies half on the card and half beside it (Henri, 2026-11-19: "bug überlappt"). A gap after the sidebar's button reaches
+    the card's edge (`MacChrome.sidebar`, `fit`) — measured from where the bar put the gap, and again after the bar laid
+    itself out: a width set from the first look is off by what the bar moves afterwards. A new item at the bar's left goes
+    after the gap. Check: `ChromeTests.testTheBarsButtonsStandBesideTheSidebar`; a picture: `MDVIEW_SNAP=… ChromeTests/testPictures`.
+
 ### Touch (iPad)
 
 24. **Chromium hands a touch near a small target to that target**: decide by

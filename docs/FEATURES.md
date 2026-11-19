@@ -856,7 +856,7 @@ them is not there).
   goes with it, and `Ctrl+Z` brings both back. Delete Page is in the paper's menu too, for the page
   in sight (a tablet has no right click). The one page left cannot be deleted.
 - **Moving about** as on a PDF's pages: two fingers or the wheel move down the pages (a push runs
-  on), a pinch or `Ctrl` with the wheel makes them larger and smaller, up to 1600 %; `Ctrl+0` shows
+  on), a pinch or `Ctrl` with the wheel makes them larger and smaller, up to 1600 % (in the macOS app a pinch on the trackpad too, and so two fingers on an iPad that is the Mac's screen through ipad-cast); there a finger draws at once while a pen or the eraser is in hand — the app tells ipad-cast where the board is, which otherwise makes a drag only of a finger that rested —, and scrolls as ever with the pointer in hand; `Ctrl+0` shows
   the page in sight whole. It opens with the page it was left at whole in the window.
 - **The file**: a whiteboard's file whose first line says it is a notebook — its paper, its colour,
   its size, how many pages (`"paper":{"bg":"grid","color":"white","size":"a4","n":2}`). Its
@@ -913,6 +913,13 @@ width: wide
 ```
 
 `color` (one of the seven colours above) marks the note in All Notes: a dot in that colour before its name, on the tile and in the list.
+
+`top: true` makes the note the first of its folder — the folder's overview, its dashboard: in the
+sidebar and in All Notes it stands before the folders and before the other notes, whatever the
+order chosen, with a pin before its name, the name stronger. Several such notes of a folder stand
+together at its head, in the order chosen. It is set in the panel's Style part (**First in its
+folder**) or written into the properties; taken away, the note stands where the order puts it. The
+desktop apps (Linux, macOS) read it off the files; the web app does not yet.
 
 Two properties say how the note itself is shown — in the reading view, the active mode and the
 web app, a shared note too. They can be chosen in the panel's Style part:
@@ -987,9 +994,10 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
 - **Panel at the right** (`Ctrl+Alt+P`), opened from the rail of four signs at the window's
   right edge — a press on a sign opens the panel at that part, a press on the sign of the part
   that is open closes it, and so does a press anywhere outside the panel (the note, the toolbar,
-  the sidebar). The toolbar has no button for it. The rail is the active mode's: it
-  slides in from the edge with that mode and out again when the view changes, and the reading
-  view and the source have none (there the panel comes only with `Ctrl+Alt+P`, at Style). The panel lies over the window, under the toolbar and beside the rail:
+  the sidebar). The toolbar has no button for it. The rail stands beside the active mode and beside the
+  reading view — there with Insert and Format dimmed: its Style and Information open as in the
+  active mode. The source has none (there the panel comes only with `Ctrl+Alt+P`, at Style): the
+  rail slides out to the edge with that view and in again. The panel lies over the window, under the toolbar and beside the rail:
   nothing makes room for it, and neither the note nor the toolbar moves when it comes or goes. A
   window narrower than 760 px shows neither the rail nor the panel. *Insert* (`+`) — tiles for everything that can be put in, click
   or drag; *Format* (`Aa`) — the styles of the block the caret is in; *Style* (the brush) and
@@ -1134,7 +1142,7 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   every layout. They are kept in the folder itself
   (`.mdview/folders.json`), so another device and the web app show the same; a folder renamed or
   moved keeps them.
-- **Order of the notes**: Name (the default, on every device until another is chosen), Last Opened, Date Modified.
+- **Order of the notes**: Name (the default, on every device until another is chosen), Last Opened, Date Modified. A note whose properties say `top: true` stands before them all, and before the folders (Properties, above).
 - **What is listed**: everything, as long as it is not taken out. A kind can be taken out — PDFs,
   pictures, sound and video, whiteboards, other files — in the settings, or at once from a right
   click in the sidebar › Show. All Notes has its own choice of the same five (settings, or a

@@ -227,18 +227,19 @@
     ok("the open part's sign closes the panel; the rail stays, nothing marked", !document.body.hasAttribute("data-panel") && document.body.hasAttribute("data-rail") && !tabs().includes("*") && window.MdPrefs.panel === false, [tabs(), window.MdPrefs.panel]);
     sign("insert").click(); await sleep(300); btn.click();
     await sleep(900);
-    // the rail is the active mode's: away beside the reading view, sliding out to the window's edge — and in again with the active mode
+    // the rail stands beside the active mode and the reading view (there Insert and Format dimmed); beside the source it is away
     const rr = document.getElementById("rrail"), railAt = () => [Number(getComputedStyle(rr).opacity).toFixed(2), getComputedStyle(rr).translate];
+    const dimmed = () => [...rr.querySelectorAll(".rp-tab")].filter((b) => b.disabled).map((b) => b.dataset.tab).join();
     if (document.body.dataset.view !== "active") { MdView.setMode("active"); await sleep(900); }
-    const shownAt = railAt();
-    MdView.setMode("read"); await sleep(70);
-    const going = railAt();
-    await sleep(700);
-    ok("in the reading view no rail at all — it goes out sliding to the edge", !document.body.hasAttribute("data-rail") && getComputedStyle(rr).visibility === "hidden" && shownAt[0] === "1.00" && Number(going[0]) < 1 && going[1] !== "0px" && going[1] !== "none", [shownAt, going, railAt()]);
-    MdView.setMode("active"); await sleep(90);
-    const coming = railAt(), comingOp = Number(getComputedStyle(rr).opacity); // (not rounded: at 90 ms it can be 0.995 — "1.00" — and still coming)
-    await sleep(800);
-    ok("… and comes in with the active mode", document.body.hasAttribute("data-rail") && comingOp < 1 && /^\d/.test(coming[1]) && coming[1] !== "0px" && railAt()[0] === "1.00", [coming, comingOp, railAt()]);
+    MdView.setMode("read"); await sleep(800);
+    ok("in the reading view the rail stays, Insert and Format dimmed", document.body.hasAttribute("data-rail") && getComputedStyle(rr).visibility === "visible" && railAt()[0] === "1.00" && dimmed() === "insert,format", [railAt(), dimmed()]);
+    sign("style").click(); await sleep(500);
+    ok("… and its sign opens the panel there, at Style", document.body.hasAttribute("data-panel") && panel0.dataset.tab === "style", [panel0.dataset.tab]);
+    sign("style").click(); await sleep(500);
+    MdView.setMode("edit"); await sleep(900);
+    ok("beside the source no rail at all", !document.body.hasAttribute("data-rail") && getComputedStyle(rr).visibility === "hidden", railAt());
+    MdView.setMode("active"); await sleep(900);
+    ok("… and it is there again with the active mode, nothing dimmed", document.body.hasAttribute("data-rail") && railAt()[0] === "1.00" && dimmed() === "", [railAt(), dimmed()]);
   } catch (e) { o.error = String(e && (e.message + "\n" + e.stack) || e); }
   out("panel", o);
 })();

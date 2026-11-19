@@ -8,8 +8,8 @@ struct ScanResult {
 }
 
 final class Scanner {
-    /// path -> (mtime, size, title)
-    var titleCache: [String: (Double, Int, String?)] = [:]
+    /// path -> (mtime, size, title — nil while it was not looked for —, whether it says `top: true`)
+    var titleCache: [String: (Double, Int, String??, Bool)] = [:]
     private var count = 0
     private var walked: [String] = []
     private var deadline = Date()
@@ -70,16 +70,19 @@ final class Scanner {
             }
             let real = linked || isLink ? Lib.resolve(path) : path
             if Lib.isMd(path) {
-                var title: String?
-                if titles {
-                    if let h = titleCache[path], h.0 == mtime, h.1 == size { title = h.2 } else {
-                        title = Lib.noteTitle(path)
-                        titleCache[path] = (mtime, size, title)
-                    }
+                // (the note's beginning is read once for both — its title, where titles are shown, and whether it says
+                // `top: true` — and again only when the file is another)
+                var title: String?, top = false
+                if let h = titleCache[path], h.0 == mtime, h.1 == size, !titles || h.2 != nil { title = h.2 ?? nil; top = h.3 } else {
+                    let text = Lib.read(path, limit: titles ? 16 * 1024 : 4 * 1024) ?? ""
+                    title = titles ? Lib.title(in: text) : nil
+                    top = Lib.noteTop(text)
+                    titleCache[path] = (mtime, size, titles ? .some(title) : nil, top)
                 }
                 var n: [String: Any] = ["name": (name as NSString).deletingPathExtension, "path": path, "real": real,
                                         "title": title as Any? ?? NSNull(), "mtime": Int(mtime), "opened": 0]
                 if away { n["hidden"] = true }
+                if top { n["top"] = true }
                 notes.append(n)
             } else {
                 let kind = Lib.isBoard(path) ? "board" : Lib.kind(path)

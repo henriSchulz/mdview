@@ -436,12 +436,15 @@
    *               one of the theme's colours, or paper (viewer/page.css)
    *   width: narrow | wide | full   how much of the window the text column takes (normal, where it says nothing);
    *               "wide: true", as it was written before, is wide
-   * -> { background ("" for the theme's own), width } */
+   *   top: true     the note stands first in its folder, marked (the sidebar, All Notes): the folder's overview, its
+   *               dashboard (Henri, 2026-11-19). The shells read it off the file when they list the folder (scan.rs
+   *               note_top, Lib.noteTop).
+   * -> { background ("" for the theme's own), width, top } */
   const BACKGROUNDS = ["gray", ...DECO_COLORS, "dots", "grid", "lines"];
   const docLook = (props) => {
     const bg = props && typeof props.background === "string" ? props.background.trim().toLowerCase().replace(/^grey$/, "gray") : "";
     const w = props && typeof props.width === "string" ? props.width.trim().toLowerCase() : "";
-    return { background: BACKGROUNDS.includes(bg) ? bg : "", width: ["narrow", "wide", "full"].includes(w) ? w : props && props.wide === true ? "wide" : "normal" };
+    return { background: BACKGROUNDS.includes(bg) ? bg : "", width: ["narrow", "wide", "full"].includes(w) ? w : props && props.wide === true ? "wide" : "normal", top: !!props && props.top === true };
   };
   // a line's text as it is read: no marks of Markdown, pictures and comments gone, a link its words
   const plainText = (s) => s.replace(/<!--.*?-->/g, "").replace(/!\[\[[^\]]*\]\]|!\[[^\]]*\]\([^)]*\)/g, "").replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*_`~$]|==/g, "").replace(/\s+/g, " ").trim();

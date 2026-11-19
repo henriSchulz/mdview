@@ -16,7 +16,7 @@
  * Insert and Format are the active mode's. Style and Info stand in every mode —
  * beside the reading view and beside the source (alone or beside its reading):
  * there the panel shows when one of them is the chosen tab, and its other tabs
- * are dimmed; the rail is the active mode's alone.
+ * are dimmed; the rail stands beside the active mode and the reading view.
  *
  * The Format tab is the "/" menu's entries laid out (slash.js says what is
  * offered where, and does it). The panel never takes the focus from the text,
@@ -134,6 +134,7 @@
     `</div><div class="rp-pane" data-pane="style" role="tabpanel"><h3 class="rp-sec">${esc(T("panel.background"))}</h3><div class="rp-grounds" role="radiogroup" aria-label="${esc(T("panel.background"))}">` +
     GROUNDS.map((g) => `<button class="rp-ground" type="button" role="radio" aria-checked="false" data-bg="${g}" title="${esc(groundName(g))}" aria-label="${esc(groundName(g))}"><i data-doc-bg="${g || "none"}"></i></button>`).join("") +
     `</div><h3 class="rp-sec">${esc(T("panel.layout"))}</h3><label class="rp-line"><span>${esc(T("panel.width"))}</span><select class="rp-width" data-prop="width" aria-label="${esc(T("panel.width"))}">${["narrow", "normal", "wide", "full"].map((w) => `<option value="${w}">${esc(T("panel.width." + w))}</option>`).join("")}</select></label>` +
+    `<h3 class="rp-sec">${esc(T("panel.folder"))}</h3><label class="rp-line"><span>${esc(T("panel.top"))}</span><input class="pf-switch rp-top" type="checkbox" role="switch" aria-label="${esc(T("panel.top"))}"></label>` +
     `<p class="rp-hint rp-say">${esc(T("panel.docHint"))}</p></div>`;
   document.body.appendChild(el);
   /* The rail at the window's right edge: one sign for each of the panel's parts. A press opens the panel at that part,
@@ -391,6 +392,7 @@
     for (const b of docEl.querySelectorAll(".rp-ground")) { b.setAttribute("aria-checked", String(b.dataset.bg === look.background)); b.disabled = !can; }
     widthBox.value = look.width || "normal";
     widthBox.disabled = !can;
+    topBox.checked = !!look.top; topBox.disabled = !can;
     if (widthWrap && widthWrap.sync) widthWrap.sync();
     clearTimeout(counting);
     if (countedFor !== (p && p.path) || counted == null) { countedFor = p && p.path; count(); }
@@ -400,6 +402,9 @@
   docEl.addEventListener("click", (e) => { const b = e.target.closest(".rp-ground"); if (b && !b.disabled) { core.doc.set("background", b.dataset.bg || null); doc(); } });
   // how wide the text column is: a share of the window, said by the note (normal: nothing said; an old "wide: true" goes)
   widthBox.addEventListener("change", () => { core.doc.set("width", widthBox.value === "normal" ? null : widthBox.value); if (/^---[ \t]*\n(?:[^\n]*\n)*?wide:/.test(String((core.current || {}).text || ""))) core.doc.set("wide", null); doc(); });
+  // first in its folder, marked — the folder's overview (Henri, 2026-11-19): "top: true" in the note, nothing where it is off
+  const topBox = docEl.querySelector(".rp-top");
+  topBox.addEventListener("change", () => { core.doc.set("top", topBox.checked ? true : null); doc(); });
   docEl.addEventListener("keydown", (e) => e.stopPropagation()); // (Space on a ground or the switch is not the note's)
 
   // --- tabs, opening and closing
@@ -421,12 +426,13 @@
     doc();
   }
   /* The rail's signs: the one whose part is open is marked; beside the reading view only the document's can be pressed. The
-   * rail is the active mode's: not beside the reading view (Henri, 2026-10-14 — there the panel comes only with Ctrl+Alt+P),
-   * and so not beside the source either (the same: Ctrl+Alt+P), not where a note is only shown. It comes in and goes out with the view (active/panel.css). */
+   * rail stands beside the active mode and beside the reading view (Henri, 2026-11-19: "dieses menu soll auch in der readonly
+   * ansicht da sein" — until then it was the active mode's alone), there with Insert and Format dimmed. Not beside the source
+   * (there the panel comes with Ctrl+Alt+P), not where a note is only shown. It comes in and goes out with the view (active/panel.css). */
   function marks() {
     for (const b of rail.querySelectorAll(".rp-tab")) { b.setAttribute("aria-selected", String(isOpen() && b.dataset.tab === el.dataset.tab)); b.disabled = reading() && !DOCS.includes(b.dataset.tab); }
     const cur = window.MdView.core.current; // (no note in the window — an empty tab, a PDF: no rail)
-    document.body.toggleAttribute("data-rail", can() && mode() === "active" && !!cur && cur.kind !== "pdf");
+    document.body.toggleAttribute("data-rail", can() && (mode() === "active" || mode() === "read") && !!cur && cur.kind !== "pdf");
   }
   rail.addEventListener("click", (e) => {
     const b = e.target.closest(".rp-tab");
