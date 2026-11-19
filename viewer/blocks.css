@@ -171,3 +171,5 @@ table.has-cols :is(td, th) { overflow-wrap: anywhere; }
 :is(.ov-prev, .sb-prev) .html-frame { display: none; }
 /* (in the active mode the block is pressed, chosen and opened as any island: the frame takes no pointer there) */
 .ProseMirror .html-frame { pointer-events: none; }
+/* (beside or over its code in a block's dialog: as wide as a note's column, not a frame's 300 px) */
+.dlg-preview > .html-block { width: min(100%, 46rem); margin: 0; }

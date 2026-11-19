@@ -176,7 +176,9 @@ final class MacChrome: NSObject, NSToolbarDelegate {
         // window out anew — 55 ms of the 70 the shell took to show a spare's note)
         // (a whiteboard over the whole window has bars of its own at the top: the system's would lie on them — Henri,
         // 2026-11-19, "bug": the board's name under the window's buttons, its capsule under back and forward)
-        let shown = (w.path != nil || w.folder != nil || w.isSpare) && !b("focus") && !w.boardFull
+        // (… and so has a dialog that is the whole window, a block's code with what it shows: "bug", the same day — its
+        // title under the window's buttons, its language and its buttons under the bar's)
+        let shown = (w.path != nil || w.folder != nil || w.isSpare) && !b("focus") && !w.boardFull && !b("canvas")
         if toolbar.isVisible != shown { toolbar.isVisible = shown; tellHeight(); fit() }
         let note = !b("nonote"), folder = b("folder")
         items[.mdOutline]?.isEnabled = note
@@ -231,6 +233,7 @@ final class MacChrome: NSObject, NSToolbarDelegate {
         ":root[data-mac] #sidebar{padding-top:calc(var(--mac-bar,52px) - var(--sb-inset,8px))}" +
         // (a whiteboard over the whole window: the bar is gone, the window's three buttons stay — the board's name begins after them)
         ":root[data-mac] #board:not([data-pdf]) .bd-title{left:calc(78px + env(safe-area-inset-left, 0px))}" +
+        ":root[data-mac] #dlg[data-canvas] .dlg-head{padding-left:86px}" +
         ":root[data-mac] :is(#ctxmenu,.actmenu){--accent:var(--c-accent)}";
       var style = document.createElement("style");
       style.textContent = css;
@@ -254,7 +257,7 @@ final class MacChrome: NSObject, NSToolbarDelegate {
           var back = q('#tabs [data-act="navback"]'), fwd = q('#tabs [data-act="navfwd"]'), seg = q('#toolbar .seg-btn[aria-checked="true"]');
           var sync = q('#tabs .tab-sync');
           var st = { nonote: b.hasAttribute("data-nonote"), folder: !!P.folder, sidebar: b.dataset.sidebar || "",
-            focus: b.hasAttribute("data-focus"),
+            focus: b.hasAttribute("data-focus"), canvas: !!q("#dlg[data-canvas][data-open]"),
             overview: b.hasAttribute("data-overview"), back: !!back && !back.disabled, fwd: !!fwd && !fwd.disabled,
             mode: seg ? seg.dataset.mode : "read", sync: !!sync && b.hasAttribute("data-linked"), tabs: tabs };
           var s = JSON.stringify(st);
@@ -263,6 +266,8 @@ final class MacChrome: NSObject, NSToolbarDelegate {
         var later = function () { if (!soon) soon = setTimeout(tell, 0); };
         var mo = new MutationObserver(later);
         mo.observe(document.body, { attributes: true, attributeFilter: ["data-sidebar", "data-nonote", "data-focus", "data-overview", "data-tabs", "data-linked", "data-folder"] });
+        // (a dialog that is the whole window — a block's code and what it shows — comes and goes by attributes of its own)
+        mo.observe(html, { attributes: true, subtree: true, attributeFilter: ["data-canvas", "data-open"] });
         var watch = function () {
           ["#toolbar", "#tabs"].forEach(function (s) { var el = q(s); if (el) mo.observe(el, { attributes: true, subtree: true, childList: true, attributeFilter: ["disabled", "aria-checked", "class"] }); });
         };

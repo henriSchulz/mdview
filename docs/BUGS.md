@@ -722,7 +722,9 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     whole window and has its name, its tools and its actions at the top; the system's bar stayed, and its buttons lay on
     the board's capsules, the board's name under the window's three buttons (Henri, 2026-11-19: "bug"). While such a board
     is open (`board-open` with `full`; not a PDF's, which lies under the tabs) the bar is hidden (`MacChrome.update`), and
-    the board's name begins after the window's buttons. Check: `ChromeTests.testAWhiteboardHasTheWindowsTop`; a picture:
+    the board's name begins after the window's buttons. The same for a dialog that is the whole window (a block's code with what it
+    shows, `#dlg[data-canvas]`: the page's `macbar` says `canvas`) — its title lay under the window's buttons, its
+    language field under the bar's (the same day). A new thing that fills the window says so the same way. Checks: `ChromeTests.testAWhiteboardHasTheWindowsTop`, `testABlocksDialogHasTheWindowsTop`; a picture:
     `chrome-light-board.png` of `ChromeTests/testPictures`.
 
 ### Touch (iPad)

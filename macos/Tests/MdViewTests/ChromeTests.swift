@@ -89,6 +89,26 @@ final class ChromeTests: ShellTest {
         XCTAssertTrue(wait(5) { w.window.toolbar?.isVisible == true }, "the board shut, and no bar")
     }
 
+    /// A dialog that is the whole window (a block's code with what it shows) has the window's top as a whiteboard has it:
+    /// no bar of the system's over its head, its title after the window's buttons (Henri, 2026-11-19: "bug").
+    func testABlocksDialogHasTheWindowsTop() {
+        let note = write("Notes/Block.md", "# Block\n\n```htmlblock\n<p>Hello</p>\n```\n\nAfter.\n")
+        let w = open(folder: dir)
+        w.on("note", ["path": note])
+        XCTAssertTrue(wait(10) { (self.page(w, "!!(MdPage.current && MdPage.current.path === \(jsonString(note)))") as? Bool) == true })
+        _ = page(w, "(MdPage.setMode('active'), 1)")
+        XCTAssertTrue(wait(10) { (self.page(w, "!!(window.MdActive && MdActive.view && MdActive.view.pm && document.querySelector('.ProseMirror .html-block'))") as? Bool) == true }, "the active mode did not come")
+        XCTAssertEqual(w.window.toolbar?.isVisible, true)
+        _ = page(w, "(() => { const v = MdActive.view.pm; let at = -1; v.state.doc.descendants((n, pos) => { if (at < 0 && n.type.name === 'island') at = pos; }); MdActive.islands.open(v, at, false); return at; })()")
+        XCTAssertTrue(wait(5) { (self.page(w, "!!document.querySelector('#dlg[data-canvas][data-open]')") as? Bool) == true }, "the block's dialog did not open over the window")
+        XCTAssertTrue(wait(5) { w.window.toolbar?.isVisible == false }, "the system's bar lies over the dialog's head")
+        let left = (page(w, "document.querySelector('#dlg #dlg-title').getBoundingClientRect().left") as? NSNumber)?.doubleValue ?? 0
+        let lights = w.window.standardWindowButton(.zoomButton).map { $0.convert($0.bounds, to: nil).maxX } ?? 70
+        XCTAssertGreaterThanOrEqual(left, Double(lights) + 4, "the dialog's title under the window's buttons")
+        _ = page(w, "(document.querySelector('#dlg [data-do=\"cancel\"]').click(), 1)")
+        XCTAssertTrue(wait(5) { w.window.toolbar?.isVisible == true }, "the dialog shut, and no bar")
+    }
+
     /// A folder's window opens where it was closed, as large as it was.
     func testAWindowOpensWhereItStood() {
         let app = AppDelegate.shared!
@@ -105,6 +125,24 @@ final class ChromeTests: ShellTest {
         windows.append(again)
         XCTAssertFalse(again === w)
         XCTAssertEqual(again.window.frame, r)
+    }
+
+    /// A picture of a block's dialog over the window (not a check): only with MDVIEW_SNAP=<folder>.
+    func testPictureOfABlocksDialog() throws {
+        let snap = ProcessInfo.processInfo.environment["MDVIEW_SNAP"]
+        try XCTSkipIf(snap == nil, "only with MDVIEW_SNAP")
+        let note = write("Block.md", "# Block\n\n```htmlblock\n<style>.card { padding: 16px 20px; border-radius: 12px; background: linear-gradient(135deg, #6ea8fe, #b197fc); color: #fff; font-weight: 600; }</style>\n<div class=\"card\">HTML</div>\n```\n\nAfter.\n")
+        let w = openPainted(note)
+        w.window.setContentSize(NSSize(width: 1024, height: 706))
+        wait(10) { (self.page(w, "!!(window.MdPage && MdPage.current)") as? Bool) == true }
+        _ = page(w, "(MdPage.setMode('active'), 1)")
+        wait(10) { (self.page(w, "!!(window.MdActive && MdActive.view && MdActive.view.pm && document.querySelector('.ProseMirror .html-block'))") as? Bool) == true }
+        _ = page(w, "(() => { const v = MdActive.view.pm; let at = -1; v.state.doc.descendants((n, pos) => { if (at < 0 && n.type.name === 'island') at = pos; }); MdActive.islands.open(v, at, false); return at; })()")
+        wait(2.5)
+        let p = Process(); p.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+        p.arguments = ["-x", "-o", "-l", String(w.window.windowNumber), Lib.join(snap!, "chrome-block-dialog.png")]
+        try? p.run(); p.waitUntilExit()
+        w.closeNow()
     }
 
     /// Pictures of the windows (not a check): only with MDVIEW_SNAP=<folder>.
