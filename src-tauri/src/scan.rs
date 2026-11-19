@@ -22,6 +22,7 @@ const VIDEO_EXT: &[&str] = &["mp4", "mkv", "mov", "ogv"];
 /// pictures that may be dropped on a note
 pub const IMAGE_EXT: &[&str] = &["png", "jpg", "jpeg", "gif", "webp", "avif", "svg", "bmp"];
 pub const SKIP_DIRS: &[&str] = &["node_modules", "__pycache__", "target", "venv", ".venv", "dist", "build"];
+const TOP_SCAN: usize = 4 * 1024; // a note's properties, where only `top` is looked for (titles not shown)
 const TITLE_SCAN: usize = 16 * 1024; // a note's title (first H1) is looked for this far in
 const NOTE_LIMIT: usize = 5000; // notes listed in the sidebar at most
 
@@ -210,7 +211,29 @@ pub fn read_text(path: &Path, limit: Option<usize>) -> std::io::Result<String> {
 
 /// First H1 of a note (frontmatter and code blocks skipped), or None.
 pub fn note_title(path: &Path) -> Option<String> {
-    let text = read_text(path, Some(TITLE_SCAN)).ok()?;
+    title_in(&read_text(path, Some(TITLE_SCAN)).ok()?)
+}
+
+/// Whether a note's properties say `top: true`: it stands first in its folder then, marked (the
+/// sidebar, All Notes — the folder's overview; Henri, 2026-11-19). `text`: the note's beginning.
+pub fn note_top(text: &str) -> bool {
+    let mut lines = text.trim_start_matches('\u{feff}').lines();
+    if lines.next().map(str::trim_end) != Some("---") {
+        return false;
+    }
+    for l in lines {
+        if matches!(l.trim(), "---" | "...") {
+            return false;
+        }
+        if let Some(v) = ["top:", "\"top\":", "'top':"].iter().find_map(|k| l.strip_prefix(k)) {
+            return v.split(" #").next().unwrap_or("").trim().eq_ignore_ascii_case("true");
+        }
+    }
+    false
+}
+
+/// First H1 in a note's beginning.
+fn title_in(text: &str) -> Option<String> {
     let lines: Vec<&str> = text.lines().collect();
     let mut start = 0;
     if lines.first().is_some_and(|l| l.trim() == "---") {
@@ -301,6 +324,8 @@ pub struct Note {
     #[serde(skip_serializing_if = "is_false")]
     pub hidden: bool, // (put away — by hand, by its name, as something the application keeps for a note: listed only where that is asked for)
     pub opened: i64,
+    #[serde(skip_serializing_if = "is_false")]
+    pub top: bool, // (its properties say `top: true`: first in its folder — note_top)
 }
 
 #[derive(Serialize, Clone)]
@@ -330,8 +355,8 @@ impl Node {
     }
 }
 
-/// path -> (mtime in ns, size, title)
-pub type TitleCache = HashMap<String, (u128, u64, Option<String>)>;
+/// path -> (mtime in ns, size, title — None while it was not looked for —, whether it says `top: true`)
+pub type TitleCache = HashMap<String, (u128, u64, Option<Option<String>>, bool)>;
 
 struct Scan<'a> {
     cache: &'a mut TitleCache,
@@ -400,16 +425,15 @@ impl Scan<'_> {
             let real = s(&canon(&path).unwrap_or_else(|_| path.clone()));
             if is_md(&path) {
                 let since = st.modified().ok().and_then(|t| t.duration_since(UNIX_EPOCH).ok()).unwrap_or_default();
-                let mut title = None;
-                if self.titles {
-                    let key = (since.as_nanos(), st.len());
-                    let hit = self.cache.get(&s(&path)).filter(|h| (h.0, h.1) == key).map(|h| h.2.clone());
-                    title = hit.unwrap_or_else(|| {
-                        let t = note_title(&path);
-                        self.cache.insert(s(&path), (key.0, key.1, t.clone()));
-                        t
-                    });
-                }
+                // (the note's beginning is read once for both, and again only when the file is another)
+                let key = (since.as_nanos(), st.len());
+                let hit = self.cache.get(&s(&path)).filter(|h| (h.0, h.1) == key && (!self.titles || h.2.is_some())).map(|h| (h.2.clone().flatten(), h.3));
+                let (title, top) = hit.unwrap_or_else(|| {
+                    let text = read_text(&path, Some(if self.titles { TITLE_SCAN } else { TOP_SCAN })).unwrap_or_default();
+                    let (t, top) = (self.titles.then(|| title_in(&text)), note_top(&text));
+                    self.cache.insert(s(&path), (key.0, key.1, t.clone(), top));
+                    (t.flatten(), top)
+                });
                 node.notes.push(Note {
                     name: path.file_stem().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
                     path: s(&path),
@@ -421,6 +445,7 @@ impl Scan<'_> {
                     book: false,
                     hidden: away,
                     opened: 0,
+                    top,
                 });
             } else {
                 // everything else that lies there — with its ending, to tell it from a note; the
@@ -430,7 +455,7 @@ impl Scan<'_> {
                 // (a whiteboard by its name alone: its sign says what it is)
                 let name = if kind == "board" { name[..name.len() - ".board.svg".len()].to_string() } else { name };
                 let book = kind == "board" && is_notebook(&path);
-                node.notes.push(Note { name, path: s(&path), real, title: None, mtime: None, pdf: true, kind: Some(kind), book, hidden: away, opened: 0 });
+                node.notes.push(Note { name, path: s(&path), real, title: None, mtime: None, pdf: true, kind: Some(kind), book, hidden: away, opened: 0, top: false });
             }
             self.count += 1;
         }
@@ -781,6 +806,34 @@ mod tests {
         fs::create_dir_all(d.join(".git")).unwrap();
         assert_eq!(Resolver::in_base(&d.join("risc-v/tracing"), &home, None).resolve("risc-v-e-trace-spec.pdf#page=35"), Some(d.join("assets/risc-v/risc-v-e-trace-spec.pdf")));
         let _ = fs::remove_dir_all(d);
+    }
+
+    /// A note whose properties say `top: true` is marked so in the folder's list, with titles shown and without —
+    /// and no longer once the file says otherwise (Henri, 2026-11-19: a folder's overview, shown first).
+    #[test]
+    fn a_note_that_says_top_is_marked_in_the_folder() {
+        assert!(note_top("---\ntitle: x\ntop: true\n---\n# A\n"));
+        assert!(note_top("---\r\ntop: True  # the overview\r\n---\r\n"));
+        assert!(!note_top("---\ntop: false\n---\n"));
+        assert!(!note_top("---\ntitle: x\n---\ntop: true\n"));
+        assert!(!note_top("top: true\n"));
+        assert!(!note_top("---\nlook:\n  top: true\n---\n"));
+        let d = std::env::temp_dir().join(format!("mdview-top-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(&d).unwrap();
+        fs::write(d.join("a.md"), "# A\n").unwrap();
+        fs::write(d.join("z.md"), "---\ntop: true\n---\n# Overview\n").unwrap();
+        let (mut cache, keep, away) = (TitleCache::new(), HashSet::new(), HashSet::new());
+        let tops = |tree: &Node| tree.notes.iter().map(|n| (n.name.clone(), n.top, n.title.clone())).collect::<Vec<_>>();
+        let (tree, _) = scan_folder(&d, &mut cache, false, &keep, &away, false);
+        assert_eq!(tops(&tree), vec![("a".to_string(), false, None), ("z".to_string(), true, None)]);
+        // (titles asked for afterwards: the note is read again for them, not answered from what was kept without)
+        let (tree, _) = scan_folder(&d, &mut cache, true, &keep, &away, false);
+        assert_eq!(tops(&tree), vec![("a".to_string(), false, Some("A".to_string())), ("z".to_string(), true, Some("Overview".to_string()))]);
+        fs::write(d.join("z.md"), "# Overview, no longer first\n").unwrap();
+        let (tree, _) = scan_folder(&d, &mut cache, true, &keep, &away, false);
+        assert!(!tree.notes[1].top);
+        let _ = fs::remove_dir_all(&d);
     }
 
     #[test]

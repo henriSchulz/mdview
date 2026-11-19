@@ -159,6 +159,28 @@ enum Lib {
     /// The first H1 of a note (frontmatter and code blocks skipped), or nil.
     static func noteTitle(_ path: String) -> String? {
         guard let text = read(path, limit: 16 * 1024) else { return nil }
+        return title(in: text)
+    }
+
+    /// Whether a note's properties say `top: true`: it stands first in its folder then, marked (the sidebar, All
+    /// Notes — the folder's overview; Henri, 2026-11-19). `text`: the note's beginning. Rust: scan.rs note_top.
+    static func noteTop(_ text: String) -> Bool {
+        var lines = text.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n")
+        if let f = lines.first, f.hasPrefix("\u{feff}") { lines[0] = String(f.dropFirst()) }
+        func trimEnd(_ s: String) -> String { var s = s; while let c = s.last, c == " " || c == "\t" || c == "\r" { s.removeLast() }; return s }
+        guard let first = lines.first, trimEnd(first) == "---" else { return false }
+        for l in lines.dropFirst() {
+            if ["---", "..."].contains(l.trimmingCharacters(in: .whitespaces)) { return false }
+            for k in ["top:", "\"top\":", "'top':"] where l.hasPrefix(k) {
+                let v = String(l.dropFirst(k.count)).components(separatedBy: " #")[0].trimmingCharacters(in: .whitespaces)
+                return v.lowercased() == "true"
+            }
+        }
+        return false
+    }
+
+    /// First H1 in a note's beginning.
+    static func title(in text: String) -> String? {
         let lines = text.components(separatedBy: "\n")
         var start = 0
         if lines.first?.trimmingCharacters(in: .whitespaces) == "---",

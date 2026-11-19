@@ -174,6 +174,7 @@
     if (n.book) t.dataset.book = ""; // (a whiteboard of pages: named and signed so)
     if (picked.has(n.path)) t.classList.add("picked");
     if (n.hidden) t.classList.add("is-hidden"); // (put away, and shown all the same: dimmed)
+    if (!dir && n.top) t.classList.add("is-top"); // (first in its folder, by its own property "top: true": marked)
     if (n.coming) t.classList.add("is-coming"); // (on its way into the repository)
     if (n.kept) t.dataset.kept = ""; // (a whiteboard a note keeps: the note's, not a file to move or trash)
     if (n.note) t.dataset.note = n.note;
@@ -266,8 +267,10 @@
     const steps = [];
     for (const g of gs) {
       steps.push(["group", g]);
+      // (a note that says "top: true" stands before the folders, the others after them)
+      for (const n of g.notes) if (n.top) steps.push(["note", n]);
       for (const d of g.dirs || []) steps.push(["dir", d]);
-      for (const n of g.notes) steps.push(["note", n]);
+      for (const n of g.notes) if (!n.top) steps.push(["note", n]);
     }
     let i = 0, grid = null, at0 = 0;
     const later = [];

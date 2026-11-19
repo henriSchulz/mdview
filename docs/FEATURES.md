@@ -914,6 +914,13 @@ width: wide
 
 `color` (one of the seven colours above) marks the note in All Notes: a dot in that colour before its name, on the tile and in the list.
 
+`top: true` makes the note the first of its folder — the folder's overview, its dashboard: in the
+sidebar and in All Notes it stands before the folders and before the other notes, whatever the
+order chosen, with a pin before its name, the name stronger. Several such notes of a folder stand
+together at its head, in the order chosen. It is set in the panel's Style part (**First in its
+folder**) or written into the properties; taken away, the note stands where the order puts it. The
+desktop apps (Linux, macOS) read it off the files; the web app does not yet.
+
 Two properties say how the note itself is shown — in the reading view, the active mode and the
 web app, a shared note too. They can be chosen in the panel's Style part:
 
@@ -1135,7 +1142,7 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   every layout. They are kept in the folder itself
   (`.mdview/folders.json`), so another device and the web app show the same; a folder renamed or
   moved keeps them.
-- **Order of the notes**: Name (the default, on every device until another is chosen), Last Opened, Date Modified.
+- **Order of the notes**: Name (the default, on every device until another is chosen), Last Opened, Date Modified. A note whose properties say `top: true` stands before them all, and before the folders (Properties, above).
 - **What is listed**: everything, as long as it is not taken out. A kind can be taken out — PDFs,
   pictures, sound and video, whiteboards, other files — in the settings, or at once from a right
   click in the sidebar › Show. All Notes has its own choice of the same five (settings, or a
