@@ -36,7 +36,7 @@
     if (real >= 760) ok("… and is seen, at the window's right", getComputedStyle(panel().el).visibility === "visible" && card.width > 200 && card.right <= real + 1, [card.left, card.right, getComputedStyle(panel().el).visibility]);
     else ok(`(the rig's window is ${real} px wide: the panel is not drawn there, as in any window that narrow)`, getComputedStyle(panel().el).display === "none");
     const tabs = [...panel().rail.querySelectorAll(".rp-tab")].filter((b) => b.disabled).map((b) => b.dataset.tab);
-    ok("Insert and Format are dimmed, the rail is not there (as beside the reading view)", tabs.join() === "insert,format" && !body.hasAttribute("data-rail"), [tabs, body.hasAttribute("data-rail")]);
+    ok("Insert and Format are dimmed, the rail is not there (it is the active mode's and the reading view's)", tabs.join() === "insert,format" && !body.hasAttribute("data-rail"), [tabs, body.hasAttribute("data-rail")]);
     const rest = ed.value.slice(ed.value.indexOf("# Style"));
     ground("blue").click();
     await sleep(300);

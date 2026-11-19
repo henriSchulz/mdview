@@ -987,9 +987,10 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
 - **Panel at the right** (`Ctrl+Alt+P`), opened from the rail of four signs at the window's
   right edge — a press on a sign opens the panel at that part, a press on the sign of the part
   that is open closes it, and so does a press anywhere outside the panel (the note, the toolbar,
-  the sidebar). The toolbar has no button for it. The rail is the active mode's: it
-  slides in from the edge with that mode and out again when the view changes, and the reading
-  view and the source have none (there the panel comes only with `Ctrl+Alt+P`, at Style). The panel lies over the window, under the toolbar and beside the rail:
+  the sidebar). The toolbar has no button for it. The rail stands beside the active mode and beside the
+  reading view — there with Insert and Format dimmed: its Style and Information open as in the
+  active mode. The source has none (there the panel comes only with `Ctrl+Alt+P`, at Style): the
+  rail slides out to the edge with that view and in again. The panel lies over the window, under the toolbar and beside the rail:
   nothing makes room for it, and neither the note nor the toolbar moves when it comes or goes. A
   window narrower than 760 px shows neither the rail nor the panel. *Insert* (`+`) — tiles for everything that can be put in, click
   or drag; *Format* (`Aa`) — the styles of the block the caret is in; *Style* (the brush) and

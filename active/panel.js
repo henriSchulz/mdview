@@ -16,7 +16,7 @@
  * Insert and Format are the active mode's. Style and Info stand in every mode —
  * beside the reading view and beside the source (alone or beside its reading):
  * there the panel shows when one of them is the chosen tab, and its other tabs
- * are dimmed; the rail is the active mode's alone.
+ * are dimmed; the rail stands beside the active mode and the reading view.
  *
  * The Format tab is the "/" menu's entries laid out (slash.js says what is
  * offered where, and does it). The panel never takes the focus from the text,
@@ -421,12 +421,13 @@
     doc();
   }
   /* The rail's signs: the one whose part is open is marked; beside the reading view only the document's can be pressed. The
-   * rail is the active mode's: not beside the reading view (Henri, 2026-10-14 — there the panel comes only with Ctrl+Alt+P),
-   * and so not beside the source either (the same: Ctrl+Alt+P), not where a note is only shown. It comes in and goes out with the view (active/panel.css). */
+   * rail stands beside the active mode and beside the reading view (Henri, 2026-11-19: "dieses menu soll auch in der readonly
+   * ansicht da sein" — until then it was the active mode's alone), there with Insert and Format dimmed. Not beside the source
+   * (there the panel comes with Ctrl+Alt+P), not where a note is only shown. It comes in and goes out with the view (active/panel.css). */
   function marks() {
     for (const b of rail.querySelectorAll(".rp-tab")) { b.setAttribute("aria-selected", String(isOpen() && b.dataset.tab === el.dataset.tab)); b.disabled = reading() && !DOCS.includes(b.dataset.tab); }
     const cur = window.MdView.core.current; // (no note in the window — an empty tab, a PDF: no rail)
-    document.body.toggleAttribute("data-rail", can() && mode() === "active" && !!cur && cur.kind !== "pdf");
+    document.body.toggleAttribute("data-rail", can() && (mode() === "active" || mode() === "read") && !!cur && cur.kind !== "pdf");
   }
   rail.addEventListener("click", (e) => {
     const b = e.target.closest(".rp-tab");
