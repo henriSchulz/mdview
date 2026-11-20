@@ -419,6 +419,12 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     reading. A mode that cannot do a part of the panel dims that part; it does not take the panel
     away. Written from the source, it is an edit of the source's text (`P.edReplace`: the editor's
     own undo), not a new text put in. A new mode, or a new part of the document's: `dev/tests/docmodes.test.mjs`, `rig.sh docstyle`.
+128. **The properties the app writes stand on the file's first line** (2026-11-20, Henri: the panel's Page width "wirkt
+    nicht"). Properties are properties only there; a note that began with blank lines got them from the active mode
+    under its head (store.js wrote what stood before the first block before every first block), so they were a rule and
+    a heading, the width stayed normal, and every next choice made another block under the last. Properties that are the
+    first block are written without what stood before them (a comment from there goes below them). The panel's row is as
+    tall as the control in it (a finger's 40 px, rule 116). `macos/Tests/MdViewTests/PanelStyleTests.swift`.
 91. **The place between two blocks is between blocks only**, never inside a table (#17). ProseMirror's
     own gap cursor stops wherever two "closed" nodes meet and a textblock could go — a table's cells
     are isolating textblocks, so it stopped between every two cells of a row. A node that holds no

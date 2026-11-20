@@ -96,6 +96,8 @@
       const prev = nodes[i - 1];
       if (prev && (rekinded(prev) || rekinded(n)) && !tight(prev.node, n.node)) parts[i].blank = true;
     });
+    // (the properties at the head stand on the file's first line, whatever stood before the first block: store.js)
+    if (nodes.length && kind(nodes[0].node) === "island:frontmatter") parts[0].front = true;
     return A.store.serialize(d.store, parts, exact, starts);
   }
 

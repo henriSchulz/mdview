@@ -206,7 +206,7 @@
   /* The document as a string. `parts` lists what stands in the document now,
    * in order: { id } for a segment that is as it was loaded, { id, text } for
    * one that was changed (id: where it came from, if anywhere; text with "\n"
-   * line ends; blank: it needs a blank line before it). Neighbours that were
+   * line ends; blank: it needs a blank line before it; front: it is the properties, written on the first line). Neighbours that were
    * neighbours on load keep their separator; anything else gets a blank line. Called without `parts` it returns the
    * loaded document. starts: if given, filled with the offset of every part. A store marked `partial` writes a part of
    * the note (a copy: clip.js markdownOf): what stands between its own blocks, and nothing of the rest of the note. */
@@ -229,10 +229,15 @@
     parts.forEach((p, i) => { if (p.id != null) lastOf.set(p.id, i); });
     const orphans = [];
     if (!store.partial) for (let id = 0; id < loaded; id++) if (worded(id) && !there.has(id)) orphans.push(id);
-    let out = "";
+    let out = "", below = "";
     parts.forEach((p, i) => {
       const prev = i ? parts[i - 1] : null;
-      if (!i) out += pick(store.head);
+      if (!i && p.front) { // (properties are properties only on the file's first line: what stood before the first block — blank
+        // lines, a comment — does not stand before them; a comment goes below them. Henri, 2026-11-20: the panel's width did nothing.)
+        const head = pick(store.head), bom = head.startsWith("\uFEFF") ? "\uFEFF" : "";
+        out += bom;
+        below = head.slice(bom.length).trim();
+      } else if (!i) out += pick(store.head);
       else if (prev.id != null && lastOf.get(prev.id) !== i - 1) out += nl + nl;
       else if (prev.id != null && p.id != null && prev.id + 1 === p.id && !told.has(prev.id) && !(p.blank && !/\n[ \t>]*\n/.test(segs[prev.id].sep.raw))) { out += pick(segs[prev.id].sep); told.add(prev.id); }
       else if (!store.partial && worded(prev.id) && !told.has(prev.id)) { out += nl + nl + words(prev.id) + nl + nl; told.add(prev.id); }
@@ -240,6 +245,7 @@
       while (p.id != null && orphans.length && orphans[0] < p.id) out += words(orphans.shift()) + nl + nl;
       if (starts) starts.push(out.length);
       out += p.text != null ? eol(p.text) : pick(segs[p.id]);
+      if (below) { out += nl + nl + below; below = ""; }
     });
     if (store.partial) return out;
     const last = parts[parts.length - 1];

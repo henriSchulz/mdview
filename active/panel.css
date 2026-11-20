@@ -161,7 +161,8 @@ body[data-mode="dark"] .rp-ground > i { --doc-by: 46%; --doc-ink-by: 34%; }
 .rp-ground:active { transform: scale(var(--press-scale)); transition: transform var(--dur-instant) var(--ease-out); }
 .rp-ground[aria-checked="true"], .rp-ground:focus-visible { box-shadow: 0 0 0 2px var(--raised), 0 0 0 4px var(--accent); }
 .rp-ground:disabled { opacity: 0.4; pointer-events: none; }
-.rp-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 36px; padding: 0 10px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--fg) 6%, transparent); }
+/* (as tall as what stands in it: a finger's control, 40px under data-touch, in a row of 48 — BUGS 116) */
+.rp-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; box-sizing: border-box; min-height: 36px; padding: 4px 10px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--fg) 6%, transparent); }
 .rp-line .pf-switch:disabled { opacity: 0.4; }
 .rp-say { margin: 10px 2px 0; }
 @media (prefers-reduced-motion: reduce) { .rp-ground:active { transform: none; } }
