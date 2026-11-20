@@ -178,8 +178,13 @@ final class NativeSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegate,
 
     // MARK: what the page says (macsb)
 
+    private var said: [String: Any] = [:]
+    /// The page's last word again, the window's state having changed (a whiteboard opened or left: NoteWindow, board-open).
+    func again() { if !said.isEmpty { update(said) } }
+
     func update(_ s: [String: Any]) {
         guard let w, let ground = w.window.contentView else { return }
+        said = s
         let use = (s["on"] as? Bool) == true
         if use != on {
             on = use
@@ -196,7 +201,10 @@ final class NativeSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegate,
         fitTop()
         let sbw = CGFloat((s["sbw"] as? NSNumber)?.doubleValue ?? 260)
         let was = stand
-        stand = use ? (s["state"] as? String ?? "closed") : "closed"
+        // (a whiteboard over the whole window has its own bars at the top, and the window's goes meanwhile — MacChrome —, with
+        // it the button that shuts the card: the card goes too, and comes back as it was when the board is left — Henri,
+        // 2026-11-20: „seitenleiste bleibt offen wenn man whiteboard öffnet und ist nicht wieder schließbar“)
+        stand = use && !w.boardFull ? (s["state"] as? String ?? "closed") : "closed"
         width = max(180, sbw)
         place(in: ground, animate: (s["glide"] as? Bool) != false && was != stand)
     }

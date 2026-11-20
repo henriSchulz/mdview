@@ -138,6 +138,22 @@ final class SidebarNativeTests: ShellTest {
         t.invalidate()
     }
 
+    /// A whiteboard opened over the whole window takes the card away with the window's bar, and the card comes back when the
+    /// board is left (Henri, 2026-11-20: „seitenleiste bleibt offen wenn man whiteboard öffnet und ist nicht wieder
+    /// schließbar, soll automatisch schließen“).
+    func testAWhiteboardTakesTheCardAway() {
+        let sample = Lib.join(ShellTest.checkout, "web/public/welcome/samples/Empty.board.svg")
+        let board = write("Notizen/assets/W.board.svg", read(sample))
+        let w = folderWindow()
+        let card = w.sidebarCard!.card
+        XCTAssertTrue(wait(3) { !card.isHidden && card.frame.minX > 0 }, "the card is not there to begin with")
+        _ = page(w, "(MdPage.openBoardFile(\(jsonString(board))), 1)")
+        XCTAssertTrue(wait(10) { (self.page(w, "!!document.querySelector('#board[data-ready]')") as? Bool) == true }, "the board did not open")
+        XCTAssertTrue(wait(3) { card.isHidden }, "the card stayed over the whiteboard (at \(card.frame))")
+        _ = page(w, "(MdBoard.close(true), 1)")
+        XCTAssertTrue(wait(3) { !card.isHidden && card.frame.minX > 0 }, "the card did not come back with the note")
+    }
+
     /// In another layout the card is the page's own, as before.
     func testAnotherLayoutKeepsThePagesCard() {
         let w = folderWindow()

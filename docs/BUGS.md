@@ -768,6 +768,12 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     (`NativeSidebar.relayout`). And a group row of a source list is drawn the table's whole width, without the rows'
     indent: the folders' heading lay on the card's rim — its text begins where the rows' signs do. Checks:
     `SidebarNativeTests.testInFullScreenTheCardBeginsUnderTheBar`, `testTheFoldersHeadingStandsInLineWithTheRows`.
+127. **What lies over the page as the system's goes when the page is covered, with the window's bar.** A whiteboard over
+    the whole window has its own bars at the top and the Mac's bar goes meanwhile (`boardFull`, MacChrome); the system's
+    sidebar card stayed, over the board, and the button that shuts it was gone with the bar (Henri, 2026-11-20:
+    „seitenleiste bleibt offen wenn man whiteboard öffnet und ist nicht wieder schließbar, soll automatisch schließen“).
+    The card is out while the board is open and comes back as the page's card stands when it is left (`NativeSidebar.again`
+    from board-open). No `gh` on the Mac: not filed as an issue. Check: `SidebarNativeTests.testAWhiteboardTakesTheCardAway`.
 
 ### Touch (iPad)
 

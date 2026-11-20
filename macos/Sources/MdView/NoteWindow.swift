@@ -527,6 +527,7 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
             boardOpen = truthy(msg["on"])
             boardFull = boardOpen && truthy(msg["full"])
             chrome?.again()
+            sidebarCard?.again()
         case "board-draw":
             boardDraws = truthy(msg["on"])
             boardInk = msg["ink"] as? [String: Any]

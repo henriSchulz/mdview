@@ -92,7 +92,9 @@ in `NoteWindow.on` or handed to the area's `handleFiles` / `handleSearch` / `han
   card glides with the page's (0.45 s, the page's curve near enough), what it holds once the page is at rest (120 ms —
   read without asking for the page's layout). While it peeks, the pointer on it is told to the page (the page would put
   it away, seeing the pointer gone). Files dropped on a folder's row are moved there (the folder's own) or taken in.
-  The other layouts and the quick notes keep the page's card. Its cost: the bar and the card are made with a window,
+  A whiteboard over the whole window takes the card away with the window's bar, and it comes back as it stood when the
+  board is left; on an iPad's screen (ipad-cast) its rows are 44 pt. The other layouts and the quick notes keep the
+  page's card. Its cost: the bar and the card are made with a window,
   some 60–90 ms of the main thread a window not made ahead (the first after the app's start) pays.
 - **The settings are a window of the system's** (SettingsWindow.swift): ⌘, (the app menu's Settings…) and the gear open
   it (the page's openSettings asks `MdHost.settings` first) — its pages at the left in their groups, each page's settings in
