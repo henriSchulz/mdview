@@ -15,12 +15,18 @@
  * - makes the whole page larger under two fingers (its own gesture) where the page does not take them: they are taken
  *   (a whiteboard, a PDF move and size what they show themselves: board/pointer.js, pdfview.js).
  * dev/rig.sh gtktouch tries it in WebKitGTK with a touch screen.
+ * WebKit on the Mac, under an iPad that is the Mac's screen (ipad-cast): the cast makes a mouse's click of a finger's tap, a
+ * mouse's drag of a finger held and moved, a right click of one held and let go, a trackpad's scroll of one that moves. The
+ * macOS shell knows which events are the cast's and gives the "mouse" there the kind "touch" before this file hears it, a
+ * wheel too (FilesWebView.swift: __mdTold) — Henri, 2026-11-20: the touch optimizations "wirken in der mdview macos native app
+ * nicht". So a finger there is a finger here, and its scroll keeps the hand one.
  *
  * What stands in the window is sized by the device, never by the hand (docs/BUGS.md 76): `<html data-touch>` says the
  * window is laid out for a finger — larger targets, a tab's cross on the chosen tab, a row's "…", the sidebar pulled from
  * the edge. It holds where the system says the pointer is a coarse one, and in the application while the desktop is in
- * tablet mode (Velum's settings, "tablet": the host writes it on <html> and hands a change to setTheme). Not on an iPad,
- * whose layout is its own (viewer/tablet.css). */
+ * tablet mode (Velum's settings, "tablet": the host writes it on <html> and hands a change to setTheme), and in the macOS
+ * application while the window stands on an iPad's screen (ipad-cast: `<html data-touch-screen>`, written by the host and
+ * changed by setScreen as the window goes to another screen). Not on an iPad, whose layout is its own (viewer/tablet.css). */
 "use strict";
 (() => {
   const root = document.documentElement;
@@ -38,24 +44,35 @@
     if (presses.length > 4) presses.shift();
   }, true);
   for (const type of ["pointerup", "pointercancel"]) addEventListener(type, (e) => { if (e.pointerType === "touch" && down.delete(e.pointerId)) lifted = { t: e.timeStamp, x: e.clientX, y: e.clientY }; }, true);
-  addEventListener("wheel", (e) => { if (!e.ctrlKey && !down.size && (!lifted || e.timeStamp - lifted.t > 1500)) finger(false); }, { capture: true, passive: true });
+  addEventListener("wheel", (e) => {
+    if (e.pointerType === "touch") return finger(true); // (a finger's scroll, said so by the macOS shell: an iPad's over ipad-cast)
+    if (!e.ctrlKey && !down.size && (!lifted || e.timeStamp - lifted.t > 1500)) finger(false);
+  }, { capture: true, passive: true });
   // the mouse made up after a tap (WebKitGTK): where the finger left, at once after it
   const madeUp = (e) => e.pointerType === "mouse" && !!lifted && e.timeStamp - lifted.t < 600 && Math.hypot(e.clientX - lifted.x, e.clientY - lifted.y) < 24;
   // the right click WebKitGTK makes of a held finger (its long press): a mouse's right button where a finger came down a
   // moment before — then the "contextmenu" (Henri, 2026-11-09: the edit menu under a held finger, viewer/touch.js)
   const heldPress = (e) => GTK && e.pointerType === "mouse" && e.button === 2 && presses.some((p) => e.timeStamp - p.t < 3000 && Math.hypot(e.clientX - p.x, e.clientY - p.y) < 24);
-  // a mouse's own press (or a touchpad's) takes it away too: the menus are back (viewer/touch.js)
-  addEventListener("pointerdown", (e) => { if (e.pointerType === "mouse" && !down.size && !(GTK && madeUp(e)) && !heldPress(e)) finger(false); }, true);
+  // a mouse's own press (or a touchpad's) takes it away too: the menus are back (viewer/touch.js). (On the Mac a finger of the
+  // cast and the mouse are one pointer: a mouse's press says no finger is down — one whose lift a menu took is not.)
+  addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "mouse" && window.__mdTold) down.clear();
+    if (e.pointerType === "mouse" && !down.size && !(GTK && madeUp(e)) && !heldPress(e)) finger(false);
+  }, true);
 
-  // the window laid out for a finger: a coarse pointer, or the desktop's tablet mode (set by the host)
+  // the window laid out for a finger: a coarse pointer, the desktop's tablet mode, or an iPad's screen under the window (the host's)
   const coarse = typeof matchMedia === "function" ? matchMedia("(pointer: coarse)") : null;
   let tablet = root.hasAttribute("data-touch");
-  const sized = () => { const on = !root.hasAttribute("data-ipad") && (tablet || !!(coarse && coarse.matches)); if (on !== root.hasAttribute("data-touch")) { root.toggleAttribute("data-touch", on); dispatchEvent(new Event("mdtouch")); } };
+  const sized = () => {
+    const on = !root.hasAttribute("data-ipad") && (tablet || root.hasAttribute("data-touch-screen") || !!(coarse && coarse.matches));
+    if (on !== root.hasAttribute("data-touch")) { root.toggleAttribute("data-touch", on); dispatchEvent(new Event("mdtouch")); }
+  };
   sized();
   if (coarse && coarse.addEventListener) coarse.addEventListener("change", sized);
   const setTablet = (on) => { tablet = !!on; sized(); };
+  const setScreen = (on) => { root.toggleAttribute("data-touch-screen", !!on); sized(); };
 
-  window.MdHand = { GTK, down: () => down.size, heldPress, touch: () => root.hasAttribute("data-touch"), setTablet };
+  window.MdHand = { GTK, down: () => down.size, heldPress, touch: () => root.hasAttribute("data-touch"), setTablet, setScreen };
 
   /* The desktop's keyboard (Velum's, in tablet mode) takes the foot of the screen for itself: the window grows shorter under
    * it. Where the caret was then is kept in sight — it would stand under the keyboard, and the next letter typed blind. */

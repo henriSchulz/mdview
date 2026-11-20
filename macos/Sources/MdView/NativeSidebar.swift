@@ -56,6 +56,11 @@ final class NativeSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegate,
     private var barTop: CGFloat = 52 // (the window's bar's height, as the page has it: --mac-bar)
     /// Whether the window is full screen now (a test says it is: full screen itself would take a Space of the screen).
     var fullScreenNow: () -> Bool = { false }
+    /// The window stands on the iPad's screen (NoteWindow.tellScreen): a row is a finger's height there — 44, as a sidebar's
+    /// row is on an iPad —, its heading a little more than the Mac's.
+    var fingers = false {
+        didSet { if fingers != oldValue, !rows.isEmpty { table.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: 0..<rows.count)) } }
+    }
 
     init(_ w: NoteWindow) {
         self.w = w
@@ -236,7 +241,7 @@ final class NativeSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegate,
     func numberOfRows(in t: NSTableView) -> Int { rows.count }
     func tableView(_ t: NSTableView, isGroupRow row: Int) -> Bool { rows[row]["kind"] as? String == "cap" }
     func tableView(_ t: NSTableView, shouldSelectRow row: Int) -> Bool { rows[row]["kind"] as? String != "cap" }
-    func tableView(_ t: NSTableView, heightOfRow row: Int) -> CGFloat { rows[row]["kind"] as? String == "cap" ? 26 : 28 }
+    func tableView(_ t: NSTableView, heightOfRow row: Int) -> CGFloat { rows[row]["kind"] as? String == "cap" ? (fingers ? 32 : 26) : (fingers ? 44 : 28) }
 
     func tableView(_ t: NSTableView, viewFor col: NSTableColumn?, row: Int) -> NSView? {
         let r = rows[row], kind = r["kind"] as? String ?? ""

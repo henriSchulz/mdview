@@ -57,9 +57,27 @@ extension NoteWindow {
     func tellDrawArea() { TouchDraw.say(window: window, on: boardDraws && window.isKeyWindow && !window.isMiniaturized, ink: boardInk, holes: boardHoles, web: web) }
     func windowDidMove(_ n: Notification) { tellDrawArea() }
     func windowDidResize(_ n: Notification) { tellDrawArea() }
-    func windowDidBecomeKey(_ n: Notification) { tellDrawArea() }
+    func windowDidBecomeKey(_ n: Notification) { tellDrawArea(); tellScreen() }
     func windowDidResignKey(_ n: Notification) { tellDrawArea() }
     func windowDidMiniaturize(_ n: Notification) { tellDrawArea() }
+}
+
+/// A window on the iPad's screen is laid out for a finger, as the desktop's tablet mode lays one out on Linux (`<html
+/// data-touch>`: larger targets, the chosen tab's cross, a block's handle a finger's size — viewer/hand.js); the native
+/// sidebar's rows are a finger's height there too. On the Mac's own screen it is as it was. Said in the page as it is made
+/// (Page.html), and again when the window goes to another screen. (Henri, 2026-11-20: the touch optimizations "wirken in der
+/// mdview macos native app nicht" — "ja mach beides".)
+extension NoteWindow {
+    var onFingerScreen: Bool { window.screen.map(CastHost.shows) ?? false }
+
+    func tellScreen() {
+        let on = onFingerScreen
+        sidebarCard?.fingers = on
+        guard ready, on != saidFingerScreen else { return }
+        saidFingerScreen = on
+        web.evaluateJavaScript("window.MdHand&&MdHand.setScreen(\(on))", completionHandler: nil)
+    }
+    func windowDidChangeScreen(_ n: Notification) { tellScreen() }
 }
 
 

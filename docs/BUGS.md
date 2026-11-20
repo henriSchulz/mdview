@@ -354,9 +354,15 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     events — the system's mouse events of the tablet-point kind, with the pen's pressure and tilt in their own fields —
     reach a page in WKWebView as `pointerType: "mouse"`, `pressure: 0`, no tilt; a finger the cast turns into a click is a
     mouse's too. The shell reads the event's fields and says what it is just before WebKit hands it on
-    (`FilesWebView.penSay`, `window.__mdPen`); `board/pointer.js` (`told`, first of the stage's listeners) gives a "mouse"
-    pointer there and then its own kind, pressure and tilt — on the event itself, so whatever asks it later sees the same.
-    Checks: `BoardTests.testThePencilOfTheCastIsAPen` (made-up tablet events through the web view; fails without `told`).
+    (`FilesWebView.penSay`, `window.__mdPen`); the shell's script (`__mdTold`, the first of all the page's listeners)
+    gives a "mouse" pointer there and then its own kind, pressure and tilt — on the event itself, so whatever asks it later
+    sees the same: the whiteboard, and the whole page's ways for a finger (viewer/hand.js, viewer/touch.js). It was on the
+    whiteboard's stage alone at first, and on the Mac no finger was ever one for the rest of the page — no bars of tiles,
+    no edit menu, no finger's sizes (2026-11-20, Henri: the touch optimizations "wirken in der mdview macos native app
+    nicht"). What the cast makes of a finger that is not a press is said too: a finger held and let go is its right click,
+    a finger moved its scroll and glide (a wheel said is `pointerType: "touch"`; unsaid, a wheel took the finger away).
+    Checks: `BoardTests.testThePencilOfTheCastIsAPen` (made-up tablet events through the web view),
+    `CastFingerTests.testACastFingerIsAFingerForTheWholePage` (a tap, a scroll and a hold of the cast's process).
 58. **A panel lies over the window; it does not push it.** Outline, pages and notes of a PDF, the
     panel at the right: nothing makes room, no page moves or is drawn anew, and what scrolls
     inside it never scrolls the window (`scrollIntoView` does — set the list's `scrollTop`).

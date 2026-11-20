@@ -17,12 +17,37 @@ final class FilesWebView: WKWebView {
         if (!r && /^text\\/uri-list$/i.test(type) && window.__mdDropURIs && window.__mdDropURIs.length) return window.__mdDropURIs.join("\\r\\n");
         return r;
       };
-      // what the shell says of the pointer just before WebKit hands it on (FilesWebView.penSay; board/pointer.js, told)
+      // what the shell says of the pointer just before WebKit hands it on (FilesWebView.penSay): a pen's or a finger's
+      // press, move or lift — where, how hard, how tilted —, or "wheel": a finger's scroll (the cast's, its glide after it)
       window.__mdPen = function (k, x, y, p, tx, ty) {
+        if (k === "wheel") { window.__mdPenWheel = performance.now(); return; }
         const a = window.__mdPenSaid || (window.__mdPenSaid = []);
         a.push({ k: k, x: x, y: y, p: p, tx: tx * 90, ty: ty * 90, t: performance.now() });
         if (a.length > 48) a.splice(0, a.length - 48);
       };
+      /* A "mouse" pointer where and when the shell said a pen (a finger) is one is that, with the pen's pressure and tilt — on
+       * the event itself, before anyone on the page hears it (the first listener of all: the whiteboard, viewer/hand.js,
+       * viewer/touch.js ask the event). A wheel the shell said is a finger's says "touch" too. (__mdTold: for the samples a
+       * move bundles, which no listener hears — board/pointer.js.) */
+      const own = function (e, k, v) { try { Object.defineProperty(e, k, { value: v, configurable: true }); } catch (x) { /* (an event that keeps its own) */ } };
+      window.__mdTold = function (e) {
+        const said = window.__mdPenSaid;
+        if (e.pointerType !== "mouse" || !said || !said.length) return e;
+        const now = performance.now();
+        let best = null, near = 4;
+        for (let i = said.length - 1; i >= 0; i--) {
+          const s = said[i];
+          if (now - s.t > 300) break;
+          const d = Math.hypot(s.x - e.clientX, s.y - e.clientY);
+          if (d <= near) { near = d; best = s; if (d < 0.25) break; }
+        }
+        if (!best) return e;
+        own(e, "pointerType", best.k);
+        if (best.k === "pen") { own(e, "pressure", e.type === "pointerup" ? 0 : best.p); own(e, "tiltX", best.tx); own(e, "tiltY", best.ty); }
+        return e;
+      };
+      for (const type of ["pointerdown", "pointermove", "pointerup", "pointercancel"]) addEventListener(type, window.__mdTold, true);
+      addEventListener("wheel", function (e) { if (window.__mdPenWheel && performance.now() - window.__mdPenWheel < 300) own(e, "pointerType", "touch"); }, { capture: true, passive: true });
       const types = Object.getOwnPropertyDescriptor(DataTransfer.prototype, "types");
       if (types) Object.defineProperty(DataTransfer.prototype, "types", { configurable: true, get() {
         const t = types.get.call(this);
@@ -68,8 +93,11 @@ final class FilesWebView: WKWebView {
     /// on the Mac makes a mouse of all of it — pointerType "mouse", pressure 0, no tilt (measured 2026-11-19) — so a whiteboard
     /// had no pressure under the Pencil, and could not tell a pen from a finger (Henri, 2026-11-19: Whiteboard und Notizbuch
     /// "so gut wie es nur geht auf den Apple Pencil und den Cast optimieren"). Each such event is said to the page first —
-    /// what it is, where, how hard, how tilted — and the board takes the "mouse" there as what it is (board/pointer.js: told).
-    /// A mouse's or a trackpad's own events are not said: they are what WebKit says they are.
+    /// what it is, where, how hard, how tilted — and the page takes the "mouse" there as what it is (`__mdTold` above): the
+    /// whiteboard, and the whole page's ways for a finger (viewer/hand.js, viewer/touch.js — Henri, 2026-11-20: the touch
+    /// optimizations "wirken in der mdview macos native app nicht"). A finger held and let go is the cast's right click, said
+    /// too (the edit menu over it, not the mouse's menu); a finger's scroll and its glide are said as a finger's wheel (the
+    /// hand stays a finger). A mouse's or a trackpad's own events are not said: they are what WebKit says they are.
     /// Heard as the application takes them, before any view does: WebKit hands a move to its own tracking object, and a press
     /// to whichever of its views is hit — a method of this view's own heard only some of them (a hover never).
     private var penMonitor: Any?
@@ -78,7 +106,8 @@ final class FilesWebView: WKWebView {
         super.viewDidMoveToWindow()
         if let m = penMonitor { NSEvent.removeMonitor(m); penMonitor = nil }
         guard window != nil else { return }
-        penMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp, .mouseMoved, .tabletProximity]) { [weak self] e in
+        penMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp, .rightMouseDown, .rightMouseDragged, .rightMouseUp,
+                                                                 .mouseMoved, .scrollWheel, .tabletProximity]) { [weak self] e in
             guard let self, let w = self.window else { return e }
             if e.type == .tabletProximity {
                 // the pen gone from over the glass: the tip the board shows where it would come down goes too — WebKit hands
@@ -99,8 +128,15 @@ final class FilesWebView: WKWebView {
         return pid > 0 && pid == CastHost.pid ? "touch" : nil
     }
 
+    private var wheelSaid = 0.0
     func penSay(_ e: NSEvent) {
         guard let k = FilesWebView.kind(of: e), let c = e.cgEvent else { return }
+        if e.type == .scrollWheel { // (a finger's: said at most every 0.1 s — the page takes a wheel within 0.3 s of it for one)
+            let now = ProcessInfo.processInfo.systemUptime
+            guard k == "touch", now - wheelSaid > 0.1 else { return }
+            wheelSaid = now
+            return evaluateJavaScript("window.__mdPen&&__mdPen('wheel',0,0,0,0,0)", completionHandler: nil)
+        }
         let at = convert(e.locationInWindow, from: nil), z = max(0.01, pageZoom * magnification)
         guard bounds.contains(at) || e.type != .mouseMoved else { return } // (a move over the window's bars is no one's here)
         let x = at.x / z, y = (isFlipped ? at.y : bounds.height - at.y) / z
@@ -185,10 +221,19 @@ enum Clip {
 enum CastHost {
     static let bundle = "com.henri.ipadcast"
     private static var known: Int64 = 0, lookedAt = Date.distantPast
+    static var fixed: Int64? // (tests: the process whose events are the cast's)
     static var pid: Int64 {
+        if let fixed { return fixed }
         if Date().timeIntervalSince(lookedAt) < 5 { return known } // (asked of every event of a mouse: at most every 5 s)
         lookedAt = Date()
         known = Int64(NSRunningApplication.runningApplications(withBundleIdentifier: bundle).first?.processIdentifier ?? 0)
         return known
+    }
+
+    /// Whether a screen is the iPad's: the display ipad-cast makes says the vendor and model its VirtualDisplay.m gives it
+    /// (0x1A2B, 0x8771 — the system names it "iPad"). Tests say another.
+    static var shows: (NSScreen) -> Bool = { s in
+        guard let n = s.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else { return false }
+        return CGDisplayVendorNumber(n.uint32Value) == 0x1A2B && CGDisplayModelNumber(n.uint32Value) == 0x8771
     }
 }

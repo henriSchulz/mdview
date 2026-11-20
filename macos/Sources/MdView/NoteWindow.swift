@@ -24,6 +24,8 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
     var fwd: [String] = []
     var shell = 0
     var ready = false
+    /// What the page was told of the window's screen: the iPad's (laid out for a finger — TouchDraw.swift, tellScreen).
+    var saidFingerScreen = false
     /// A page on its way (loadShell, until didFinish): another asked for meanwhile would only start it again — what is to
     /// be shown by then is shown when it is there.
     var loading = false
@@ -194,7 +196,8 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         editing = false
         shell += 1
         let route = "/shell/\(shell)"
-        scheme.pages[route] = Page.html(prefs: jsonString(store.prefs), baseDir: dir, dark: dark, mode: dark ? "dark" : "light")
+        saidFingerScreen = onFingerScreen
+        scheme.pages[route] = Page.html(prefs: jsonString(store.prefs), baseDir: dir, dark: dark, mode: dark ? "dark" : "light", fingerScreen: saidFingerScreen)
         web.load(URLRequest(url: URL(string: Page.origin + route)!))
     }
 
@@ -208,6 +211,7 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         render(fragment: frag)
         if path == nil && folder == nil { js("MdView.clear", [["recents": store.recents()]]) }
         chrome?.tellHeight()
+        tellScreen() // (gone to another screen while the page came)
         if isSpare { js("MdView.warm") } // (what the first note and mode would load, loaded while nobody waits)
         pageLoaded()
     }

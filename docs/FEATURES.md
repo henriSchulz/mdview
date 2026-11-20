@@ -1535,7 +1535,8 @@ counts — and has no writing help by a model.
   `?ipad=1` in the address gives any browser this layout, `?ipad=0` takes it back (kept in the
   browser until then).
 - **In the application under a finger** (a touch screen on Linux — the tablet's fingers over
-  mac-cast — or on Windows): while the hand is a finger and the window is wide, the
+  mac-cast — or on Windows; on a Mac an iPad that is its screen through ipad-cast, whose tap is
+  a finger's, its scroll a finger's and a finger held and let go one held): while the hand is a finger and the window is wide, the
   note in the active mode has the iPad's ways, the sidebar and the tabs staying as they are.
   Blocks chosen have the bar of tiles at the foot (Text Style, Format, Insert, Copy, Cut,
   Duplicate, Actions, Delete) with its panels; a finger held on the note's text opens the edit
@@ -1553,7 +1554,9 @@ counts — and has no writing help by a model.
   held is chosen, a tap then chooses more or lets one go, and the bar at the foot has the file
   menu's entries for them (Done ends it; a mouse still drags the tiles). The sidebar and the tabs
   keep the menu a held finger opens. A browser on a touch screen (no iPad) keeps its menus.
-- **In tablet mode** (the desktop's: Velum's `tablet-mode`, switched while the app runs) the
+- **In tablet mode** (the desktop's: Velum's `tablet-mode`, switched while the app runs), and on
+  a Mac while the window stands on an iPad's screen (ipad-cast; moved to the Mac's own it is as
+  before, and the native sidebar's rows are 44 pt there), the
   window is laid out for a finger whatever the hand is at the moment, as on a touch screen
   that says so: toolbar buttons 40 px, sidebar rows 44 px, tabs 40 px, menu rows 40 px, a
   block's handle 30 × 34 px, a toast's and the update's buttons 36 px, fields 16 px; code shows

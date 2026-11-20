@@ -54,7 +54,7 @@ enum Page {
         return "window.MdSnippets = function (require) {\n\(body.replacingOccurrences(of: "</", with: "<\\/"))\n};"
     }
 
-    static func html(prefs: String, baseDir: String, dark: Bool, mode: String) -> String {
+    static func html(prefs: String, baseDir: String, dark: Bool, mode: String, fingerScreen: Bool = false) -> String {
         let theme = ThemeCenter.shared.current
         let a = origin + "/app"
         let host = "window.__TAURI_INTERNALS__ = window.__TAURI_INTERNALS__ || {}; window.MdHost = { post: (m) => { window.webkit.messageHandlers.msg.postMessage(m); }, files: \(jsonString(origin + "/file")), menu: (spec) => window.webkit.messageHandlers.ask.postMessage({ type: 'menu', spec }), settings: () => window.webkit.messageHandlers.msg.postMessage({ type: 'opensettings' }) };"
@@ -70,7 +70,7 @@ enum Page {
         for s in scripts { scr += "<script nonce=\"\(nonce)\" src=\"\(a)/\(s)\"></script>" }
         let base = escape(fileURL(baseDir) + "/")
         let links = styles.map { "<link rel='stylesheet' href='\(a)/viewer/\($0).css'>" }.joined()
-        return "<!doctype html><html lang='en'\(theme.htmlAttrs)><head><meta charset='utf-8'>"
+        return "<!doctype html><html lang='en'\(theme.htmlAttrs)\(fingerScreen ? " data-touch-screen" : "")><head><meta charset='utf-8'>"
             + "<meta http-equiv='Content-Security-Policy' content=\"\(csp)\"><base href='\(base)'>"
             + "<link rel='stylesheet' href='\(a)/velum.css'><link rel='stylesheet' href='\(a)/motion.css'>"
             + "<style id='theme'>\(theme.css)</style>"

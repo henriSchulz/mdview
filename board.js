@@ -288,7 +288,7 @@
       `<div class="bd-bar bd-viewbar" role="toolbar">${button("connect", "board.connect")}${button("grid", "board.grid")}${button("paper", "board.paper")}</div>` +
       `<div class="bd-cpop ui-menu ui-popover" role="menu" aria-label="${esc(T("board.insert.shape"))}">${B.items.SHAPES.map((k) => `<button type="button" class="bd-tile" data-next="${k}" title="${esc(T("board.shape." + k))}" aria-label="${esc(T("board.shape." + k))}"><svg viewBox="-2 -2 32 32"><path d="${B.items.shapePath(k, 28, k === "rect" || k === "round" ? 20 : 28)}" transform="translate(0 ${k === "rect" || k === "round" ? 4 : 0})"/></svg></button>`).join("")}</div>`;
     document.body.appendChild(el);
-    el.addEventListener("pointerdown", (e) => { if (!e.target.closest?.(".bd-stage")) claude.via = B.pointer.told(e).pointerType || "mouse"; }, true);
+    el.addEventListener("pointerdown", (e) => { if (!e.target.closest?.(".bd-stage")) claude.via = e.pointerType || "mouse"; }, true);
     el.addEventListener("click", (e) => {
       const b = e.target.closest("button");
       if (!b || !S) return;
