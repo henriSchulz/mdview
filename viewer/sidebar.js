@@ -1206,8 +1206,10 @@
     }
     ctxItems = ctxItems.filter((el) => !el.disabled && !el.hidden);
     const hangs = kind === "new" || kind === "history"; // (from a button of the sidebar's head)
-    // where the host shows menus of its own (the system's, on a Mac): the entries as they stand go to it (base.js hostMenu)
-    if (window.MdHost && MdHost.menu) {
+    // where the host shows menus of its own (the system's, on a Mac): the entries as they stand go to it (base.js hostMenu) —
+    // not a menu opened out of sight to be read (the bar of tiles chosen by a finger, viewer/touch.js: body[data-ip-proxy]),
+    // which the system's would have shown, and held everything up until it was shut (BUGS.md 129)
+    if (window.MdHost && MdHost.menu && !document.body.hasAttribute("data-ip-proxy")) {
       const shown = [...ctx.children].filter((el) => !el.hidden), sub = subRows();
       const rows = shown.map((el) => {
         if (el.classList.contains("menu-rule")) return null;

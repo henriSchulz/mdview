@@ -363,6 +363,19 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     a finger moved its scroll and glide (a wheel said is `pointerType: "touch"`; unsaid, a wheel took the finger away).
     Checks: `BoardTests.testThePencilOfTheCastIsAPen` (made-up tablet events through the web view),
     `CastFingerTests.testACastFingerIsAFingerForTheWholePage` (a tap, a scroll and a hold of the cast's process).
+129. **A gesture of the cast's finger is read from what the cast makes of it, not from a touch** (2026-11-21, Henri: „lange
+    touch von notizen ordner und so geht nicht, blöcke ziehen zum auswählen auch nicht“). The cast says nothing while a
+    finger rests: held still and let go it is a right click at the lift (no press at the finger's coming down), so a hold
+    timed from a touch's press never runs out — a finger's right click (`pointerType: "touch"`, button 2) has been held
+    already and does at once what the hold does (All Notes' tile chosen: viewer/touch.js). A finger that moves is a
+    trackpad's scroll from where it came down; the shell says its beginning and its lift (the first wheel `mdBegan`,
+    "mdwheelend": FilesWeb.swift), and the swipe that chooses a block follows a finger made of the wheels' steps
+    (active/blocks.js). WebKit holds a gesture's wheels only if its first one was held: the swipe is taken on that first
+    one, as BUGS 73 takes the first touchmove; heard on the active mode's element alone, so a held wheel holds nothing else
+    of the page. What a timer waits for belongs to the one it was set for (a lift never said ended the next swipe). And a
+    menu opened out of sight to be read (the bar's entries, `body[data-ip-proxy]`) is the page's own, never the system's:
+    the Mac's NSMenu was shown and held everything until it was shut. Checks: `CastGestureTests` (a hold on a tile in both
+    layouts, swipes through WebKit's own wheel events).
 58. **A panel lies over the window; it does not push it.** Outline, pages and notes of a PDF, the
     panel at the right: nothing makes room, no page moves or is drawn anew, and what scrolls
     inside it never scrolls the window (`scrollIntoView` does — set the list's `scrollTop`).

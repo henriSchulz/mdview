@@ -1,4 +1,4 @@
-/* mdview, the page — the iPad's own layout (Henri chose it, 2026-10-20: Craft's look, and no sidebar).
+/* mdview, the page — the iPad's own layout (Henri chose it, 2026-10-20: Craft's look, and no sidebar), and the macOS app's by choice.
  * Only where the boot script said the page is on an iPad (`<html data-ipad>`: web/lib/page.ts) and the
  * window is not a narrow one: in Split View and Slide Over the phone's layout stays (viewer/narrow.css).
  * What it adds (its look: viewer/tablet.css):

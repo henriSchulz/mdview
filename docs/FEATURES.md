@@ -1542,7 +1542,10 @@ counts — and has no writing help by a model.
   window's three buttons (full screen has none). Set off, the window is as it was, its sidebar
   open again if it was. A mouse keeps its menus there (a right click, a block handle's menu,
   tiles dragged); a finger has the iPad's ways — the bars of tiles, no menu under a held
-  finger — and on text the application's edit menu.
+  finger — and on text the application's edit menu. Through the cast a finger held on a tile
+  of All Notes chooses it as it is let go (the cast says a resting finger only then), and a
+  finger swiped across a block chooses it, or lets a chosen one go, as on an iPad — in either
+  layout.
 - **In the application under a finger** (a touch screen on Linux — the tablet's fingers over
   mac-cast — or on Windows; on a Mac an iPad that is its screen through ipad-cast, whose tap is
   a finger's, its scroll a finger's and a finger held and let go one held): while the hand is a finger and the window is wide, the

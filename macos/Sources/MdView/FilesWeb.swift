@@ -18,9 +18,12 @@ final class FilesWebView: WKWebView {
         return r;
       };
       // what the shell says of the pointer just before WebKit hands it on (FilesWebView.penSay): a pen's or a finger's
-      // press, move or lift — where, how hard, how tilted —, or "wheel": a finger's scroll (the cast's, its glide after it)
+      // press, move or lift — where, how hard, how tilted —, or "wheel": a finger's scroll (the cast's, its glide after it),
+      // "wheelbegan" as the finger begins to move (its first wheel is told so: mdBegan) and "wheelend" as it is lifted
+      // (an event of the window's own, "mdwheelend") — the swipe that chooses a block reads them (active/blocks.js)
       window.__mdPen = function (k, x, y, p, tx, ty) {
-        if (k === "wheel") { window.__mdPenWheel = performance.now(); return; }
+        if (k === "wheel" || k === "wheelbegan") { window.__mdPenWheel = performance.now(); if (k === "wheelbegan") window.__mdWheelBegan = true; return; }
+        if (k === "wheelend") { window.__mdPenWheel = performance.now(); window.__mdWheelBegan = false; dispatchEvent(new Event("mdwheelend")); return; }
         const a = window.__mdPenSaid || (window.__mdPenSaid = []);
         a.push({ k: k, x: x, y: y, p: p, tx: tx * 90, ty: ty * 90, t: performance.now() });
         if (a.length > 48) a.splice(0, a.length - 48);
@@ -47,7 +50,11 @@ final class FilesWebView: WKWebView {
         return e;
       };
       for (const type of ["pointerdown", "pointermove", "pointerup", "pointercancel"]) addEventListener(type, window.__mdTold, true);
-      addEventListener("wheel", function (e) { if (window.__mdPenWheel && performance.now() - window.__mdPenWheel < 300) own(e, "pointerType", "touch"); }, { capture: true, passive: true });
+      addEventListener("wheel", function (e) {
+        if (!window.__mdPenWheel || performance.now() - window.__mdPenWheel >= 300) return;
+        own(e, "pointerType", "touch");
+        if (window.__mdWheelBegan) { window.__mdWheelBegan = false; own(e, "mdBegan", true); }
+      }, { capture: true, passive: true });
       const types = Object.getOwnPropertyDescriptor(DataTransfer.prototype, "types");
       if (types) Object.defineProperty(DataTransfer.prototype, "types", { configurable: true, get() {
         const t = types.get.call(this);
@@ -133,9 +140,12 @@ final class FilesWebView: WKWebView {
         guard let k = FilesWebView.kind(of: e), let c = e.cgEvent else { return }
         if e.type == .scrollWheel { // (a finger's: said at most every 0.1 s — the page takes a wheel within 0.3 s of it for one)
             let now = ProcessInfo.processInfo.systemUptime
-            guard k == "touch", now - wheelSaid > 0.1 else { return }
+            guard k == "touch" else { return }
+            // (… and its beginning and its lift each time: a swipe is read from them — active/blocks.js, BUGS.md 129)
+            let word = e.phase.contains(.began) ? "wheelbegan" : !e.phase.isDisjoint(with: [.ended, .cancelled]) ? "wheelend" : "wheel"
+            guard word != "wheel" || now - wheelSaid > 0.1 else { return }
             wheelSaid = now
-            return evaluateJavaScript("window.__mdPen&&__mdPen('wheel',0,0,0,0,0)", completionHandler: nil)
+            return evaluateJavaScript("window.__mdPen&&__mdPen('\(word)',0,0,0,0,0)", completionHandler: nil)
         }
         let at = convert(e.locationInWindow, from: nil), z = max(0.01, pageZoom * magnification)
         guard bounds.contains(at) || e.type != .mouseMoved else { return } // (a move over the window's bars is no one's here)

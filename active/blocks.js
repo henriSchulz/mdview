@@ -1606,7 +1606,7 @@
   }
   const plugin = new Plugin({
     key: new PluginKey("blocks"),
-    view(v) { view = v; setTimeout(() => hookBelow(v), 0); return { update(now) { hookBelow(now); if (settling) return; follow(now.state); if (!drag) showHeld(); }, destroy() { hide(); if (view === v) view = null; } }; },
+    view(v) { view = v; hearCast(); setTimeout(() => hookBelow(v), 0); return { update(now) { hookBelow(now); if (settling) return; follow(now.state); if (!drag) showHeld(); }, destroy() { hide(); if (view === v) view = null; } }; },
     props: {
       // while a block is dragged by its handle, the editor's own drop handling and drop line stay out of it
       handleDrop: () => !!drag,
@@ -1755,6 +1755,7 @@
    * What the browser does by itself stays its own: up and down moves the note, a finger that rests first selects text, a tap
    * puts the caret, and in what scrolls sideways (a code block, a table, a formula) the swipe is only taken at its left edge. */
   const swipeKey = new PluginKey("blkswipe");
+  let hearCast = () => {}; // (the cast's finger heard on the active mode's element, once it is there: below)
   {
     let sw = null;
     const DECIDE = 10, CHOOSE = 60, FAST = 0.5, REACH = 220, RESTED = 400; // px before the direction is known; px or px/ms that choose; how far the block can go; ms after which a finger has rested (text is being selected)
@@ -1819,30 +1820,31 @@
       layer.addEventListener("transitionend", end);
       s.timer = setTimeout(done, still.matches ? 0 : 700); // (with less motion: back at once; else where the end is not told)
     }
-    document.addEventListener("touchstart", (e) => {
-      if (sw && sw.side) return; // (a second finger during a swipe)
+    /* The swipe, whatever brings the finger: where it came down (swBegin), where it is (swFollow — the event that moved it
+     * is held where the swipe takes it), its lift (swLift). A touch brings it on an iPad and a touch screen; on a Mac, the cast. */
+    function swBegin(x, y, id) {
       sw = null;
-      if (!view || !view.editable || document.body.dataset.view !== "active" || e.touches.length !== 1 || drag || rubber) return;
+      if (!view || !view.editable || document.body.dataset.view !== "active" || drag || rubber) return false;
       // (by where the finger is, not by what the browser says it touched: beside the margin lie things made to be met — the
       // sidebar's edge, the handle — and a browser hands a touch that is near one of them to it)
-      const t = e.touches[0], hit = document.elementFromPoint(t.clientX, t.clientY);
-      if (!hit || !hit.closest("#active") || hit.closest(CHROME) || hit.closest("input, textarea, select, canvas, video, iframe")) return;
+      const hit = document.elementFromPoint(x, y);
+      if (!hit || !hit.closest("#active") || hit.closest(CHROME) || hit.closest("input, textarea, select, canvas, video, iframe")) return false;
       const onText = view.dom.contains(hit) && hit !== view.dom;
-      let el = onText ? blockOf(view, hit, t.clientY) : null;
-      if (!el) el = beside(t.clientX, t.clientY);
-      if (!el && view.dom.contains(hit)) el = inner(blockAtY(view.dom, t.clientY, 6), t.clientY); // (between blocks, in a row's gap)
-      if (!el || !el.pmViewDesc) return;
-      sw = { id: t.identifier, x: t.clientX, y: t.clientY, at: performance.now(), el, side: 0, scroller: onText ? scrollerOf(hit) : null, last: [t.clientX, performance.now()], v: 0 };
-    }, { capture: true, passive: true });
-    document.addEventListener("touchmove", (e) => {
-      const t = mine(e);
-      if (!t) return;
-      const dx = t.clientX - sw.x, dy = t.clientY - sw.y, now = performance.now();
+      let el = onText ? blockOf(view, hit, y) : null;
+      if (!el) el = beside(x, y);
+      if (!el && view.dom.contains(hit)) el = inner(blockAtY(view.dom, y, 6), y); // (between blocks, in a row's gap)
+      if (!el || !el.pmViewDesc) return false;
+      sw = { id, x, y, at: performance.now(), el, side: 0, scroller: onText ? scrollerOf(hit) : null, last: [x, performance.now()], v: 0 };
+      return true;
+    }
+    function swFollow(x, y, e) {
+      const dx = x - sw.x, dy = y - sw.y, now = performance.now();
       if (!sw.side) {
         if (Math.hypot(dx, dy) < DECIDE) {
           // (Safari on the iPad: a move it is not stopped from at once is its own — the text's or the note's —, and the touches
           // that follow can no longer be held. Clearly sideways from the start, it is held while the direction is still open;
-          // the note's own touch-action, pan-y, keeps it from taking a sideways move for itself.)
+          // the note's own touch-action, pan-y, keeps it from taking a sideways move for itself. WebKit on the Mac holds a
+          // gesture's wheels only if its first one was.)
           if (e.cancelable && !sw.scroller && Math.abs(dx) > 2 * Math.abs(dy) && Math.abs(dx) >= 3 && now - sw.at <= RESTED) e.preventDefault();
           return;
         }
@@ -1861,18 +1863,18 @@
       }
       if (e.cancelable) e.preventDefault();
       const dt = now - sw.last[1];
-      if (dt > 0) sw.v = sw.v * 0.2 + ((t.clientX - sw.last[0]) / dt) * 0.8;
-      sw.last = [t.clientX, now];
+      if (dt > 0) sw.v = sw.v * 0.2 + ((x - sw.last[0]) / dt) * 0.8;
+      sw.last = [x, now];
       sw.dx = dx;
       const far = dx * sw.side;
       set(Math.round(band(dx) * 10) / 10, Math.min(1, Math.max(0, far / CHOOSE)));
       reach(far >= CHOOSE);
-    }, { capture: true, passive: false });
-    for (const type of ["touchend", "touchcancel"]) document.addEventListener(type, (e) => {
-      if (!mine(e)) return;
+    }
+    // (lifted: "touchend"; taken from the page by the system: "touchcancel")
+    function swLift(type) {
       const s = sw;
       sw = null;
-      if (!s.side) return;
+      if (!s || !s.side) return false;
       swiping = false; swiped = performance.now();
       const far = (s.dx || 0) * s.side;
       // (taken from the page by the system, a swipe that had gone far enough still counts: it was meant)
@@ -1886,7 +1888,58 @@
         if (now) mark({ ...now, done: true }); // (its field is now the selection's own, or none)
       }
       back(s, !!chosen);
+      return true;
+    }
+    document.addEventListener("touchstart", (e) => {
+      if (sw && sw.side) return; // (a second finger during a swipe)
+      if (e.touches.length !== 1) { sw = null; return; }
+      const t = e.touches[0];
+      swBegin(t.clientX, t.clientY, t.identifier);
     }, { capture: true, passive: true });
+    document.addEventListener("touchmove", (e) => {
+      const t = mine(e);
+      if (t) swFollow(t.clientX, t.clientY, e);
+    }, { capture: true, passive: false });
+    for (const type of ["touchend", "touchcancel"]) document.addEventListener(type, (e) => { if (mine(e)) swLift(type); }, { capture: true, passive: true });
+
+    /* An iPad that is the Mac's screen (ipad-cast): a finger that moves comes as a trackpad's scroll, from where it came down —
+     * its first wheel says so (`mdBegan`: the macOS shell, FilesWeb.swift), its lift is said apart ("mdwheelend") —, and the
+     * swipe follows it from the wheels' steps as it follows a touch (the content follows the finger: a finger to the right
+     * is a wheel to the left). The cast's glide after a swipe is no one's. Heard on the active mode's own element: a wheel
+     * that may be held there holds no scroll of the rest of the page (Henri, 2026-11-21: "blöcke ziehen zum auswählen" did
+     * nothing on the Mac's screen through the cast — BUGS.md 129). */
+    let cast = null, glide = false; // (the finger followed: where it is now; whether the glide after a swipe is swallowed)
+    const drop = () => { if (cast) clearTimeout(cast.timer); cast = null; }; // (its timer goes with it: left, it ended the next swipe)
+    const castEnd = () => {
+      if (!cast) return;
+      drop();
+      if (sw && sw.id === "cast") glide = swLift("touchend");
+    };
+    function castWheel(e) {
+      if (e.pointerType !== "touch") return;
+      if (e.mdBegan) {
+        glide = false;
+        drop();
+        if (sw && sw.side) return;
+        if (swBegin(e.clientX, e.clientY, "cast")) cast = { x: e.clientX, y: e.clientY, timer: 0 };
+      } else if (glide) { if (e.cancelable) e.preventDefault(); return; }
+      if (!cast || !sw || sw.id !== "cast") { drop(); return; }
+      cast.x -= e.deltaX; cast.y -= e.deltaY;
+      clearTimeout(cast.timer);
+      const c = cast;
+      cast.timer = setTimeout(() => { if (cast === c) castEnd(); }, 1500); // (a lift that was never said)
+      swFollow(cast.x, cast.y, e);
+      if (!sw) drop(); // (up or down: the note's)
+    }
+    addEventListener("mdwheelend", castEnd);
+    addEventListener("wheel", (e) => { if (e.mdBegan) glide = false; }, { capture: true, passive: true }); // (a new move, wherever it begins: its own)
+    let castOn = null;
+    hearCast = () => {
+      const a = document.getElementById("active");
+      if (!window.__mdTold || !a || castOn === a) return;
+      castOn = a;
+      a.addEventListener("wheel", castWheel, { passive: false });
+    };
   }
   // the block being swiped wears a mark: it goes with the finger, its field fades in or out (active/blocks.css)
   const swipePlugin = new Plugin({

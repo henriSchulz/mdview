@@ -431,20 +431,26 @@
     showPick();
   }
   let hold = null, swallowTap = 0;
+  const held = (t) => {
+    getSelection()?.removeAllRanges();
+    if (!picking()) MdOverview.pick([]);
+    if (!MdOverview.picked.includes(t.dataset.path)) toggle(t); else showPick();
+    t.classList.add("ip-held"); setTimeout(() => t.classList.remove("ip-held"), 400);
+    navigator.vibrate?.(8);
+  };
   addEventListener("pointerdown", (e) => {
     if (hold) { clearTimeout(hold.t); hold = null; }
     swallowTap = 0; // (only the click of the held finger's own lift is swallowed, not the next tap's)
     const t = e.pointerType === "touch" && e.isPrimary && on() && e.target instanceof Element && e.target.closest("#overview[data-open] .ov-item");
     if (!t || t.dataset.kept != null) return;
+    // (the cast's finger, an iPad's that is the Mac's screen: it says nothing while it rests — held and let go, it is the cast's
+    // right click, said a finger's by the macOS shell. It has been held: the tile is chosen at once — BUGS.md 129)
+    if (e.button === 2) { held(t); return; }
     if (t.draggable) { t.draggable = false; undragged = t; }
     hold = { x: e.clientX, y: e.clientY, t: setTimeout(() => {
       hold = null;
       swallowTap = performance.now();
-      getSelection()?.removeAllRanges();
-      if (!picking()) MdOverview.pick([]);
-      if (!MdOverview.picked.includes(t.dataset.path)) toggle(t); else showPick();
-      t.classList.add("ip-held"); setTimeout(() => t.classList.remove("ip-held"), 400);
-      navigator.vibrate?.(8);
+      held(t);
     }, 450) };
   }, true);
   addEventListener("pointermove", (e) => { if (hold && Math.hypot(e.clientX - hold.x, e.clientY - hold.y) > 10) { clearTimeout(hold.t); hold = null; } }, true);
