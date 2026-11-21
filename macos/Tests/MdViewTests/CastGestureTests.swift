@@ -49,14 +49,15 @@ final class CastGestureTests: ShellTest {
         (w.web as! FilesWebView).penSay(e)
         w.web.scrollWheel(with: e)
     }
-    /// A whole move of a finger: down at (x, y), along (dx, dy) in steps, lifted.
-    func swipe(_ w: NoteWindow, at x: CGFloat, _ y: CGFloat, dx: Double, dy: Double, steps: Int = 8) {
+    /// A whole move of a finger: down at (x, y), along (dx, dy) in steps, lifted; `settle` the time after (the block back in its
+    /// place by then).
+    func swipe(_ w: NoteWindow, at x: CGFloat, _ y: CGFloat, dx: Double, dy: Double, steps: Int = 8, settle: Double = 0.9) {
         let sx = dx / Double(steps), sy = dy / Double(steps)
         scroll(w, at: x, y, dx: sx, dy: sy, phase: 1)
         wait(0.02)
         for _ in 1..<steps { scroll(w, at: x, y, dx: sx, dy: sy, phase: 2); wait(0.016) }
         scroll(w, at: x, y, dx: 0, dy: 0, phase: 4)
-        wait(0.9) // (the block back in its place)
+        wait(settle)
     }
 
     /// In All Notes a tile held by the cast's finger is chosen, and the bar of what the file menu has for it is there — no menu
@@ -140,7 +141,14 @@ final class CastGestureTests: ShellTest {
         guard found.count == 5, let i = found[0] as? Int, let x = (found[1] as? NSNumber)?.doubleValue,
               let top = (found[2] as? NSNumber)?.doubleValue, let bottom = (found[3] as? NSNumber)?.doubleValue, let name = found[4] as? String else { return }
         let hits = "((x, y) => { const p = document.querySelectorAll('.pm p')[\(i)]; return document.elementsFromPoint(x, y).some((e) => e === p || p.contains(e)); })"
-        swipe(w, at: CGFloat(x), CGFloat((top + bottom) / 2), dx: 110, dy: 2)
+        // (the field as the block springs back, and once it is back: where it was going all along — Henri, the same day: "es
+        // springt erst nach kurzer zeit zur korrekten auswahl", the block's shift taken in its own pixels, not the window's)
+        let fieldLeft = "(() => { const f = document.querySelector('.blk-fields .blk-field'); return f ? f.getBoundingClientRect().left : null; })()"
+        swipe(w, at: CGFloat(x), CGFloat((top + bottom) / 2), dx: 110, dy: 2, settle: 0.4)
+        let springing = (page(w, fieldLeft) as? NSNumber)?.doubleValue ?? -1e9
+        wait(0.6)
+        let back = (page(w, fieldLeft) as? NSNumber)?.doubleValue ?? 1e9
+        XCTAssertEqual(springing, back, accuracy: 3, "the field jumped once the block was back")
         XCTAssertEqual(page(w, "MdActive.blocks.picked(MdActive.view.pm.state).map((x) => x.node.textContent.slice(0, 12)).join('|')") as? String, name, "the swipe chose another block")
         let field = page(w, "(() => { const f = document.querySelector('.blk-fields .blk-field'); if (!f) return null; const r = f.getBoundingClientRect(); return [r.left + r.width / 2, r.top, r.bottom, r.width]; })()") as? [NSNumber] ?? []
         XCTAssertEqual(field.count, 4, "no field")

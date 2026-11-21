@@ -116,7 +116,10 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     window's where the engine does so (measured once, when a zoom first stands; at 100 % nothing is asked). A layer is never
     put inside the zoomed column to be placed by a box. Check: `CastGestureTests.testAtANotesSizeTheFieldsStandOnTheirBlocks`
     (in a scrolled note; where things are is found by `elementsFromPoint`, not by a box). A check of where something
-    stands runs scrolled too: at the top of a page what depends on the scroll cannot show.
+    stands runs scrolled too: at the top of a page what depends on the scroll cannot show. And a length of its own on what
+    stands in the zoom — a transform, a block swiped — is the window's times the zoom, in every engine (`P.cssZoom`): a
+    swiped block is moved by the finger's way / zoom, and its field takes the block's shift times the zoom (it jumped by a
+    quarter of that once the block was back — Henri: „es springt erst nach kurzer zeit zur korrekten auswahl“).
 
 ### What is drawn while something is coming in
 

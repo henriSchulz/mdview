@@ -849,7 +849,8 @@
       if (!el || el.nodeType !== 1 || !el.isConnected) { boxes.push(null); continue; }
       const r = el.getBoundingClientRect();
       if (!r.width && !r.height) { boxes.push(null); continue; }
-      const swiping = el.classList.contains("blk-swiping"), shift = swiping ? new DOMMatrix(getComputedStyle(el).transform).m41 || 0 : 0; // (where the block stands, not where the finger has it)
+      // (where the block stands, not where the finger has it — its shift is its own length, in the window times the note's zoom)
+      const swiping = el.classList.contains("blk-swiping"), shift = swiping ? (new DOMMatrix(getComputedStyle(el).transform).m41 || 0) * (window.MdPage.cssZoom ? window.MdPage.cssZoom(el) : 1) : 0;
       const out = el.matches("hr") ? rulePad : pad;
       const left = el.matches("li") && el.parentElement ? Math.min(r.left - shift, el.parentElement.getBoundingClientRect().left) : r.left - shift; // (an item: with its bullet)
       boxes.push({ t, el, swiping, left: left - pad, right: r.right - shift + pad, top: r.top - out, bottom: r.bottom + out, raw: [r.top, r.bottom] });
@@ -1770,8 +1771,11 @@
     const root = document.documentElement;
     let slide = null; // (the block's animation: where it stands while it is swiped, or its way back)
     const boxAt = (pos) => { try { const el = view.nodeDOM(pos); return el && el.nodeType === 1 ? el : null; } catch (e) { return null; } };
+    // (x in the window's pixels, as the finger goes and the field follows: the block stands in the note's zoom, which a length
+    // of its own is multiplied by — so it is moved by x / zoom, and goes with the finger and its field at any size of the note)
+    const own = (el, x) => x / (el && window.MdPage.cssZoom ? window.MdPage.cssZoom(el) : 1);
     function slideTo(el, x) {
-      const at = { transform: `translateX(${x}px)` };
+      const at = { transform: `translateX(${own(el, x)}px)` };
       if (slide && !slide.back && slide.effect.target === el) { slide.effect.setKeyframes([at, at]); return; }
       if (slide) slide.cancel();
       slide = el ? el.animate([at, at], { duration: 1e9, fill: "forwards" }) : null;
@@ -1782,7 +1786,7 @@
       slide = null;
       if (!el || still.matches || !from) return;
       const cs = getComputedStyle(root), t = cs.getPropertyValue("--spring-snappy-dur").trim(), ms = parseFloat(t) * (/[^m]s$/.test(t) ? 1000 : 1) || 300;
-      const k = [{ transform: `translateX(${from}px)` }, { transform: "none" }];
+      const k = [{ transform: `translateX(${own(el, from)}px)` }, { transform: "none" }];
       try { slide = el.animate(k, { duration: ms, easing: cs.getPropertyValue("--spring-snappy").trim() || "ease-out" }); } catch (e) { slide = el.animate(k, { duration: ms, easing: "ease-out" }); }
       slide.back = true;
     }

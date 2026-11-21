@@ -42,6 +42,12 @@
       if (own === null) own = measure();
       return own ? parseFloat(getComputedStyle(c).zoom) || 1 : 1;
     };
+    // the zoom something of the note stands in (1 elsewhere): what is moved inside it by a length of its own — a transform —
+    // moves by that length times the zoom in the window, in every engine (active/blocks.js: a block swiped)
+    P.cssZoom = (node) => {
+      const el = node && (node.nodeType === 1 ? node : node.parentElement), c = el && el.closest(ZOOMED);
+      return c ? parseFloat(getComputedStyle(c).zoom) || 1 : 1;
+    };
     const scaled = (r, z) => new DOMRect(r.x * z + (z - 1) * scrollX, r.y * z + (z - 1) * scrollY, r.width * z, r.height * z);
     const list = (rs, z) => { const a = Array.from(rs, (r) => scaled(r, z)); a.item = (i) => a[i] || null; return a; };
     // (only what the engine has: a page that asks whether a range has boxes is told as before)
