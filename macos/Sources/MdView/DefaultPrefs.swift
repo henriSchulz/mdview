@@ -33,6 +33,7 @@ let defaultPrefsJSON = #"""
  "sidebarOther": true,
  "showHidden": false,
  "sidebarLayout": "library",
+ "ipadLayout": "off",
  "sidebarSort": "name",
  "aiOn": true,
  "aiClaude": "",

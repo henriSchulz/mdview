@@ -16,212 +16,240 @@
 (() => {
   const P = window.MdPage;
   const root = document.documentElement;
-  if (!root.hasAttribute("data-ipad")) return;
-  const { T, esc, ICON } = P; // viewer/base.js
   const body = document.body;
-  const wide = matchMedia("(min-width: 761px) and (min-height: 600px)"); // (as viewer/tablet.css says it)
-  const on = () => wide.matches;
-  const still = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-  // --- the button of four parts, and the note's name beside it
-  const nav = document.createElement("div");
-  nav.id = "ipad-nav";
-  nav.innerHTML = `<button class="ip-btn ip-all" type="button" title="${esc(T("All notes"))}" aria-label="${esc(T("All notes"))}" aria-pressed="false">${ICON.apps}</button>` +
-    // (Sync Now beside All Notes, in sight over All Notes too — #30; there while the folder is linked)
-    `<button class="ip-btn ip-sync" type="button" data-ip="sync" title="${esc(T("Sync Now"))}" aria-label="${esc(T("Sync Now"))}">${ICON.sync}</button>` +
-    `<div class="ip-title" aria-hidden="true"><b></b><small>${ICON.folder}<span></span></small></div>`;
-  body.appendChild(nav);
-  const allBtn = nav.querySelector(".ip-all");
-  nav.querySelector(".ip-sync").addEventListener("click", () => P.syncNow());
-
-  // --- the capsule at the bottom left: the history, reading or writing
-  const READING = !!(window.MdHost || {}).reading;
-  const tools = document.createElement("div");
-  tools.id = "ipad-tools";
-  tools.className = "ip-cap";
-  tools.innerHTML = READING ? "" :
-    `<button class="ip-btn" type="button" data-ip="history" title="${esc(T("History"))}" aria-label="${esc(T("History"))}">${ICON.history}</button>` +
-    // (undo and redo: an iPad without a keyboard has no Ctrl+Z — Lucide's undo-2 and redo-2)
-    `<button class="ip-btn ip-hist" type="button" data-ip="undo" title="${esc(T("Undo"))}" aria-label="${esc(T("Undo"))}" aria-disabled="true">${P.svg('<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/>')}</button>` +
-    `<button class="ip-btn ip-hist" type="button" data-ip="redo" title="${esc(T("Redo"))}" aria-label="${esc(T("Redo"))}" aria-disabled="true">${P.svg('<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13"/>')}</button>` +
-    `<button class="ip-btn" type="button" data-ip="write" title="${esc(T("mode.active"))}" aria-label="${esc(T("mode.active"))}" aria-pressed="false">${ICON.pencil}</button>`;
-  if (!READING) body.appendChild(tools);
-
-  const name = () => String((P.current && P.current.name) || "").replace(/\.(md|markdown)$/i, "");
-  const where = () => {
-    const f = P.folder, p = P.current && P.current.path;
-    if (!f || !p || !p.startsWith(f.root + "/")) return f ? f.name : "";
-    const dirs = p.slice(f.root.length + 1).split("/").slice(0, -1);
-    return dirs.length ? dirs[dirs.length - 1] : f.name;
-  };
-  const column = () => (P.inSource() ? P.editor : P.mode === "active" && window.MdActive && MdActive.view ? MdActive.view.el : P.content);
-
-  /* What is shown follows the page: whether All Notes is open, which mode, whether there is a
-   * folder at all (a note opened by its link has none: no All Notes), the sidebar kept shut. */
-  function sync() {
-    const all = body.hasAttribute("data-overview");
-    allBtn.setAttribute("aria-pressed", String(all));
-    nav.hidden = !P.folder;
-    nav.querySelector(".ip-title b").textContent = name();
-    nav.querySelector(".ip-title span").textContent = where();
-    const w = tools.querySelector('[data-ip="write"]');
-    if (w) w.setAttribute("aria-pressed", String(P.mode === "active"));
-    if (on() && body.dataset.sidebar === "open" && P.showSidebar) P.showSidebar(false, false);
-    titled();
+  /* The application on a Mac lays a window out so too where it is asked to (Settings › Appearance › iPad Layout — Henri,
+   * 2026-11-21: "können wir so einen modus hier in die native macos app einbauen, aktivierbar über einstellungen"): always, or
+   * while the window stands on an iPad that is the Mac's screen (ipad-cast: `<html data-touch-screen>`, the host's —
+   * viewer/hand.js). A host that offers it says so (MdHost.ipadLayout); everywhere else <html data-ipad> is the boot script's
+   * alone and stays as it was said. The layout comes and goes while the page runs: what it adds is built the first time, and
+   * what it does holds only while <html data-ipad> does (its look: tablet.css, by the same attribute). */
+  const CHOOSES = !!(window.MdHost && MdHost.ipadLayout);
+  const wanted = () => { const v = (window.MdPrefs || {}).ipadLayout; return v === "always" || (v === "screen" && root.hasAttribute("data-touch-screen")); };
+  let made = false, keptOpen = false; // (built; whether the sidebar stood open as the layout came — open again when it goes)
+  function choose() {
+    if (!CHOOSES) return;
+    const want = wanted();
+    if (want === root.hasAttribute("data-ipad")) return;
+    if (want) keptOpen = body.dataset.sidebar === "open";
+    root.toggleAttribute("data-ipad", want);
+    if (want) { if (!made) build(); P.tablet.sync(); }
+    else if (keptOpen && P.folder && P.showSidebar) P.showSidebar(true, false);
   }
-  /* All Notes shut some other way (Esc, a key, the back of a tab): the note comes back out of the tile it went into */
-  const shut = () => setTimeout(() => { if (hidden && !coming && !body.hasAttribute("data-overview")) toNote(asTile(shrunkTo, P.current && P.current.path), false); }, 0);
-  new MutationObserver(() => { sync(); if (hidden && !body.hasAttribute("data-overview")) shut(); }).observe(body, { attributes: true, attributeFilter: ["data-overview", "data-view", "data-sidebar", "data-mode"] });
-  wide.addEventListener("change", sync);
+  const ipad = () => root.hasAttribute("data-ipad");
+  P.tablet = { choose, on: () => false, sync() {} };
+  if (CHOOSES) new MutationObserver(choose).observe(root, { attributes: true, attributeFilter: ["data-touch-screen"] }); // (the window gone to another screen)
+  choose(); // (the settings the page was made with; a change of them: viewer.js prefsChanged)
+  if (!made && ipad()) build();
 
-  // the note's name goes into the bar when its title has scrolled away
-  function titled() {
-    const b = nav.querySelector(".ip-title b"), n = name();
-    if (b.textContent !== n) { b.textContent = n; nav.querySelector(".ip-title span").textContent = where(); }
-    const col = column(), h = col && col.querySelector(":scope h1, :scope .pm > h1");
-    const gone = h ? h.getBoundingClientRect().bottom < 64 : scrollY > 120;
-    if (body.hasAttribute("data-overview") || hidden || coming) return; // (All Notes over the note, or the zoom under way: the bar stays as it stood — tablet.css fades the name with the note)
-    root.toggleAttribute("data-ip-titled", gone);
-  }
-  addEventListener("scroll", titled, { passive: true });
+  function build() {
+    made = true;
+    const { T, esc, ICON } = P; // viewer/base.js
+    const wide = matchMedia("(min-width: 761px) and (min-height: 600px)"); // (as viewer/tablet.css says it)
+    const on = () => ipad() && wide.matches;
+    const still = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // --- undo and redo: what Ctrl+Z and Ctrl+Shift+Z do in the active mode (its own history, then the note's trail across the
-  // modes: viewer/trail.js) — without the caret coming into the text: no keyboard comes up for a tap on them (BUGS.md 25)
-  const MAC = /Mac|iP(hone|[oa]d)/.test(navigator.platform || navigator.userAgent);
-  const pmView = () => window.MdActive && MdActive.view && MdActive.view.pm;
-  const depth = (dir) => { const v = pmView(); if (!v || P.mode !== "active" || !window.PM || !PM.history) return 0; return (dir < 0 ? PM.history.undoDepth(v.state) : PM.history.redoDepth(v.state)) + (P.trailCan && P.trailCan(dir) ? 1 : 0); };
-  function step(dir) {
-    const v = pmView();
-    if (!v || P.mode !== "active") return;
-    const A = MdActive.view, f1 = v.focus, f2 = A.focus, typing = v.hasFocus();
-    if (!typing) { v.focus = () => {}; A.focus = () => {}; }
-    try { v.dom.dispatchEvent(new KeyboardEvent("keydown", { key: "z", code: "KeyZ", shiftKey: dir > 0, metaKey: MAC, ctrlKey: !MAC, bubbles: true, cancelable: true })); }
-    finally { v.focus = f1; A.focus = f2; }
-    if (!typing && v.hasFocus()) v.dom.blur();
-    histState();
-  }
-  function histState() {
-    for (const [k, dir] of [["undo", -1], ["redo", 1]]) { const b = tools.querySelector(`[data-ip="${k}"]`); if (b) b.setAttribute("aria-disabled", String(!depth(dir))); }
-  }
-  let histQueued = false;
-  const histSoon = () => { if (histQueued) return; histQueued = true; requestAnimationFrame(() => { histQueued = false; histState(); }); };
-  let histOn = null;
-  function histWatch() { // (every change of the document changes what there is to undo)
-    const v = pmView();
-    if (!v || v.dom === histOn) return histSoon();
-    histOn = v.dom;
-    new MutationObserver(histSoon).observe(v.dom, { childList: true, subtree: true, characterData: true });
-    // an iPad's keyboard has keys of its own for them (and ⌘Z): as the editor's own keys, not the browser's undo of the page
-    v.dom.addEventListener("beforeinput", (e) => { if (e.inputType === "historyUndo" || e.inputType === "historyRedo") { e.preventDefault(); step(e.inputType === "historyUndo" ? -1 : 1); } });
-    histSoon();
-  }
-  new MutationObserver(histWatch).observe(body, { attributes: true, attributeFilter: ["data-view"] });
+    // --- the button of four parts, and the note's name beside it
+    const nav = document.createElement("div");
+    nav.id = "ipad-nav";
+    nav.innerHTML = `<button class="ip-btn ip-all" type="button" title="${esc(T("All notes"))}" aria-label="${esc(T("All notes"))}" aria-pressed="false">${ICON.apps}</button>` +
+      // (Sync Now beside All Notes, in sight over All Notes too — #30; there while the folder is linked)
+      `<button class="ip-btn ip-sync" type="button" data-ip="sync" title="${esc(T("Sync Now"))}" aria-label="${esc(T("Sync Now"))}">${ICON.sync}</button>` +
+      `<div class="ip-title" aria-hidden="true"><b></b><small>${ICON.folder}<span></span></small></div>`;
+    body.appendChild(nav);
+    const allBtn = nav.querySelector(".ip-all");
+    nav.querySelector(".ip-sync").addEventListener("click", () => P.syncNow());
 
-  // --- buttons
-  tools.addEventListener("click", (e) => {
-    const b = e.target.closest("[data-ip]");
-    if (!b) return;
-    if (b.dataset.ip === "undo" || b.dataset.ip === "redo") { if (b.getAttribute("aria-disabled") !== "true") step(b.dataset.ip === "undo" ? -1 : 1); }
-    else if (b.dataset.ip === "history") P.openHistory();
-    else if (b.dataset.ip === "write") P.switchMode(P.mode === "active" ? "read" : "active");
-  });
-  allBtn.addEventListener("click", () => {
-    if (!P.folder || !window.MdOverview) return;
-    if (body.hasAttribute("data-overview")) { if (P.current) toNote(currentTile()); }
-    else toAll();
-  });
+    // --- the capsule at the bottom left: the history, reading or writing
+    const READING = !!(window.MdHost || {}).reading;
+    const tools = document.createElement("div");
+    tools.id = "ipad-tools";
+    tools.className = "ip-cap";
+    tools.innerHTML = READING ? "" :
+      `<button class="ip-btn" type="button" data-ip="history" title="${esc(T("History"))}" aria-label="${esc(T("History"))}">${ICON.history}</button>` +
+      // (undo and redo: an iPad without a keyboard has no Ctrl+Z — Lucide's undo-2 and redo-2)
+      `<button class="ip-btn ip-hist" type="button" data-ip="undo" title="${esc(T("Undo"))}" aria-label="${esc(T("Undo"))}" aria-disabled="true">${P.svg('<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/>')}</button>` +
+      `<button class="ip-btn ip-hist" type="button" data-ip="redo" title="${esc(T("Redo"))}" aria-label="${esc(T("Redo"))}" aria-disabled="true">${P.svg('<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13"/>')}</button>` +
+      `<button class="ip-btn" type="button" data-ip="write" title="${esc(T("mode.active"))}" aria-label="${esc(T("mode.active"))}" aria-pressed="false">${ICON.pencil}</button>`;
+    if (!READING) body.appendChild(tools);
 
-  // --- the zoom between the note and its tile
-  const spring = () => getComputedStyle(root).getPropertyValue("--spring-smooth").trim() || "ease-out";
-  const ms = (v) => { const s = getComputedStyle(root).getPropertyValue(v).trim(); return s.endsWith("ms") ? parseFloat(s) : parseFloat(s) * 1000 || 300; };
-  const overview = () => document.getElementById("overview");
-  const currentTile = () => overview() && overview().querySelector(".ov-item[aria-current]");
-  const sheetOf = (tile) => (tile && (tile.querySelector(".ov-sheet, .ov-mini") || tile)) || null;
-  let hidden = null, shrunkTo = null; // the note's column while it stands shrunk in its tile, under All Notes; where its sheet was
-  const asTile = (r, path) => ({ dataset: { path }, querySelector: () => ({ getBoundingClientRect: () => r }) });
-  /* the visible part of the note's column, and the transform that lays it onto r (and back) */
-  function lay(col, r, at = null) {
-    const c = at || col.getBoundingClientRect(), top = Math.max(c.top, 0), s = r.width / c.width;
-    return { s, origin: `0px ${top - c.top}px`, to: `translate(${r.left - c.left}px, ${r.top - top}px) scale(${s})`,
-      from: `translate(${c.left - r.left}px, ${top - r.top}px) scale(${1 / s})`, ovOrigin: `${r.left}px ${r.top}px` }; // (All Notes' own corner: it scrolls inside itself, its box stays)
-  }
-  function toAll() {
-    const col = column(), at = col && col.getBoundingClientRect(); // (where the note stands as it is touched: opening All Notes may move what is under it)
-    if (hidden) { hidden.cancel(); hidden = null; }
-    MdOverview.open();
-    const tile = sheetOf(currentTile());
-    if (!tile || !col || still()) return;
-    const r = tile.getBoundingClientRect(), L = lay(col, r, at), dur = ms("--spring-smooth-dur");
-    shrunkTo = r;
-    col.style.transformOrigin = L.origin;
-    hidden = col.animate([{ transform: "none", opacity: 1 }, { transform: L.to, opacity: 0, offset: 0.85 }, { transform: L.to, opacity: 0 }], { duration: dur, easing: spring(), fill: "forwards" });
-    const ov = overview();
-    ov.style.transformOrigin = L.ovOrigin;
-    ov.animate([{ transform: L.from, opacity: 0 }, { transform: "none", opacity: 1 }], { duration: dur, easing: spring() });
-  }
-  /* from a tile (r: where its sheet stood) into the note: All Notes goes back into the tile, the
-   * note comes out of it once it is there (a note that is still on its way is waited for) */
-  let coming = null;
-  function toNote(tile, open = true) {
-    const r = sheetOf(tile) && sheetOf(tile).getBoundingClientRect();
-    const path = tile && tile.dataset.path;
-    if (open) MdOverview.close();
-    if (!r || still()) { if (hidden) { hidden.cancel(); hidden = null; } return; }
-    const ov = overview(), dur = ms("--spring-smooth-dur");
-    const col0 = column(), L0 = col0 && lay(col0, r);
-    if (L0) { ov.style.transformOrigin = L0.ovOrigin; ov.animate([{ transform: "none", opacity: 1 }, { transform: L0.from, opacity: 0 }], { duration: dur * 0.8, easing: spring() }); }
-    const grow = () => {
-      const col = column();
+    const name = () => String((P.current && P.current.name) || "").replace(/\.(md|markdown)$/i, "");
+    const where = () => {
+      const f = P.folder, p = P.current && P.current.path;
+      if (!f || !p || !p.startsWith(f.root + "/")) return f ? f.name : "";
+      const dirs = p.slice(f.root.length + 1).split("/").slice(0, -1);
+      return dirs.length ? dirs[dirs.length - 1] : f.name;
+    };
+    const column = () => (P.inSource() ? P.editor : P.mode === "active" && window.MdActive && MdActive.view ? MdActive.view.el : P.content);
+
+    /* What is shown follows the page: whether All Notes is open, which mode, whether there is a
+     * folder at all (a note opened by its link has none: no All Notes), the sidebar kept shut. */
+    function sync() {
+      const all = body.hasAttribute("data-overview");
+      allBtn.setAttribute("aria-pressed", String(all));
+      nav.hidden = !P.folder;
+      nav.querySelector(".ip-title b").textContent = name();
+      nav.querySelector(".ip-title span").textContent = where();
+      const w = tools.querySelector('[data-ip="write"]');
+      if (w) w.setAttribute("aria-pressed", String(P.mode === "active"));
+      if (on() && body.dataset.sidebar === "open" && P.showSidebar) P.showSidebar(false, false);
+      titled();
+    }
+    /* All Notes shut some other way (Esc, a key, the back of a tab): the note comes back out of the tile it went into */
+    const shut = () => setTimeout(() => { if (hidden && !coming && !body.hasAttribute("data-overview")) toNote(asTile(shrunkTo, P.current && P.current.path), false); }, 0);
+    new MutationObserver(() => { sync(); if (hidden && !body.hasAttribute("data-overview")) shut(); }).observe(body, { attributes: true, attributeFilter: ["data-overview", "data-view", "data-sidebar", "data-mode"] });
+    wide.addEventListener("change", sync);
+
+    // the note's name goes into the bar when its title has scrolled away
+    function titled() {
+      if (!ipad()) return; // (the layout gone again — the application's: nothing is read of the page's layout for it)
+      const b = nav.querySelector(".ip-title b"), n = name();
+      if (b.textContent !== n) { b.textContent = n; nav.querySelector(".ip-title span").textContent = where(); }
+      const col = column(), h = col && col.querySelector(":scope h1, :scope .pm > h1");
+      const gone = h ? h.getBoundingClientRect().bottom < 64 : scrollY > 120;
+      if (body.hasAttribute("data-overview") || hidden || coming) return; // (All Notes over the note, or the zoom under way: the bar stays as it stood — tablet.css fades the name with the note)
+      root.toggleAttribute("data-ip-titled", gone);
+    }
+    addEventListener("scroll", titled, { passive: true });
+
+    // --- undo and redo: what Ctrl+Z and Ctrl+Shift+Z do in the active mode (its own history, then the note's trail across the
+    // modes: viewer/trail.js) — without the caret coming into the text: no keyboard comes up for a tap on them (BUGS.md 25)
+    const MAC = /Mac|iP(hone|[oa]d)/.test(navigator.platform || navigator.userAgent);
+    const pmView = () => window.MdActive && MdActive.view && MdActive.view.pm;
+    const depth = (dir) => { const v = pmView(); if (!v || P.mode !== "active" || !window.PM || !PM.history) return 0; return (dir < 0 ? PM.history.undoDepth(v.state) : PM.history.redoDepth(v.state)) + (P.trailCan && P.trailCan(dir) ? 1 : 0); };
+    function step(dir) {
+      const v = pmView();
+      if (!v || P.mode !== "active") return;
+      const A = MdActive.view, f1 = v.focus, f2 = A.focus, typing = v.hasFocus();
+      if (!typing) { v.focus = () => {}; A.focus = () => {}; }
+      try { v.dom.dispatchEvent(new KeyboardEvent("keydown", { key: "z", code: "KeyZ", shiftKey: dir > 0, metaKey: MAC, ctrlKey: !MAC, bubbles: true, cancelable: true })); }
+      finally { v.focus = f1; A.focus = f2; }
+      if (!typing && v.hasFocus()) v.dom.blur();
+      histState();
+    }
+    function histState() {
+      for (const [k, dir] of [["undo", -1], ["redo", 1]]) { const b = tools.querySelector(`[data-ip="${k}"]`); if (b) b.setAttribute("aria-disabled", String(!depth(dir))); }
+    }
+    let histQueued = false;
+    const histSoon = () => { if (histQueued) return; histQueued = true; requestAnimationFrame(() => { histQueued = false; histState(); }); };
+    let histOn = null;
+    function histWatch() { // (every change of the document changes what there is to undo)
+      const v = pmView();
+      if (!v || v.dom === histOn) return histSoon();
+      histOn = v.dom;
+      new MutationObserver(histSoon).observe(v.dom, { childList: true, subtree: true, characterData: true });
+      // an iPad's keyboard has keys of its own for them (and ⌘Z): as the editor's own keys, not the browser's undo of the page
+      v.dom.addEventListener("beforeinput", (e) => { if (ipad() && (e.inputType === "historyUndo" || e.inputType === "historyRedo")) { e.preventDefault(); step(e.inputType === "historyUndo" ? -1 : 1); } });
+      histSoon();
+    }
+    new MutationObserver(histWatch).observe(body, { attributes: true, attributeFilter: ["data-view"] });
+
+    // --- buttons
+    tools.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-ip]");
+      if (!b) return;
+      if (b.dataset.ip === "undo" || b.dataset.ip === "redo") { if (b.getAttribute("aria-disabled") !== "true") step(b.dataset.ip === "undo" ? -1 : 1); }
+      else if (b.dataset.ip === "history") P.openHistory();
+      else if (b.dataset.ip === "write") P.switchMode(P.mode === "active" ? "read" : "active");
+    });
+    allBtn.addEventListener("click", () => {
+      if (!P.folder || !window.MdOverview) return;
+      if (body.hasAttribute("data-overview")) { if (P.current) toNote(currentTile()); }
+      else toAll();
+    });
+
+    // --- the zoom between the note and its tile
+    const spring = () => getComputedStyle(root).getPropertyValue("--spring-smooth").trim() || "ease-out";
+    const ms = (v) => { const s = getComputedStyle(root).getPropertyValue(v).trim(); return s.endsWith("ms") ? parseFloat(s) : parseFloat(s) * 1000 || 300; };
+    const overview = () => document.getElementById("overview");
+    const currentTile = () => overview() && overview().querySelector(".ov-item[aria-current]");
+    const sheetOf = (tile) => (tile && (tile.querySelector(".ov-sheet, .ov-mini") || tile)) || null;
+    let hidden = null, shrunkTo = null; // the note's column while it stands shrunk in its tile, under All Notes; where its sheet was
+    const asTile = (r, path) => ({ dataset: { path }, querySelector: () => ({ getBoundingClientRect: () => r }) });
+    /* the visible part of the note's column, and the transform that lays it onto r (and back) */
+    function lay(col, r, at = null) {
+      const c = at || col.getBoundingClientRect(), top = Math.max(c.top, 0), s = r.width / c.width;
+      return { s, origin: `0px ${top - c.top}px`, to: `translate(${r.left - c.left}px, ${r.top - top}px) scale(${s})`,
+        from: `translate(${c.left - r.left}px, ${top - r.top}px) scale(${1 / s})`, ovOrigin: `${r.left}px ${r.top}px` }; // (All Notes' own corner: it scrolls inside itself, its box stays)
+    }
+    function toAll() {
+      const col = column(), at = col && col.getBoundingClientRect(); // (where the note stands as it is touched: opening All Notes may move what is under it)
       if (hidden) { hidden.cancel(); hidden = null; }
-      if (!col) return;
-      const L = lay(col, r);
+      MdOverview.open();
+      const tile = sheetOf(currentTile());
+      if (!tile || !col || still()) return;
+      const r = tile.getBoundingClientRect(), L = lay(col, r, at), dur = ms("--spring-smooth-dur");
+      shrunkTo = r;
       col.style.transformOrigin = L.origin;
-      col.animate([{ transform: L.to, opacity: 0 }, { opacity: 1, offset: 0.35 }, { transform: "none", opacity: 1 }], { duration: dur, easing: spring() }).finished.then(titled, titled);
-    };
-    if (!path || (P.current && (P.current.path === path || P.current.real === path))) return grow();
-    // a note of its own: the old one stays out of sight until the new one is drawn
-    const since = performance.now();
-    clearInterval(coming);
-    coming = setInterval(() => {
-      const there = P.current && (P.current.path === path || P.current.real === path);
-      if (there || performance.now() - since > 2500) { clearInterval(coming); coming = null; requestAnimationFrame(grow); }
-    }, 30);
+      hidden = col.animate([{ transform: "none", opacity: 1 }, { transform: L.to, opacity: 0, offset: 0.85 }, { transform: L.to, opacity: 0 }], { duration: dur, easing: spring(), fill: "forwards" });
+      const ov = overview();
+      ov.style.transformOrigin = L.ovOrigin;
+      ov.animate([{ transform: L.from, opacity: 0 }, { transform: "none", opacity: 1 }], { duration: dur, easing: spring() });
+    }
+    /* from a tile (r: where its sheet stood) into the note: All Notes goes back into the tile, the
+     * note comes out of it once it is there (a note that is still on its way is waited for) */
+    let coming = null;
+    function toNote(tile, open = true) {
+      const r = sheetOf(tile) && sheetOf(tile).getBoundingClientRect();
+      const path = tile && tile.dataset.path;
+      if (open) MdOverview.close();
+      if (!r || still()) { if (hidden) { hidden.cancel(); hidden = null; } return; }
+      const ov = overview(), dur = ms("--spring-smooth-dur");
+      const col0 = column(), L0 = col0 && lay(col0, r);
+      if (L0) { ov.style.transformOrigin = L0.ovOrigin; ov.animate([{ transform: "none", opacity: 1 }, { transform: L0.from, opacity: 0 }], { duration: dur * 0.8, easing: spring() }); }
+      const grow = () => {
+        const col = column();
+        if (hidden) { hidden.cancel(); hidden = null; }
+        if (!col) return;
+        const L = lay(col, r);
+        col.style.transformOrigin = L.origin;
+        col.animate([{ transform: L.to, opacity: 0 }, { opacity: 1, offset: 0.35 }, { transform: "none", opacity: 1 }], { duration: dur, easing: spring() }).finished.then(titled, titled);
+      };
+      if (!path || (P.current && (P.current.path === path || P.current.real === path))) return grow();
+      // a note of its own: the old one stays out of sight until the new one is drawn
+      const since = performance.now();
+      clearInterval(coming);
+      coming = setInterval(() => {
+        const there = P.current && (P.current.path === path || P.current.real === path);
+        if (there || performance.now() - since > 2500) { clearInterval(coming); coming = null; requestAnimationFrame(grow); }
+      }, 30);
+    }
+    // a tile opened by a finger (or a click): the note grows out of it — overview.js opens it
+    document.addEventListener("click", (e) => {
+      const t = e.target instanceof Element && e.target.closest("#overview .ov-item.ov-tile:not(.ov-folder):not(.ov-file)");
+      if (!t || e.ctrlKey || e.metaKey || e.shiftKey || !on()) return;
+      const r = sheetOf(t).getBoundingClientRect();
+      // (after overview.js has done its part: the tile's sheet as it stood when it was touched)
+      setTimeout(() => { if (!body.hasAttribute("data-overview")) toNote(asTile(r, t.dataset.path), false); }, 0);
+    }, true);
+
+
+
+
+    // --- the panel is the note's: on the iPad it goes when the note is left (All Notes, another note, another mode), and does not
+    // come back of itself when the note is entered again (its "open" is not kept)
+    {
+      let was = { path: null, mode: null };
+      const shutPanel = () => { if (window.MdActive && MdActive.panel && MdActive.panel.isOpen) MdActive.panel.show(false, false); };
+      const check = () => {
+        const now = { path: P.current && P.current.path, mode: P.mode };
+        if (!ipad()) { was = now; return; } // (the application's panel, out of this layout, is kept as it is there)
+        if (body.hasAttribute("data-overview") || (was.path && now.path !== was.path) || (was.mode && now.mode !== was.mode)) shutPanel();
+        was = now;
+      };
+      new MutationObserver(check).observe(body, { attributes: true, attributeFilter: ["data-overview", "data-view"] });
+      new MutationObserver(check).observe(P.content, { childList: true });
+      setInterval(check, 800); // (a note opened by a link, in the active mode: no attribute changes for it)
+    }
+
+    // --- with the keyboard up, what stands at the foot stands above it (Safari's visual viewport)
+    if (window.visualViewport) {
+      const kb = () => root.style.setProperty("--ip-kb", Math.max(0, Math.round(innerHeight - visualViewport.height - visualViewport.offsetTop)) + "px");
+      visualViewport.addEventListener("resize", kb);
+      visualViewport.addEventListener("scroll", kb);
+      kb();
+    }
+
+    sync();
+    Object.assign(P.tablet, { on, sync, toAll, toNote });
   }
-  // a tile opened by a finger (or a click): the note grows out of it — overview.js opens it
-  document.addEventListener("click", (e) => {
-    const t = e.target instanceof Element && e.target.closest("#overview .ov-item.ov-tile:not(.ov-folder):not(.ov-file)");
-    if (!t || e.ctrlKey || e.metaKey || e.shiftKey || !on()) return;
-    const r = sheetOf(t).getBoundingClientRect();
-    // (after overview.js has done its part: the tile's sheet as it stood when it was touched)
-    setTimeout(() => { if (!body.hasAttribute("data-overview")) toNote(asTile(r, t.dataset.path), false); }, 0);
-  }, true);
-
-
-
-
-  // --- the panel is the note's: on the iPad it goes when the note is left (All Notes, another note, another mode), and does not
-  // come back of itself when the note is entered again (its "open" is not kept)
-  {
-    let was = { path: null, mode: null };
-    const shutPanel = () => { if (window.MdActive && MdActive.panel && MdActive.panel.isOpen) MdActive.panel.show(false, false); };
-    const check = () => {
-      const now = { path: P.current && P.current.path, mode: P.mode };
-      if (body.hasAttribute("data-overview") || (was.path && now.path !== was.path) || (was.mode && now.mode !== was.mode)) shutPanel();
-      was = now;
-    };
-    new MutationObserver(check).observe(body, { attributes: true, attributeFilter: ["data-overview", "data-view"] });
-    new MutationObserver(check).observe(P.content, { childList: true });
-    setInterval(check, 800); // (a note opened by a link, in the active mode: no attribute changes for it)
-  }
-
-  // --- with the keyboard up, what stands at the foot stands above it (Safari's visual viewport)
-  if (window.visualViewport) {
-    const kb = () => root.style.setProperty("--ip-kb", Math.max(0, Math.round(innerHeight - visualViewport.height - visualViewport.offsetTop)) + "px");
-    visualViewport.addEventListener("resize", kb);
-    visualViewport.addEventListener("scroll", kb);
-    kb();
-  }
-
-  sync();
-  P.tablet = { on, sync, toAll, toNote };
 })();

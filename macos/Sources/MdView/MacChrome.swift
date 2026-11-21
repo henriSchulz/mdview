@@ -178,7 +178,9 @@ final class MacChrome: NSObject, NSToolbarDelegate {
         // 2026-11-19, "bug": the board's name under the window's buttons, its capsule under back and forward)
         // (… and so has a dialog that is the whole window, a block's code with what it shows: "bug", the same day — its
         // title under the window's buttons, its language and its buttons under the bar's)
-        let shown = (w.path != nil || w.folder != nil || w.isSpare) && !b("focus") && !w.boardFull && !b("canvas")
+        // (… and the iPad's layout, chosen in the settings: its buttons float in the window's corners, as on an iPad —
+        // viewer/tablet.js; the window's three buttons stay, over the band the page keeps for them)
+        let shown = (w.path != nil || w.folder != nil || w.isSpare) && !b("focus") && !w.boardFull && !b("canvas") && !b("ipad")
         if toolbar.isVisible != shown { toolbar.isVisible = shown; tellHeight(); fit() }
         let note = !b("nonote"), folder = b("folder")
         items[.mdOutline]?.isEnabled = note
@@ -220,7 +222,7 @@ final class MacChrome: NSObject, NSToolbarDelegate {
       html.setAttribute("data-mac", "");
       var css = ":root[data-mac]{--tabs-h:var(--mac-bar,52px)}" +
         ":root[data-mac][data-mac-tabs]{--tabs-h:calc(var(--mac-bar,52px) + 40px)}" +
-        ":root[data-mac] #toolbar{visibility:hidden!important;pointer-events:none!important}" +
+        ":root[data-mac]:not([data-ipad]) #toolbar{visibility:hidden!important;pointer-events:none!important}" +
         ":root[data-mac] #tabs{background:transparent!important;padding-top:calc(var(--mac-bar,52px) + 2px)!important}" +
         ":root[data-mac] #tabs::after{display:none!important}" +
         ":root[data-mac] #tabs :is(.tab-side,.tab-nav,[data-act=overview],.tab-sync){display:none!important}" +
@@ -234,7 +236,12 @@ final class MacChrome: NSObject, NSToolbarDelegate {
         // (a whiteboard over the whole window: the bar is gone, the window's three buttons stay — the board's name begins after them)
         ":root[data-mac] #board:not([data-pdf]) .bd-title{left:calc(78px + env(safe-area-inset-left, 0px))}" +
         ":root[data-mac] #dlg[data-canvas] .dlg-head{padding-left:86px}" +
-        ":root[data-mac] :is(#ctxmenu,.actmenu){--accent:var(--c-accent)}";
+        ":root[data-mac] :is(#ctxmenu,.actmenu){--accent:var(--c-accent)}" +
+        // (the iPad's layout, chosen in the settings — viewer/tablet.js: no bar of the system's; what floats in the corners and
+        // the note begin under the window's three buttons, as on an iPad under its status bar; full screen has neither)
+        ":root[data-mac][data-ipad]{--tabs-h:calc(52px + var(--mac-bar,0px));--ip-top:calc(10px + var(--mac-bar,0px))}" +
+        ":root[data-mac][data-ipad] body:not([data-tabs]) :is(#content,#active,#editor){padding-top:calc(var(--tabs-h) + 28px)}" +
+        ":root[data-mac][data-ipad] #mac-bar{height:calc(var(--mac-bar,0px) * 1.5)}";
       var style = document.createElement("style");
       style.textContent = css;
       document.head.appendChild(style);
@@ -259,7 +266,8 @@ final class MacChrome: NSObject, NSToolbarDelegate {
           var st = { nonote: b.hasAttribute("data-nonote"), folder: !!P.folder, sidebar: b.dataset.sidebar || "",
             focus: b.hasAttribute("data-focus"), canvas: !!q("#dlg[data-canvas][data-open]"),
             overview: b.hasAttribute("data-overview"), back: !!back && !back.disabled, fwd: !!fwd && !fwd.disabled,
-            mode: seg ? seg.dataset.mode : "read", sync: !!sync && b.hasAttribute("data-linked"), tabs: tabs };
+            mode: seg ? seg.dataset.mode : "read", sync: !!sync && b.hasAttribute("data-linked"), tabs: tabs,
+            ipad: html.hasAttribute("data-ipad") };
           var s = JSON.stringify(st);
           if (s !== was) { was = s; window.webkit.messageHandlers.msg.postMessage(Object.assign({ type: "macbar" }, st)); }
         };
@@ -267,7 +275,7 @@ final class MacChrome: NSObject, NSToolbarDelegate {
         var mo = new MutationObserver(later);
         mo.observe(document.body, { attributes: true, attributeFilter: ["data-sidebar", "data-nonote", "data-focus", "data-overview", "data-tabs", "data-linked", "data-folder"] });
         // (a dialog that is the whole window — a block's code and what it shows — comes and goes by attributes of its own)
-        mo.observe(html, { attributes: true, subtree: true, attributeFilter: ["data-canvas", "data-open"] });
+        mo.observe(html, { attributes: true, subtree: true, attributeFilter: ["data-canvas", "data-open", "data-ipad"] });
         var watch = function () {
           ["#toolbar", "#tabs"].forEach(function (s) { var el = q(s); if (el) mo.observe(el, { attributes: true, subtree: true, childList: true, attributeFilter: ["disabled", "aria-checked", "class"] }); });
         };

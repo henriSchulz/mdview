@@ -89,7 +89,7 @@ or the tests see the old ones.
 | `viewer/search.js` | Search: every note of the folder, as a whole or by its blocks (Henri, 2026-11-11: "eine globale Suchfunktion, … |
 | `viewer/sidebar.js` | the sidebar of a folder window: the folder's notes as a tree reconciled by path, its layouts, sorting, the … |
 | `viewer/split.js` | two things side by side: a note and a PDF, and nothing else (Henri, 2026-10-26: "two notes side by side … |
-| `viewer/tablet.js` | the iPad's own layout (Henri chose it, 2026-10-20: Craft's look, and no sidebar). |
+| `viewer/tablet.js` | the iPad's own layout (Henri chose it, 2026-10-20: Craft's look, and no sidebar); in the macOS app by choice (Settings › Appearance › iPad Layout: always, or on an iPad's screen — 2026-11-21), coming and going while the page runs. Check: macos `swift test --filter IpadLayoutTests`. |
 | `viewer/tabs.js` | the tabs of a folder window. |
 | `viewer/toolbar.js` | what the toolbar's buttons and the keys do, the outline closed by a click outside, a note larger and smaller, … |
 | `viewer/touch.js` | what a finger has in the note, as the iPad has it (Craft's): no menu under a held finger, bars of tiles at … |

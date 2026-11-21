@@ -69,6 +69,7 @@
   };
   sized();
   if (coarse && coarse.addEventListener) coarse.addEventListener("change", sized);
+  new MutationObserver(sized).observe(root, { attributes: true, attributeFilter: ["data-ipad"] }); // (the application's iPad layout comes and goes: viewer/tablet.js)
   const setTablet = (on) => { tablet = !!on; sized(); };
   const setScreen = (on) => { root.toggleAttribute("data-touch-screen", !!on); sized(); };
 

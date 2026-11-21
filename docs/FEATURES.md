@@ -1534,6 +1534,15 @@ counts — and has no writing help by a model.
   Mac); in Split View and Slide Over, where the window is narrow, it has the phone's layout.
   `?ipad=1` in the address gives any browser this layout, `?ipad=0` takes it back (kept in the
   browser until then).
+- **The iPad's layout in the macOS app** (Settings › Appearance › iPad Layout: Off, On an
+  iPad's Screen, Always): the window is laid out as on an iPad — always, or while it stands on
+  an iPad that is the Mac's screen (ipad-cast), coming as the window goes there and going as it
+  comes back; a window made there has it from the start. The system's bar and the sidebar's card
+  go, the tabs are out of sight, and the iPad's buttons float in the window's corners, under the
+  window's three buttons (full screen has none). Set off, the window is as it was, its sidebar
+  open again if it was. A mouse keeps its menus there (a right click, a block handle's menu,
+  tiles dragged); a finger has the iPad's ways — the bars of tiles, no menu under a held
+  finger — and on text the application's edit menu.
 - **In the application under a finger** (a touch screen on Linux — the tablet's fingers over
   mac-cast — or on Windows; on a Mac an iPad that is its screen through ipad-cast, whose tap is
   a finger's, its scroll a finger's and a finger held and let go one held): while the hand is a finger and the window is wide, the

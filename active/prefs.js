@@ -12,7 +12,7 @@
     sidebarPdf: true, sidebarImages: true, sidebarMedia: true, sidebarBoards: true, sidebarOther: true, showHidden: false, sidebarSort: "name", sidebarLayout: "library",
     aiOn: true, aiClaude: "", aiComplete: false, aiModel: "", historyQuiet: 30, deviceName: "",
     panel: false, panelTab: "insert",
-    ovScope: "all", ovLayout: "tiles", ovPdf: true, ovImages: true, ovMedia: true, ovBoards: true, ovOther: true, ovBoardsShow: "all", pdfFormat: "callout", pdfAuto: false, look: "refined", measure: "normal", calloutStyle: "box", hinting: false, docZoom: 100, props: true, quickDir: "", quickNew: "Ctrl+N", updateAuto: true,
+    ovScope: "all", ovLayout: "tiles", ovPdf: true, ovImages: true, ovMedia: true, ovBoards: true, ovOther: true, ovBoardsShow: "all", pdfFormat: "callout", pdfAuto: false, look: "refined", measure: "normal", calloutStyle: "box", hinting: false, docZoom: 100, ipadLayout: "off", props: true, quickDir: "", quickNew: "Ctrl+N", updateAuto: true,
   };
   const post = (type, data = {}) => window.MdHost?.post(JSON.stringify({ type, ...data }));
   const now = () => ({ ...DEFAULTS, ...(window.MdPrefs || {}) });
@@ -37,6 +37,8 @@
         ["look", "select", [["app", "prefs.look.app"], ["velum", "prefs.look.velum"], ["refined", "prefs.look.refined"], ["focus", "prefs.look.focus"]]],
         ["calloutStyle", "select", [["box", "prefs.calloutStyle.box"], ["tip", "prefs.calloutStyle.tip"], ["label", "prefs.calloutStyle.label"], ["card", "prefs.calloutStyle.card"]]],
         ["sidebarLayout", "select", [["library", "prefs.layout.library"], ["sheets", "prefs.layout.sheets"], ["rail", "prefs.layout.rail"], ["source", "prefs.layout.source"], ["tiles", "prefs.layout.tiles"]]],
+        // (the window laid out as the iPad has it: only where the host offers it — the application on a Mac, viewer/tablet.js)
+        ...(window.MdHost && MdHost.ipadLayout ? [["ipadLayout", "select", [["off", "prefs.ipadLayout.off"], ["screen", "prefs.ipadLayout.screen"], ["always", "prefs.ipadLayout.always"]]]] : []),
         ["hinting", "switch"],
       ]],
     ]],

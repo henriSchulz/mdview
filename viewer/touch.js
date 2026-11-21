@@ -5,21 +5,23 @@
  * On an iPad always (`<html data-ipad>`: its own layout, viewer/tablet.js); in the application (and WebKitGTK, its web view)
  * while the hand is a finger (`<html data-finger>`: viewer/hand.js) — Henri, 2026-10-25: the application on Linux under the
  * tablet's fingers; not in a narrow window, which has the phone's layout. A mouse or a touchpad there, and the menus are
- * back. Its look: viewer/tablet.css. */
+ * back — in the application on a Mac laid out as the iPad is (Settings › Appearance › iPad Layout: viewer/tablet.js) too: the
+ * iPad's ways while the hand is a finger, a mouse's menus for a mouse. <html data-ipad> comes and goes there while the page
+ * runs, so it is asked each time. Its look: viewer/tablet.css. */
 "use strict";
 (() => {
   const P = window.MdPage;
   const root = document.documentElement;
   const { T, esc, ICON, post, motionMs } = P; // viewer/base.js
   const body = document.body;
-  const IPAD = root.hasAttribute("data-ipad");
+  const ipad = () => root.hasAttribute("data-ipad");
   const wide = window.matchMedia ? matchMedia("(min-width: 761px) and (min-height: 600px)") : { matches: false, addEventListener() {} }; // (a phone, a narrow window: its own layout stays — viewer/narrow.css)
   const GTK = !!(window.MdHand && MdHand.GTK);
   const APP = P.DESKTOP || !!(window.MdHand && MdHand.GTK); // (the application; a browser on a touch screen keeps the menus a finger holds)
-  const on = () => IPAD || (APP && root.hasAttribute("data-finger") && wide.matches);
+  const on = () => (ipad() && !APP) || (APP && root.hasAttribute("data-finger") && wide.matches);
   // <html data-tiles> while it holds: the bars' look (viewer/tablet.css); what stands in the window stays where it is, a press would move it under the finger
   const mark = () => { if (on() !== root.hasAttribute("data-tiles")) root.toggleAttribute("data-tiles", on()); };
-  new MutationObserver(mark).observe(root, { attributes: true, attributeFilter: ["data-finger"] });
+  new MutationObserver(mark).observe(root, { attributes: true, attributeFilter: ["data-finger", "data-ipad"] });
   wide.addEventListener("change", mark);
   mark();
 
@@ -175,7 +177,7 @@
   addEventListener("contextmenu", (e) => {
     if (!touched || !on()) return;
     const text = textAt(e.target, e.clientX, e.clientY);
-    if (text || IPAD || (e.target instanceof Element && e.target.closest("#active, .blk-h, #overview .ov-item"))) { e.preventDefault(); e.stopImmediatePropagation(); }
+    if (text || ipad() || (e.target instanceof Element && e.target.closest("#active, .blk-h, #overview .ov-item"))) { e.preventDefault(); e.stopImmediatePropagation(); }
     if (text) openEdit(text, e.clientX, e.clientY);
   }, true);
 
@@ -196,7 +198,7 @@
   const emOpen = () => em.hasAttribute("data-open");
   // text under a held finger that can be edited: { view, pos } in the note (the active mode), { field } in a field — else null
   function textAt(t, x, y) {
-    if (IPAD || !APP) return null;
+    if (!APP) return null; // (an iPad's browser has its own; the application, laid out as the iPad is or not, has this one)
     if (t && t.nodeType !== 1) t = t.parentElement;
     if (!(t instanceof Element) || t.closest("#editmenu, #board")) return null;
     const field = t.closest("input, textarea");
@@ -286,7 +288,7 @@
     let pend = null, drag = null, ghost = null, scrolling = 0;
     const view = () => window.MdActive && MdActive.view && MdActive.view.pm;
     // (on an iPad never dragged the browser's way; in the application a mouse still drags them: only while a finger is on one)
-    if (IPAD) new MutationObserver(() => { for (const t of document.querySelectorAll('#rpanel .rp-tile[draggable="true"]')) t.draggable = false; })
+    if (ipad() && !APP) new MutationObserver(() => { for (const t of document.querySelectorAll('#rpanel .rp-tile[draggable="true"]')) t.draggable = false; })
       .observe(body, { childList: true, subtree: true });
     let undrag = null;
     const end = () => {
@@ -372,7 +374,7 @@
   const picking = () => body.hasAttribute("data-ip-picking");
   const tileOf = (path) => ov() && [...ov().querySelectorAll(".ov-item")].find((t) => t.dataset.path === path);
   // (tiles are not dragged by a finger here: a held finger chooses — on an iPad never; in the application a mouse still drags them)
-  if (IPAD) new MutationObserver(() => { const o = ov(); if (o) for (const t of o.querySelectorAll('.ov-item[draggable="true"]')) t.draggable = false; })
+  if (ipad() && !APP) new MutationObserver(() => { const o = ov(); if (o) for (const t of o.querySelectorAll('.ov-item[draggable="true"]')) t.draggable = false; })
     .observe(document.getElementById("overview") || body, { childList: true, subtree: true });
   let undragged = null;
   const redrag = () => { if (undragged) { const t = undragged; undragged = null; setTimeout(() => { t.draggable = true; }, 0); } };

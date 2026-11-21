@@ -228,6 +228,7 @@
   new MutationObserver(applyLook).observe(document.documentElement, { attributes: true, attributeFilter: ["data-ipad"] });
   if (coarse && coarse.addEventListener) coarse.addEventListener("change", applyLook);
   function prefsChanged() {
+    if (P.tablet && P.tablet.choose) P.tablet.choose(); // (the application's iPad layout, as the settings say: viewer/tablet.js)
     aiShown();
     if (docZoom() !== zoomed) {
       // (what was at the top of the window stays there: the place is kept as a share of the page's height)
