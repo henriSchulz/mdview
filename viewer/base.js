@@ -11,6 +11,43 @@
   // state of one file that others read (and set, where a setter is given): P.name is the variable itself
   P.live = (o) => { for (const k in o) Object.defineProperty(P, k, { get: o[k][0], set: o[k][1], enumerable: true }); };
 
+  /* The note's size (Settings › Appearance, --doc-zoom) is CSS `zoom` on the note's column (viewer/page.css). An engine that
+   * has zoom as the standard says it (Chromium, Firefox) gives the box of what stands inside it in the window's pixels, as an
+   * event gives its place; WebKit — the Mac's, an iPad's Safari, WebKitGTK — gives it in the zoomed column's own: at 125 %
+   * every box was at 80 % of its place, and whatever the page lays over the note by it stood off — the fields of chosen
+   * blocks, the handle, the block a finger's swipe began on (Henri, 2026-11-21, his picture of the Mac on the iPad's
+   * screen). Every layer over the note lies in the window, as the standard has it (BUGS.md 130): where the engine gives a
+   * zoomed box in its own pixels — measured once, when a zoom first stands —, a box asked for is given in the window's. */
+  {
+    const root = document.documentElement, ZOOMED = "#content:not(.pdf), #active, #editor, .twin-doc, .split-doc";
+    const get = Element.prototype.getBoundingClientRect, all = Element.prototype.getClientRects;
+    const rget = Range.prototype.getBoundingClientRect, rall = Range.prototype.getClientRects;
+    let own = null; // (whether the engine gives a zoomed box in the zoomed element's pixels)
+    const measure = () => {
+      const o = document.createElement("div"), i = o.appendChild(document.createElement("div"));
+      o.style.cssText = "position:absolute;left:0;top:0;visibility:hidden;pointer-events:none;zoom:2";
+      i.style.cssText = "width:10px;height:10px";
+      root.appendChild(o);
+      const w = get.call(i).width;
+      o.remove();
+      return Math.abs(w - 10) < 1; // (20 in the window's pixels)
+    };
+    const zoomOf = (node) => {
+      if (!root.style.getPropertyValue("--doc-zoom")) return 1; // (100 %: nothing to turn — viewer.js sets it only otherwise)
+      const el = node && (node.nodeType === 1 ? node : node.parentElement), c = el && el.closest(ZOOMED);
+      if (!c) return 1;
+      if (own === null) own = measure();
+      return own ? parseFloat(getComputedStyle(c).zoom) || 1 : 1;
+    };
+    const scaled = (r, z) => new DOMRect(r.x * z, r.y * z, r.width * z, r.height * z);
+    const list = (rs, z) => { const a = Array.from(rs, (r) => scaled(r, z)); a.item = (i) => a[i] || null; return a; };
+    // (only what the engine has: a page that asks whether a range has boxes is told as before)
+    if (get) Element.prototype.getBoundingClientRect = function () { const r = get.call(this), z = zoomOf(this); return z === 1 ? r : scaled(r, z); };
+    if (all) Element.prototype.getClientRects = function () { const rs = all.call(this), z = zoomOf(this); return z === 1 ? rs : list(rs, z); };
+    if (rget) Range.prototype.getBoundingClientRect = function () { const r = rget.call(this), z = zoomOf(this.commonAncestorContainer); return z === 1 ? r : scaled(r, z); };
+    if (rall) Range.prototype.getClientRects = function () { const rs = rall.call(this), z = zoomOf(this.commonAncestorContainer); return z === 1 ? rs : list(rs, z); };
+  }
+
   const NONCE = document.currentScript.nonce;
   const DESKTOP = !!window.__TAURI_INTERNALS__; // the desktop application's window (not a browser, whose host is the web app's)
   // the host works with the folder's files as files — copies them, hides them, takes new ones in, keeps a whiteboard as a file of

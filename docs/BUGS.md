@@ -105,6 +105,16 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     `icon`. `dev/tests/menusigns.test.mjs` (the right click over text and its menus beside it, a thing's, a table's,
     the page's, a whiteboard's names, the bar's styles).
 
+130. **A box of what stands in the zoomed column is the window's** (2026-11-21, Henri's picture: at a note's size of 125 % the
+    fields of chosen blocks stood off their blocks, smaller and up to the left). The note's size is CSS `zoom` on the column
+    (`--doc-zoom`); what lies over the note is in the window (the handle, the fields, the lines, the bars, menus — on the
+    body), placed by boxes and compared with an event's place, as the standard has zoom (Chromium, where the web tests run:
+    the window's pixels). WebKit — the Mac's, Safari on an iPad, WebKitGTK — gives a box inside the zoom in the column's own
+    pixels, at 1/zoom of its place. viewer/base.js turns such a box into the window's where the engine does so (measured once,
+    when a zoom first stands; at 100 % nothing is asked). A layer is never put inside the zoomed column to be placed by a
+    box. Check: `CastGestureTests.testAtANotesSizeTheFieldsStandOnTheirBlocks` (where things are found by
+    `elementsFromPoint`, not by a box).
+
 ### What is drawn while something is coming in
 
 4. **Never rebuild a whole container at every piece of a stream.** Redraw only the part that
