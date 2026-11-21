@@ -115,33 +115,44 @@ final class CastGestureTests: ShellTest {
         XCTAssertEqual(picked(), "", "a swipe to the left did not let the chosen block go")
     }
 
-    /// At a note's size of 125 % (CSS zoom on the column): the swipe chooses the block it began on, and the block's field and
-    /// its handle stand on it — WebKit gives a box inside the zoom in the column's own pixels (Henri, 2026-11-21: the fields
-    /// stood at 80 % of their place, his picture). Where things are is found by what the window has at a point, not by a box.
+    /// At a note's size of 125 % (CSS zoom on the column), the note scrolled: the swipe chooses the block it began on, and the
+    /// block's field and its handle stand on it, its field as high as it is — WebKit gives a box inside the zoom in the
+    /// column's own pixels, and takes the scroll off after (Henri, 2026-11-21, two pictures: the fields at 80 % of their
+    /// place, then still too high in a scrolled note). Where things are is found by what the window has at a point, not by
+    /// a box.
     func testAtANotesSizeTheFieldsStandOnTheirBlocks() {
         CastHost.fixed = Int64(getpid())
         _ = AppDelegate.shared.applyPrefs(["docZoom": 125])
-        let paras = (1...10).map { "Paragraph \($0) of the note, with some words in it to swipe across." }.joined(separator: "\n\n")
+        let paras = (1...30).map { "Paragraph \($0) of the note, with some words in it to swipe across, and more of them, so that it takes two lines." }.joined(separator: "\n\n")
         let w = openPainted(write("Z.md", "# Email Client\n\n> [!important] Important\n> Flectar Mail\n\n" + paras + "\n"))
         w.window.setFrameOrigin(NSPoint(x: 0, y: 80))
         _ = page(w, "MdView.setMode('active'), true")
         XCTAssertTrue(wait(10) { (self.page(w, "!!(window.MdActive && MdActive.view && MdActive.view.pm)") as? Bool) == true }, "the active mode did not load")
         wait(0.6)
         XCTAssertEqual(page(w, "getComputedStyle(document.getElementById('active')).zoom") as? String, "1.25", "the note is not at 125 %")
-        // (on paragraph 2: the first point down the column the window has it at)
-        let hits = "((x, y) => { const p = document.querySelectorAll('.pm p')[2]; return document.elementsFromPoint(x, y).some((e) => e === p || p.contains(e)); })"
-        let at = page(w, "(() => { const p = document.querySelectorAll('.pm p')[2]; for (let y = 0; y < innerHeight; y += 2) { const e = document.elementFromPoint(innerWidth * 0.42, y); if (e && (e === p || p.contains(e))) return [innerWidth * 0.42, y + 6]; } return null; })()") as? [NSNumber] ?? []
-        XCTAssertEqual(at.count, 2, "paragraph 2 is nowhere in the window")
-        guard at.count == 2 else { return }
-        swipe(w, at: CGFloat(at[0].doubleValue), CGFloat(at[1].doubleValue), dx: 110, dy: 2)
-        XCTAssertEqual(page(w, "MdActive.blocks.picked(MdActive.view.pm.state).map((x) => x.node.textContent.slice(0, 11)).join('|')") as? String, "Paragraph 2", "the swipe chose another block")
-        let field = page(w, "(() => { const f = document.querySelector('.blk-fields .blk-field'); if (!f) return null; const r = f.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2, r.width]; })()") as? [NSNumber] ?? []
-        XCTAssertEqual(field.count, 3, "no field")
-        guard field.count == 3 else { return }
-        XCTAssertEqual(page(w, "\(hits)(\(field[0]), \(field[1]))") as? Bool, true, "the block's field does not stand on it")
-        let colW = (page(w, "(() => { const p = document.querySelectorAll('.pm p')[2]; let l = 1e9, r = -1e9; for (let x = 0; x < innerWidth; x += 2) if (\(hits)(x, \(field[1]))) { l = Math.min(l, x); r = Math.max(r, x); } return r - l; })()") as? NSNumber)?.doubleValue ?? 0
-        XCTAssertGreaterThan(field[2].doubleValue, colW - 4, "the field is narrower than its block (\(field[2]) < \(colW))")
-        let hy = (page(w, "(() => { const h = document.querySelector('.blk-h'); const r = h.getBoundingClientRect(); return r.top + r.height / 2; })()") as? NSNumber)?.doubleValue ?? -1
-        XCTAssertEqual(page(w, "\(hits)(\(field[0]), \(hy))") as? Bool, true, "the handle is not beside its block")
+        _ = page(w, "(scrollTo(0, 420), 1)")
+        wait(0.4)
+        XCTAssertEqual((page(w, "scrollY") as? NSNumber)?.doubleValue ?? 0, 420, accuracy: 1, "the note did not scroll")
+        // (the first paragraph wholly in sight, found down the column by what the window has there; its top and bottom)
+        let probe = "(() => { const ps = [...document.querySelectorAll('.pm p')], x = innerWidth * 0.42; let p = null, top = -1, bottom = -1; for (let y = 0; y < innerHeight; y += 1) { const e = document.elementFromPoint(x, y), q = e && ps.find((q) => q === e || q.contains(e)); if (!p) { if (q && y > 40) { const i = ps.indexOf(q); if (y > 0) { p = ps[i + 1]; } } continue; } if (q === p) { if (top < 0) top = y; bottom = y; } else if (top >= 0) break; } return p ? [ps.indexOf(p), x, top, bottom, p.textContent.slice(0, 12)] : null; })()"
+        let found = page(w, probe) as? [Any] ?? []
+        XCTAssertEqual(found.count, 5, "no paragraph wholly in sight")
+        guard found.count == 5, let i = found[0] as? Int, let x = (found[1] as? NSNumber)?.doubleValue,
+              let top = (found[2] as? NSNumber)?.doubleValue, let bottom = (found[3] as? NSNumber)?.doubleValue, let name = found[4] as? String else { return }
+        let hits = "((x, y) => { const p = document.querySelectorAll('.pm p')[\(i)]; return document.elementsFromPoint(x, y).some((e) => e === p || p.contains(e)); })"
+        swipe(w, at: CGFloat(x), CGFloat((top + bottom) / 2), dx: 110, dy: 2)
+        XCTAssertEqual(page(w, "MdActive.blocks.picked(MdActive.view.pm.state).map((x) => x.node.textContent.slice(0, 12)).join('|')") as? String, name, "the swipe chose another block")
+        let field = page(w, "(() => { const f = document.querySelector('.blk-fields .blk-field'); if (!f) return null; const r = f.getBoundingClientRect(); return [r.left + r.width / 2, r.top, r.bottom, r.width]; })()") as? [NSNumber] ?? []
+        XCTAssertEqual(field.count, 4, "no field")
+        guard field.count == 4 else { return }
+        let ft = field[1].doubleValue, fb = field[2].doubleValue
+        XCTAssertTrue(ft <= top + 2 && ft >= top - 20, "the field's top (\(ft)) is not at its block's (\(top))")
+        XCTAssertTrue(fb >= bottom - 2 && fb <= bottom + 20, "the field's bottom (\(fb)) is not at its block's (\(bottom))")
+        XCTAssertEqual(page(w, "\(hits)(\(field[0]), \((ft + fb) / 2))") as? Bool, true, "the block's field does not stand on it")
+        let colW = (page(w, "(() => { let l = 1e9, r = -1e9; for (let x = 0; x < innerWidth; x += 2) if (\(hits)(x, \((top + bottom) / 2))) { l = Math.min(l, x); r = Math.max(r, x); } return r - l; })()") as? NSNumber)?.doubleValue ?? 0
+        XCTAssertGreaterThan(colW, 100, "the block's width was not found")
+        XCTAssertGreaterThan(field[3].doubleValue, colW - 4, "the field is narrower than its block (\(field[3]) < \(colW))")
+        let hy = (page(w, "(() => { const r = document.querySelector('.blk-h').getBoundingClientRect(); return r.top + r.height / 2; })()") as? NSNumber)?.doubleValue ?? -1
+        XCTAssertTrue(hy >= top - 2 && hy <= bottom + 2, "the handle (\(hy)) is not beside its block (\(top) … \(bottom))")
     }
 }

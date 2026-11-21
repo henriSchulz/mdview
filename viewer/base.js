@@ -17,7 +17,10 @@
    * every box was at 80 % of its place, and whatever the page lays over the note by it stood off — the fields of chosen
    * blocks, the handle, the block a finger's swipe began on (Henri, 2026-11-21, his picture of the Mac on the iPad's
    * screen). Every layer over the note lies in the window, as the standard has it (BUGS.md 130): where the engine gives a
-   * zoomed box in its own pixels — measured once, when a zoom first stands —, a box asked for is given in the window's. */
+   * zoomed box in its own pixels — measured once, when a zoom first stands —, a box asked for is given in the window's.
+   * (WebKit divides the box's place in the document by the zoom and then takes the window's scroll off it: turned back,
+   * the scroll is put on again — z × (box + scroll) − scroll. Without it a box stood higher by a quarter of the way the
+   * note was scrolled, at 125 %.) */
   {
     const root = document.documentElement, ZOOMED = "#content:not(.pdf), #active, #editor, .twin-doc, .split-doc";
     const get = Element.prototype.getBoundingClientRect, all = Element.prototype.getClientRects;
@@ -39,7 +42,7 @@
       if (own === null) own = measure();
       return own ? parseFloat(getComputedStyle(c).zoom) || 1 : 1;
     };
-    const scaled = (r, z) => new DOMRect(r.x * z, r.y * z, r.width * z, r.height * z);
+    const scaled = (r, z) => new DOMRect(r.x * z + (z - 1) * scrollX, r.y * z + (z - 1) * scrollY, r.width * z, r.height * z);
     const list = (rs, z) => { const a = Array.from(rs, (r) => scaled(r, z)); a.item = (i) => a[i] || null; return a; };
     // (only what the engine has: a page that asks whether a range has boxes is told as before)
     if (get) Element.prototype.getBoundingClientRect = function () { const r = get.call(this), z = zoomOf(this); return z === 1 ? r : scaled(r, z); };

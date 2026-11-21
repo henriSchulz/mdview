@@ -110,10 +110,13 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     (`--doc-zoom`); what lies over the note is in the window (the handle, the fields, the lines, the bars, menus — on the
     body), placed by boxes and compared with an event's place, as the standard has zoom (Chromium, where the web tests run:
     the window's pixels). WebKit — the Mac's, Safari on an iPad, WebKitGTK — gives a box inside the zoom in the column's own
-    pixels, at 1/zoom of its place. viewer/base.js turns such a box into the window's where the engine does so (measured once,
-    when a zoom first stands; at 100 % nothing is asked). A layer is never put inside the zoomed column to be placed by a
-    box. Check: `CastGestureTests.testAtANotesSizeTheFieldsStandOnTheirBlocks` (where things are found by
-    `elementsFromPoint`, not by a box).
+    pixels: it divides the place in the document by the zoom and takes the window's scroll off after, so a box is
+    z × (box + scroll) − scroll in the window's (a first fix that only multiplied was right at the top of a note and too
+    high by a quarter of the scroll further down — Henri's second picture). viewer/base.js turns such a box into the
+    window's where the engine does so (measured once, when a zoom first stands; at 100 % nothing is asked). A layer is never
+    put inside the zoomed column to be placed by a box. Check: `CastGestureTests.testAtANotesSizeTheFieldsStandOnTheirBlocks`
+    (in a scrolled note; where things are is found by `elementsFromPoint`, not by a box). A check of where something
+    stands runs scrolled too: at the top of a page what depends on the scroll cannot show.
 
 ### What is drawn while something is coming in
 
