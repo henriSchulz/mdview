@@ -366,6 +366,15 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     and took any step over 30 px for a mouse's notch and glided to it, lagging behind a quick finger (WebKit says a notch as
     40 px exactly: `notch`); a pinch where the pages fit across put them in the middle at once, so the place pinched slid
     from under the fingers (66 px a step: `place(…, pan)`); and after a glide's bounce a step back was thrown away too.
+    And (2026-11-21, Henri: „wenn man vom Dokument wegscrollt funktioniert das Zurückspringen noch nicht ganz clean.
+    manchmal wackelt es mehrmals hin und her"): a glide guessed from its steps is no glide — two of its steps that WebKit
+    hands on as one made a hand of it again, the rest of the glide pulled the notebook out again, and the steps' pause
+    under a finger that rested let the pages go back from under it. On the Mac the shell says what the hand does as the
+    system says it (`FilesWebView.scrollSay`: on the glass, lifted, the glide after it, its end → `mdPhase` on the wheel,
+    "mdscrolllift", "mdglideend"); the board holds under a hand until it lifts, and a glide's first step beyond an edge
+    lets the board go and ends the glide for the board (`ranOut`). The guess stays only where no host says (WebKitGTK, a
+    browser). A glide back already under way is not begun anew (`rest` in board.js). Checks:
+    `NotebookScrollTests` (macOS: the cast's and a trackpad's wheels with their phases, through WebKit).
 125. **What WebKit on the Mac says of a pointer is not what it is** (2026-11-19, the Pencil over ipad-cast). A tablet's
     events — the system's mouse events of the tablet-point kind, with the pen's pressure and tilt in their own fields —
     reach a page in WKWebView as `pointerType: "mouse"`, `pressure: 0`, no tilt; a finger the cast turns into a click is a

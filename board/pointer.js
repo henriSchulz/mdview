@@ -259,6 +259,12 @@
     addEventListener("mdpenout", () => { if (!tool && !pen.down) on.hover(null, null); });
     // two fingers on a touchpad, or a wheel: the board moves; with Ctrl (and a touchpad's pinch, where the browser passes it on so): larger and smaller
     let glided = null, shrinking = 0, lastStep = 0; // (a glide that ran into an edge: below)
+    // (where the host says what the hand does: whether the board had a wheel since it was last let go, and whether the glide now
+    // running ran into an edge)
+    let wheeled = false, ranOut = false;
+    const letGo = () => { if (wheeled) { wheeled = false; rest(); } };
+    addEventListener("mdscrolllift", letGo);
+    addEventListener("mdglideend", () => { ranOut = false; letGo(); });
     stage.addEventListener("wheel", (e) => {
       e.preventDefault();
       cancelAnimationFrame(glide); glide = 0; clearTimeout(lifted); // (a run of its own ends where the wheel takes over; a glide to where it leads goes on)
@@ -266,6 +272,23 @@
       // (a large step said so, for whoever makes a glide of the size too)
       if (e.ctrlKey || e.metaKey) { const notch = Math.abs(e.deltaY * unit) >= BIG; on.zoom(Math.exp((-e.deltaY * unit) / (notch ? 400 : 240)), p.x, p.y, notch); if (!notch) restSoon(); return; }
       const dx = e.shiftKey && !e.deltaX ? -e.deltaY * unit : -e.deltaX * unit, dy = e.shiftKey && !e.deltaX ? 0 : -e.deltaY * unit;
+      if (!dx && !dy) return; // (the step that says a hand's lift, or a glide's end: nothing to move — and a glide back goes on)
+      // Where the host says what the hand is doing (`mdPhase`: the macOS shell, FilesWeb.swift — the Mac's trackpad, the cast's
+      // finger): a hand on the glass holds the board where it has it, beyond an edge too, until it lifts ("mdscrolllift"
+      // below), as an iPad's list stays under a finger that rests; the glide after it moves the board until it runs into an
+      // edge of a board of pages — there the board goes back, and the rest of that glide is not taken, whatever its steps
+      // (Henri, 2026-11-21: "manchmal wackelt es mehrmals hin und her" — guessed from the steps, two of a glide's steps that
+      // WebKit handed on as one were a hand again, and the rest of the glide pulled the notebook out again).
+      if (e.mdPhase) {
+        glided = null; shrinking = 0; wheeled = true;
+        if (e.mdPhase === "hand") ranOut = false;
+        else if (ranOut) return;
+        else if (on.beyond && on.beyond()) { ranOut = true; return rest(); }
+        if (slide) { slide.x += dx; slide.y += dy; } else on.pan(dx, dy);
+        // (a hand's lift is said; one that went unsaid lets go after a while — a glide's end is said too, and it stops all the same)
+        if (e.mdPhase === "glide") restSoon(); else { clearTimeout(still); still = setTimeout(() => { if (!glide && !slide) rest(); }, 1500); }
+        return;
+      }
       // A flick run out against an edge of a board of pages — the system's glide, or ipad-cast's: its steps grow ever smaller —
       // goes back at once, as an iPad's list does, instead of hanging out there till the last step (Henri, 2026-11-19: "es
       // reagiert zu langsam wenn man sich weg von der Seite bewegt"). Shrinking steps beyond the edge are that glide: the

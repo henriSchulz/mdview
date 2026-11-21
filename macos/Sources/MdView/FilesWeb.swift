@@ -50,6 +50,23 @@ final class FilesWebView: WKWebView {
         return e;
       };
       for (const type of ["pointerdown", "pointermove", "pointerup", "pointercancel"]) addEventListener(type, window.__mdTold, true);
+      /* What the hand that makes a trackpad's wheels is doing (FilesWebView.scrollSay): each wheel while it is on the glass says
+       * mdPhase "hand", each of the glide after it "glide"; its lift and the glide's end are events of the window's own
+       * ("mdscrolllift", "mdglideend"). A glide's steps come every frame: one whose end went unsaid is over after a pause. */
+      const sc = { hand: false, glide: false, t: 0 };
+      window.__mdScroll = function (k) {
+        sc.t = performance.now();
+        if (k === "hand") { sc.hand = true; sc.glide = false; }
+        else if (k === "lift") { sc.hand = false; dispatchEvent(new Event("mdscrolllift")); }
+        else if (k === "glide") { sc.hand = false; sc.glide = true; }
+        else if (k === "glideend") { sc.glide = false; dispatchEvent(new Event("mdglideend")); }
+      };
+      addEventListener("wheel", function (e) {
+        const now = performance.now();
+        if (sc.glide && now - sc.t > 400) sc.glide = false;
+        sc.t = now;
+        if (sc.hand || sc.glide) own(e, "mdPhase", sc.hand ? "hand" : "glide");
+      }, { capture: true, passive: true });
       addEventListener("wheel", function (e) {
         if (!window.__mdPenWheel || performance.now() - window.__mdPenWheel >= 300) return;
         own(e, "pointerType", "touch");
@@ -135,8 +152,23 @@ final class FilesWebView: WKWebView {
         return pid > 0 && pid == CastHost.pid ? "touch" : nil
     }
 
+    /// What the hand that makes a trackpad's wheels — the Mac's own, or the cast's finger — is doing, said as it changes: "hand"
+    /// on the glass, "lift" let go, "glide" the system's (or the cast's) run after it, "glideend" its end. WebKit says none of
+    /// it, and a page that guessed it from the steps (ever smaller: a glide) took a glide's steps for a hand's again and again
+    /// — a notebook pulled past its edge and let go went back and was pulled out again by the rest of the glide (Henri,
+    /// 2026-11-21: "manchmal wackelt es mehrmals hin und her"). board/pointer.js reads it (`mdPhase` on the wheel).
+    func scrollSay(_ e: NSEvent) {
+        guard e.hasPreciseScrollingDeltas else { return } // (a mouse's wheel: no hand, no glide)
+        let p = e.phase, m = e.momentumPhase
+        let word = !p.isDisjoint(with: [.began, .mayBegin]) ? "hand" : !p.isDisjoint(with: [.ended, .cancelled]) ? "lift"
+            : m.contains(.began) ? "glide" : !m.isDisjoint(with: [.ended, .cancelled]) ? "glideend" : nil
+        guard let word else { return }
+        evaluateJavaScript("window.__mdScroll&&__mdScroll('\(word)')", completionHandler: nil)
+    }
+
     private var wheelSaid = 0.0
     func penSay(_ e: NSEvent) {
+        if e.type == .scrollWheel { scrollSay(e) }
         guard let k = FilesWebView.kind(of: e), let c = e.cgEvent else { return }
         if e.type == .scrollWheel { // (a finger's: said at most every 0.1 s — the page takes a wheel within 0.3 s of it for one)
             let now = ProcessInfo.processInfo.systemUptime

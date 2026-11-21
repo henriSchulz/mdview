@@ -923,7 +923,9 @@ them is not there).
   a push moves nothing (no sway sideways at the page's width); a pinch keeps what lies under the fingers under them and
   puts the pages in the middle when let go. On a Mac the board follows a trackpad's (and an iPad's finger through
   ipad-cast) steps as they come and adds no glide of its own — the system glides; only a mouse wheel's notch glides.
-  The same holds over a PDF's pages on a whiteboard.
+  There a finger that rests on the glass holds the pages where it has them, past an edge too, until it lifts; the
+  system's glide after a flick runs into an edge, comes a little past it and goes back once, and the rest of that glide
+  is not taken. The same holds over a PDF's pages on a whiteboard.
 - **The page in sight** is said at the top, between the bars ("3 / 12"), while the pages move, and fades a moment after;
   pressed while it shows, it opens the pages at a glance.
 - **A double tap** of a finger: the page under it across the window (the place tapped staying at its height) — or,

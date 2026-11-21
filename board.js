@@ -444,7 +444,7 @@
       doubleTap: (pt, drew) => { if (!S || (drew && S.mode === "draw")) return; fitPage(pt); },
       taps: (n) => { if (!S || S.readonly || S.act || sel.busy || sel.editing) return; const list = n === 2 ? S.undo : S.redo; if (!list.length) return; step(n === 2 ? -1 : 1); said(T(n === 2 ? "board.undo" : "board.redo")); },
       pan: (dx, dy) => { if (S) { fast = true; S.view.panBy(dx, dy); fast = false; } },
-      rest: () => { if (S && S.view.limit) S.view.settle(); }, // (the hand let go: a notebook's pages go back within its edges)
+      rest: () => { if (S && S.view.limit && !S.view.settling) S.view.settle(); }, // (the hand let go: a notebook's pages go back within its edges — already going, they go on: begun anew, the glide back started over)
       halt: () => { if (S) S.view.stop(); },
       beyond: () => !!S && S.view.bent(), // (a glide that runs into a page's edge ends there, and goes back)
       coasts: () => !!paged(), // (over pages the wheel's push runs on: rule 26 keeps a whiteboard where two fingers left it)
