@@ -2445,7 +2445,7 @@ dependencies = [
 
 [[package]]
 name = "mdview"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "arboard",
  "base64 0.22.1",
