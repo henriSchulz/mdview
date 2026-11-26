@@ -1,5 +1,5 @@
 // Working with files in the browser, as the desktop app's list does it: whiteboards that are
-// files of their own (All Notes › Whiteboards), what is put out of sight, copies, and files from
+// files of their own, what is put out of sight, copies, and files from
 // elsewhere — each a commit to the repository. The built app, a real Chromium, a GitHub of the
 // test's own.
 import assert from "node:assert/strict";
@@ -134,7 +134,6 @@ test("a whiteboard is made as a file from the sidebar's menu, drawn on, kept in 
 test("All Notes: a tile keeps the pose it has under the pointer while its menu is open on it (the pointer is on the menu then; the tile used to fall back and rise again)", async () => {
   await open("Alpha.md");
   await allNotes();
-  await page.click('#overview [data-seg="scope"] .ov-opt[data-v="folders"]');
   const tile = page.locator("#overview .ov-item[data-dir]").first();
   await tile.waitFor({ timeout: 8000 });
   const pose = () => page.evaluate(() => { const t = document.querySelector("#overview .ov-item[data-dir]"); return [...t.querySelectorAll(".ov-stack > i")].map((i) => getComputedStyle(i).transform); });
@@ -158,20 +157,20 @@ test("All Notes: another choice at the head dims what was shown at once — no g
   // (WebKit's GPU renderer kept the old tiles' picture of the fading layer, dimmed, under the empty Whiteboards: Henri 2026-10-25)
   await open("Alpha.md");
   await allNotes();
-  await page.evaluate(() => document.querySelector('#overview [data-seg="scope"] .ov-opt[data-v="all"]').click()); // (every note: the view, though its choice is not shown)
-  await page.waitForFunction(() => document.querySelector("#overview").dataset.scope === "all" && !document.querySelector("#overview .ov-body.ov-going"), null, { timeout: 8000 });
+  await page.waitForFunction(() => document.querySelectorAll("#overview .ov-item").length > 0 && !document.querySelector("#overview .ov-body.ov-going"), null, { timeout: 8000 });
   await new Promise((r) => setTimeout(r, 400));
   const seen = await page.evaluate(() => new Promise((done) => {
     const body = document.querySelector("#overview .ov-body"), out = [];
-    document.querySelector('#overview [data-seg="scope"] .ov-opt[data-v="boards"]').click();
+    document.querySelector('#overview [data-seg="layout"] [data-v="list"]').click();
     const look = () => {
       out.push(...body.getAnimations().map((a) => a.transitionProperty || a.animationName));
-      if (document.querySelector("#overview").dataset.scope === "boards" && !body.classList.contains("ov-going")) return done([...new Set(out)]);
+      if (document.querySelector("#overview").dataset.layout === "list" && !body.classList.contains("ov-going")) return done([...new Set(out)]);
       requestAnimationFrame(look);
     };
     look();
   }));
   assert.deepEqual(seen, []);
+  await page.click('#overview [data-seg="layout"] [data-v="tiles"]');
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => !MdOverview.isOpen, null, { timeout: 4000 });
 });
@@ -206,41 +205,6 @@ test("the toolbar stands only while a note is shown: not over All Notes (Henri, 
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => !(window.MdOverview && MdOverview.isOpen), null, { timeout: 8000 });
   assert.equal(await shown(), true, "back on the note: the toolbar again");
-});
-
-test("All Notes › Whiteboards: every whiteboard of the repository with the note that shows it, all of them alike; one a note keeps becomes a file of its own", async () => {
-  await open("Alpha.md");
-  await allNotes();
-  assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('#overview [data-seg="scope"] .ov-opt')].filter((o) => o.getClientRects().length).map((o) => o.dataset.v)), ["folders", "boards"]); // (the choices that show: the pasteboard is a tab of its own — paste.test.mjs; Home only with its setting; All Notes no longer, Henri 2026-10-30)
-  await page.click('#overview [data-seg="scope"] .ov-opt[data-v="boards"]');
-  await page.waitForFunction(() => document.querySelectorAll("#overview .ov-item").length === 3, null, { timeout: 8000 });
-  assert.deepEqual(await tiles(), [["assets/kept.board.svg", "In “Beta”", true], ["Plan.board.svg", "In “Alpha”", false], ["sub/Loose.board.svg", "In no note", false]]);
-  assert.equal(await page.evaluate(() => document.querySelector("#overview .ov-count").textContent), "3 whiteboards");
-  assert.equal(await page.evaluate(() => !!document.querySelector('#overview [data-seg="boards"]')), false); // (no choice among them: all of them)
-  // All Notes opens on the folders the next time, whatever was shown last
-  await page.keyboard.press("Escape");
-  await page.waitForFunction(() => !MdOverview.isOpen, null, { timeout: 4000 });
-  await allNotes();
-  await page.waitForFunction(() => document.querySelector("#overview").dataset.scope === "folders", null, { timeout: 8000 });
-  await page.click('#overview [data-seg="scope"] .ov-opt[data-v="boards"]');
-  await page.waitForFunction(() => document.querySelector("#overview").dataset.scope === "boards" && document.querySelectorAll("#overview .ov-item").length === 3, null, { timeout: 8000 });
-  // a tile's picture is the board's, from the repository
-  await page.waitForFunction(() => { const i = document.querySelector('#overview .ov-item[data-path$="Plan.board.svg"] img'); return i && i.complete && i.naturalWidth > 0; }, null, { timeout: 8000 });
-  // a board a note keeps: its menu leads to the note, or makes it a file of its own
-  await page.click('#overview .ov-item[data-path$="kept.board.svg"]', { button: "right" });
-  await page.waitForSelector("#ctxmenu[data-open]", { timeout: 4000 });
-  assert.deepEqual(await menu(), ["open", "embed", "boardnote", "boardfree", "sub:show"]); // (nothing that would take it from its note)
-  await choose("boardfree");
-  await until(() => text(ATTACH) !== undefined && !("assets/kept.board.svg" in JSON.parse(text(ATTACH))), "the board is no note's any more");
-  await page.waitForFunction(() => { const t = document.querySelector('#overview .ov-item[data-path$="kept.board.svg"]'); return t && t.dataset.kept == null; }, null, { timeout: 8000 });
-  assert.deepEqual((await tiles())[0], ["assets/kept.board.svg", "In “Beta”", false]);
-  // a click on a tile opens the board over the window
-  await page.click('#overview .ov-item[data-path$="Plan.board.svg"]');
-  await boardOpen(1);
-  await boardShut();
-  await page.evaluate(() => document.querySelector('#overview [data-seg="scope"] .ov-opt[data-v="all"]').click()); // (every note: the view, though its choice is not shown)
-  await page.keyboard.press("Escape");
-  assert.ok((await rows()).includes("assets/kept.board.svg"), String(await rows())); // (listed from now on)
 });
 
 test("Show › Hidden Items lists what is put away, dimmed: what a note keeps, names with a dot, what tools make", async () => {
@@ -515,7 +479,6 @@ test("All Notes in a folder, in a Velum look: the chevrons of the way back stand
   await page.evaluate(() => { MdView.setPrefs({ ...MdPrefs, look: "refined" }); });
   await page.waitForFunction(() => document.documentElement.dataset.velumLook === "refined", null, { timeout: 4000 });
   await allNotes();
-  await page.click('#overview [data-seg="scope"] .ov-opt[data-v="folders"]');
   await page.click(`#overview .ov-folder[data-path="${R}/sub"]`);
   await page.waitForSelector("#overview .ov-title .ov-crumb", { timeout: 8000 });
   await page.waitForTimeout(400);
@@ -561,7 +524,6 @@ test("Velum Refined has back and forward: from a note opened out of a folder's t
   await page.evaluate(() => { MdView.setPrefs({ ...MdPrefs, look: "refined" }); });
   await page.waitForFunction(() => document.documentElement.dataset.velumLook === "refined", null, { timeout: 4000 });
   await allNotes();
-  await page.click('#overview [data-seg="scope"] .ov-opt[data-v="folders"]');
   await page.click(`#overview .ov-folder[data-path="${R}/sub"]`);
   await page.locator(`#overview .ov-item[data-path="${R}/sub/Gamma.md"]`).click();
   await untilNote("Gamma.md");

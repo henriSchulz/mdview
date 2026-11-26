@@ -349,7 +349,7 @@
   font: var(--v-weight-medium) var(--v-type-body) / 1 var(--ui);
   background: linear-gradient(var(--v-accent-top), var(--v-accent-base)); color: var(--v-ink-on-accent); box-shadow: none; }
 :root[data-velum][data-velum-look] #overview .ov-add::after { content: attr(data-label); } /* ("New Note", as the lab's primary button) */
-:root[data-velum][data-velum-look] #overview :is(.ov-pastebtn, .ov-more) { width: var(--v-control-height); height: var(--v-control-height); border-radius: var(--v-radius-control);
+:root[data-velum][data-velum-look] #overview .ov-more { width: var(--v-control-height); height: var(--v-control-height); border-radius: var(--v-radius-control);
   background: var(--v-fill-field); box-shadow: 0 0 0 0.5px var(--v-line-strong); }
 :root[data-velum][data-velum-look] #overview .ov-seg { padding: var(--v-segment-pad); border-radius: var(--v-radius-segment); background: var(--v-segment-track); box-shadow: none; }
 :root[data-velum][data-velum-look] #overview .ov-thumb { top: var(--v-segment-pad); bottom: var(--v-segment-pad); left: var(--v-segment-pad); width: calc((100% - 2 * var(--v-segment-pad)) / var(--n, 2));
@@ -395,41 +395,17 @@
 
 /* Home in Focus (overview.js: buildLaunch) — the lab's start: a greeting, a large field for Go to…, the folders as chips, the
  * notes opened last and those of this week as rows. Of the head only the switch stays. */
-:root[data-velum][data-velum-look="focus"] #overview[data-home="launch"] .ov-head { display: flex; justify-content: center; }
-:root[data-velum][data-velum-look="focus"] #overview[data-home="launch"] .ov-head > :not(.ov-tools),
-:root[data-velum][data-velum-look="focus"] #overview[data-home="launch"] .ov-tools > :not([data-seg="scope"]) { display: none; }
-.ovl { max-width: calc(var(--v-layout-editor-measure) + 2 * var(--v-space-16)); margin: 0 auto; padding: var(--v-space-24) var(--v-space-16) var(--v-space-32); font-family: var(--ui); }
-.ovl-hi { margin: 0 0 var(--v-space-4); font-size: var(--v-type-large-title); font-weight: var(--v-weight-bold); letter-spacing: -0.01em; color: var(--v-ink-primary); }
-.ovl-sub { margin: 0; color: var(--v-ink-tertiary); font-size: var(--v-type-small); }
-.ovl-field { display: flex; align-items: center; gap: var(--v-space-10); width: 100%; height: calc(var(--v-control-height) * 1.6); margin: var(--v-space-20) 0 var(--v-space-12); padding: 0 var(--v-space-16);
   border: 0; border-radius: var(--v-radius-popover); background: var(--v-bg-raised); box-shadow: var(--v-card-shadow), 0 0 0 0.5px var(--v-line-strong);
   color: var(--v-ink-tertiary); font: var(--v-type-body-weight) var(--v-type-title) / 1 var(--ui); text-align: left; cursor: text; }
-.ovl-field > svg { flex: none; width: var(--v-layout-icon-regular); height: var(--v-layout-icon-regular); fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
-.ovl-field > span { flex: 1; }
-.ovl-field kbd { font: inherit; font-size: var(--v-type-small); }
-.ovl-chips { display: flex; flex-wrap: wrap; gap: var(--v-space-6); margin-bottom: var(--v-space-24); }
-.ovl-chip { display: inline-flex; align-items: center; gap: var(--v-space-6); height: calc(var(--v-control-height) - var(--v-space-4)); padding: 0 var(--v-space-10); border-radius: var(--v-radius-chip);
   background: var(--v-bg-raised); box-shadow: 0 0 0 0.5px var(--v-line-base); color: var(--v-ink-secondary); font-size: var(--v-type-small); font-weight: var(--v-weight-medium); cursor: default; }
-.ovl-chip:hover { color: var(--v-ink-primary); background: var(--v-fill-hover); }
-.ovl-sign { display: grid; place-items: center; width: var(--v-layout-icon-small); height: var(--v-layout-icon-small); border-radius: calc(var(--v-layout-icon-small) * 0.3); background: var(--c, var(--v-accent-base)); color: var(--v-ink-on-accent); }
-.ovl-sign svg { width: calc(var(--v-layout-icon-small) * 0.66); height: calc(var(--v-layout-icon-small) * 0.66); fill: none; stroke: currentColor; stroke-width: 2.2; }
-.ovl-cap { margin: var(--v-space-16) 0 var(--v-space-4); color: var(--v-ink-tertiary); font-size: var(--v-type-caption); font-weight: var(--v-weight-semibold); text-transform: uppercase; letter-spacing: 0.02em; }
-.ovl-row { display: flex; align-items: baseline; gap: var(--v-space-12); padding: var(--v-space-10) var(--v-space-6); border-top: 0.5px solid var(--v-line-base); cursor: default; }
-.ovl-row:hover { background: var(--v-fill-hover); border-radius: var(--v-radius-row); }
-.ovl-row b { flex: none; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--v-ink-primary); font-weight: var(--v-weight-semibold); font-size: var(--v-type-body); }
-.ovl-snip { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--v-ink-tertiary); font-size: var(--v-type-small); }
-.ovl-row small { flex: none; color: var(--v-ink-tertiary); font-size: var(--v-type-small); font-variant-numeric: tabular-nums; }
 @media (min-width: 761px) {
   :root[data-velum][data-velum-look="focus"] body[data-sidebar="open"] #ai-chat { left: var(--sb-w); } /* (in the middle of the room beside the sidebar) */
 }
-#overview:not([data-keys]) :is(.ovl-chip, .ovl-row, .ovh-row, .ovh-folder):focus { outline: none; box-shadow: none; } /* (a ring only for the keys) */
-#overview[data-keys] :is(.ovl-chip, .ovl-row):focus-visible { outline: var(--focus-ring) solid var(--v-accent-base); outline-offset: -2px; }
 
 /* All Notes' tiles as the lab draws them (mdview.html .tile): a sheet across rather than up, its note's title on it, under it the
  * name and "folder · when" at the left; the note on screen in the accent. The same for the copy that goes with the pointer in a
  * drag (.drag-ghost): it hangs in the window itself, out of #overview (BUGS.md rule 68) — #19: it was the old tall sheet */
 :root[data-velum][data-velum-look] #overview .ov-grid { grid-template-columns: repeat(auto-fill, minmax(calc(var(--v-sidebar-width) * 0.72), 1fr)); gap: var(--v-space-20) var(--v-space-16); }
-:root[data-velum][data-velum-look] #overview .ovh-card .ov-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--v-space-12); }
 :root[data-velum][data-velum-look] :is(#overview .ov-item, .ov-item.drag-ghost) { --paper: var(--v-bg-raised); --edge: var(--v-line-base); --rest: var(--v-card-shadow); --lifted: var(--v-shadow-drag); }
 :root[data-velum][data-velum-look] :is(#overview .ov-tile, .ov-tile.drag-ghost) { justify-items: stretch; text-align: left; gap: 1px; }
 :root[data-velum][data-velum-look] :is(#overview, .ov-tile.drag-ghost) :is(.ov-sheet, .ov-stack) { aspect-ratio: 3 / 2.05; margin-bottom: var(--v-space-6); }

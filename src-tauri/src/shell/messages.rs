@@ -15,7 +15,7 @@ impl Win {
         }
         match text_of("type") {
             // (a project's history, its other side, sharing: project.rs — what Claude is asked: claude.rs)
-            t if t.starts_with("history-") || t.starts_with("sync-") || t.starts_with("github-") || t.starts_with("share-") || t.starts_with("paste-") => self.on_project_message(app, msg),
+            t if t.starts_with("history-") || t.starts_with("sync-") || t.starts_with("github-") || t.starts_with("share-") => self.on_project_message(app, msg),
             "graphic" | "graphic-cancel" | "ai-ask" | "ai-pick" | "ai-picked" | "ai-stop" | "graphic-image" | "graphic-save" | "complete" => self.on_claude_message(app, msg),
             // (tab: true — a tab of its own, always; "own" — the tab the file has already, else a new one)
             "link" => self.handle_link(app, text_of("href"), truthy(&msg["tab"]), msg["tab"] == "own"),
@@ -190,8 +190,6 @@ impl Win {
             "addfiles" => self.add_files(app, msg["dir"].as_str()),
             // whiteboards that are files of their own, and all of the folder's for All Notes
             "newboard" => self.new_board(app, text_of("name"), msg["dir"].as_str(), text_of("text")),
-            "boards" => self.send_boards(),
-            "board-free" => self.board_free(app, text_of("path")),
             "sidebar" => self.sidebar_pref(app, msg),
             "previews" => self.send_previews(&msg["paths"]),
             // a folder chosen in the system's window — or, here: the folder the note on screen lies in, opened beside it

@@ -1,6 +1,6 @@
 // Bugs reported and features asked for: a form anyone may send, signed in or not (app/feedback),
 // and a list only Henri sees (app/feedback/inbox). Kept by the server, beside the shared notes'
-// links and the pasteboards — and each also an issue of the app's repository on GitHub (FEEDBACK_REPO),
+// links — and each also an issue of the app's repository on GitHub (FEEDBACK_REPO),
 // opened by the GitHub App: GitHub e-mails Henri about it, and Claude's action sorts it
 // (.github/workflows/claude.yml). That repository is public: the issue has the kind, the title, the
 // description, the platform and the version — never the e-mail, the user agent or the account.

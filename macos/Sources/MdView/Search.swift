@@ -1,5 +1,5 @@
 // Search, previews, the note beside, whiteboards and PDFs (area B). Rust originals: search.rs, slides.rs,
-// shell/folder.rs (search, send_previews, new_board, send_boards, board_free), shell.rs (render_pdf, send_pdf),
+// shell/folder.rs (search, send_previews, new_board, board_free), shell.rs (render_pdf, send_pdf),
 // shell/files.rs (board_*, note_read/note_save, pdfink_*). This file: the messages and what the folder's notes
 // are asked (search, previews, the note beside); SearchBoards.swift: whiteboards and what is drawn on a PDF;
 // SearchPDF.swift: the PDF in the window and presentations.
@@ -97,8 +97,6 @@ extension NoteWindow {
         case "board-drop": boardDrop(str("path"), msg["uris"] as? [Any] ?? [], id)
         case "board-pick": boardPick(str("path"), id)
         case "newboard": newBoard(name: str("name"), wanted: msg["dir"] as? String, text: str("text"))
-        case "boards": sendBoards()
-        case "board-free": boardFree(str("path"))
         case "pdfink-read": pdfinkRead(str("path"), id)
         case "pdfink-save": pdfinkSave(str("path"), str("text"), empty: (msg["empty"] as? Bool) ?? false, id)
         case "pdfdata":

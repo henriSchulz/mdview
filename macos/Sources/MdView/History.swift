@@ -1,6 +1,6 @@
 // A folder's history, its other side, and sharing (area C). Rust originals: history.rs, shell/project.rs, sync.rs, github.rs,
 // share.rs, paste.rs, shell/app.rs (stamp, touch, sync timers, github, reconciled/snapshotted). The git side is in HistoryGit.swift /
-// HistoryCore.swift / HistorySync.swift, GitHub's sign-in in HistoryGitHub.swift, sharing and the pasteboard in HistoryShare.swift.
+// HistoryCore.swift / HistorySync.swift, GitHub's sign-in in HistoryGitHub.swift, sharing in HistoryShare.swift.
 // This file: what the windows share (HistoryHub) and the messages of the page (handleHistory).
 import AppKit
 
@@ -102,7 +102,6 @@ final class HistoryHub {
     /// Something at this path changed, or may have: its project, if it is in one, gets a snapshot once it has been quiet for a while.
     func touch(_ path: String) {
         if path.split(separator: "/").contains(".git") { return } // (the history's own writing)
-        if Paste.isCopy(path) { return }
         guard case .project(let root) = Hist.placeOf(path) else { return }
         _ = HistoryHub.shared.started
         snapTurn += 1
@@ -477,27 +476,6 @@ extension NoteWindow {
                 sendFolder()
                 settingsChanged()
             }
-        // the project's pasteboard: asked for, or written — by the web app's server, which keeps it. Without a repository to name it by, or anyone signed in, there is none.
-        case "paste-get", "paste-put":
-            let put = type == "paste-put"
-            let n = msg["n"] ?? NSNull()
-            var why = "off"
-            if let h = historyHere(), let (root, at) = Paste.place(h) {
-                if let token = hub.session?.access {
-                    let done: ([String: Any]) -> Void = { [weak self] said0 in
-                        var said = said0
-                        said["n"] = n
-                        if put { said["put"] = true }
-                        said["device"] = Paste.deviceName(hub.stamp().device) // (what a block made here is said to come from)
-                        self?.js("MdView.pasteboard", [said])
-                    }
-                    if put { Paste.put(root: root, at: at, token: token, text: str("text"), base: (msg["base"] as? Int) ?? 0, by: hub.stamp().device, done: done) }
-                    else { Paste.get(root: root, at: at, token: token, rev: (msg["rev"] as? Int) ?? 0, wait: (msg["wait"] as? Bool) == true, done: done) }
-                    return true
-                }
-                why = "signin"
-            }
-            js("MdView.pasteboard", [["n": n, "put": put, "error": why]])
         // sharing a note: how it stands, shared or its password set, shared no more — written into the project, kept and sent on at once
         case "share-info":
             let p = str("path")

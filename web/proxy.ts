@@ -24,10 +24,9 @@ export function proxy(request: NextRequest) {
 export const config = {
   // (not the framework's own files, nor the page's scripts and styles: they hold no notes — and
   // not a shared note, /s/…, nor the id for a new one, /share/…: those are for whoever has the
-  // link, and guard themselves — as does a project's pasteboard, /paste/…, which the desktop app
-  // asks for too, with its own sign-in and no session here)
+  // link, and guard themselves)
   // (nor the Model Context Protocol's endpoint, /mcp, and its sign-in, /oauth/…, /.well-known/…, and
-  // where it sends a file, /mcp/upload/…: a
-  // client of it has no cookie, and they guard themselves with its tokens — app/mcp, lib/mcp/oauth.ts)
-  matcher: ["/((?!_next/|app/|host/|s/|share/|paste/|mcp$|mcp/upload/|oauth/register|oauth/token|\\.well-known/|favicon.ico).*)"],
+  // where it sends a file, /mcp/upload/…: a client of it has no cookie, and they guard themselves
+  // with its tokens — app/mcp, lib/mcp/oauth.ts)
+  matcher: ["/((?!_next/|app/|host/|s/|share/|mcp$|mcp/upload/|oauth/register|oauth/token|\\.well-known/|favicon.ico).*)"],
 };

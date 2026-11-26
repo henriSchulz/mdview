@@ -341,17 +341,16 @@
     sbRecent.hidden = !recent.length;
     // the smart lists (tiles): how many notes each holds
     const tiles = lay === "tiles" ? SMART.filter((x) => x[0] !== "recent").map(([id, label, color, test]) => [id, label, color, all.filter(test).length])
-      // (the library: the lab's rows — All Notes, Recents, Today, With Tasks, Shared, and the folder's whiteboards: All Notes shows them)
-      : lay === "library" ? [...["all", "recent", "today", "tasks", "shared"].map((id) => SMART.find((x) => x[0] === id)).map(([id, label, color, test]) => [id, id === "all" ? "All Notes" : id === "recent" ? "Recents" : label, color, all.filter(test).length]),
-        ["boards", "Whiteboards", "", all.filter((n) => n.kind === "board").length]] : [];
+      // (the library: the lab's rows — All Notes, Recents, Today, With Tasks, Shared)
+      : lay === "library" ? [...["all", "recent", "today", "tasks", "shared"].map((id) => SMART.find((x) => x[0] === id)).map(([id, label, color, test]) => [id, id === "all" ? "All Notes" : id === "recent" ? "Recents" : label, color, all.filter(test).length])] : [];
     const tilesKey = JSON.stringify(tiles);
-    if (sbSmartBox.dataset.key !== tilesKey) { sbSmartBox.dataset.key = tilesKey; sbSmartBox.innerHTML = lay === "library" ? `<div class="sb-cap">${esc(T("Library"))}</div>` + tiles.map(([id, label, , n]) => `<button class="sb-lib" type="button" data-smart="${id}"><span class="sb-icon">${SMART_ICONS[id] || ICON.board}</span><span class="sb-label">${esc(T(label))}</span><span class="sb-lib-n">${n || ""}</span></button>`).join("") : tiles.map(([id, label, color, n]) => `<button class="sb-tile" type="button" data-smart="${id}" style="--fc: var(--c-${color}, var(--fg2))"><span class="sb-tile-dot">${SMART_ICONS[id]}</span><span class="sb-tile-n">${n}</span><span class="sb-tile-name">${esc(T(label))}</span></button>`).join(""); }
+    if (sbSmartBox.dataset.key !== tilesKey) { sbSmartBox.dataset.key = tilesKey; sbSmartBox.innerHTML = lay === "library" ? `<div class="sb-cap">${esc(T("Library"))}</div>` + tiles.map(([id, label, , n]) => `<button class="sb-lib" type="button" data-smart="${id}"><span class="sb-icon">${SMART_ICONS[id]}</span><span class="sb-label">${esc(T(label))}</span><span class="sb-lib-n">${n || ""}</span></button>`).join("") : tiles.map(([id, label, color, n]) => `<button class="sb-tile" type="button" data-smart="${id}" style="--fc: var(--c-${color}, var(--fg2))"><span class="sb-tile-dot">${SMART_ICONS[id]}</span><span class="sb-tile-n">${n}</span><span class="sb-tile-name">${esc(T(label))}</span></button>`).join(""); }
     for (const b of sbSmartBox.querySelectorAll("[data-smart]")) { const on = !query && b.dataset.smart === sbSmart; b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); }
     for (const row of sidebar.querySelectorAll(".sb-extra .sb-row[data-loose]")) row.classList.toggle("active", !!P.current && row.dataset.loose === P.current.path);
     libMark();
     sbAsk(lay, here);
   }
-  /* The library's row that stands for what is shown: All Notes or the whiteboards, a folder's row where All Notes is in that
+  /* The library's row that stands for what is shown: All Notes, a folder's row where All Notes is in that
    * folder (or a note of it is shown), a list chosen (Recents …) — one row, as a sidebar of macOS marks one. */
   function libMark() {
     const lib = folder && !folder.quick && sbLayout() === "library", w = lib && window.MdOverview?.where ? MdOverview.where() : null;
@@ -359,7 +358,7 @@
     let on = null, dir = null;
     if (!lib || quickFilter) on = null; // (what was searched for: none of them)
     else if (sbSmart !== "all") on = sbSmart;
-    else if (w) { on = w.scope === "boards" ? "boards" : w.scope === "paste" || w.at.length ? null : "all"; dir = w.scope === "folders" && w.at.length ? folder.root + "/" + w.at[0] : null; }
+    else if (w) { on = w.at.length ? null : "all"; dir = w.at.length ? folder.root + "/" + w.at[0] : null; }
     else if (rel.length > 1) dir = folder.root + "/" + rel[0];
     if (lib) for (const b of sbSmartBox.querySelectorAll("[data-smart]")) { b.classList.toggle("on", b.dataset.smart === on); b.setAttribute("aria-pressed", String(b.dataset.smart === on)); }
     for (const el of sbList.querySelectorAll(":scope > .sb-item.is-dir")) el.firstChild.firstChild.classList.toggle("on", el.dataset.key === dir);
@@ -405,7 +404,7 @@
     if (!t || !folder) return;
     const here = t.closest("[data-go]"), smart = t.closest("[data-smart]"), loose = t.closest(".sb-extra .sb-row"), foot = t.closest("[data-sb]");
     if (here) setHere(here.dataset.go, here.classList.contains("sb-back"));
-    else if (smart && sbLayout() === "library" && (smart.dataset.smart === "all" || smart.dataset.smart === "boards") && window.MdOverview) { sbSmart = "all"; layoutSync(); MdOverview.showAt([], smart.dataset.smart === "boards" ? "boards" : "all"); } // (the library: All Notes, the whiteboards — shown beside it)
+    else if (smart && sbLayout() === "library" && smart.dataset.smart === "all" && window.MdOverview) { sbSmart = "all"; layoutSync(); MdOverview.showAt([]); } // (the library: All Notes — shown beside it)
     else if (smart) { sbSmart = smart.dataset.smart; layoutSync(); }
     else if (loose) { if (!loose.classList.contains("active") || e.ctrlKey || e.metaKey) openRow(loose.closest(".sb-item"), e.ctrlKey || e.metaKey); }
     else if (foot && foot.dataset.sb === "new") P.openNewNote("note", sbHere);
@@ -960,7 +959,7 @@
     if (!window.__TAURI_INTERNALS__ || !(e.ctrlKey || e.metaKey) || e.altKey) return;
     const k = e.key.toLowerCase(), back = k === "z" && !e.shiftKey, again = (k === "z" && e.shiftKey) || (k === "y" && !e.shiftKey);
     const t = e.target instanceof Element ? e.target : document.body;
-    if (!(back || again) || t.isContentEditable || t.closest("input, textarea, .ov-paste") || !(window.MdOverview?.isOpen || t.closest("#sidebar"))) return;
+    if (!(back || again) || t.isContentEditable || t.closest("input, textarea") || !(window.MdOverview?.isOpen || t.closest("#sidebar"))) return;
     e.preventDefault(); e.stopPropagation();
     post(back ? "fileundo" : "fileredo");
   });
@@ -1054,7 +1053,6 @@
     entry("download", "down", T("Download"), "file") +
     entry("embed", "board", T("Embed in This Note"), "file") +
     entry("boardnote", "note", T("Show the Note It Is In"), "file") +
-    entry("boardfree", "file", T("Keep as a File of Its Own"), "file") +
     `<div class="menu-rule" data-for="file dir many"></div>` +
     entry("copyf", "copy", T("Copy"), "file dir many", "Ctrl+C") +
     entry("cutf", "cut", T("Cut"), "file dir many", "Ctrl+X") +
@@ -1149,15 +1147,14 @@
   /* What of the menu is not for this row or tile: Hide for what is hidden and the other way round, a
    * whiteboard's entries for anything else — and for a whiteboard a note keeps (All Notes shows those
    * too) nothing that would take it from its note. */
-  const FILE_CMDS = ["newboard", "newbook", "addfiles", "pastef", "copyf", "cutf", "duplicate", "copypath", "hide", "unhide", "embed", "boardnote", "boardfree"];
+  const FILE_CMDS = ["newboard", "newbook", "addfiles", "pastef", "copyf", "cutf", "duplicate", "copypath", "hide", "unhide", "embed", "boardnote"];
   function ctxLacks(cmd, item, kind) {
     // (beside what is in the window only what makes a note and a PDF with it: viewer/split.js)
     if (cmd === "openbeside") return !(item.dataset && item.dataset.kept == null && P.splitFor((ctxTile ? item.dataset.path : item.dataset.key) || ""));
     if (!FILE_CMDS.includes(cmd) && !(item.dataset && item.dataset.kept != null)) return false;
     if (FILE_CMDS.includes(cmd) && (!FILEWORK || (folder && folder.quick))) return true; // (what only a host that works with files as files does: viewer/base.js)
     const path = item.dataset ? item.dataset.path || item.dataset.key || "" : "", board = /\.board\.svg$/i.test(path), kept = !!item.dataset && item.dataset.kept != null;
-    if (kept) return !["open", "reveal", "embed", "boardnote", "boardfree", "copypath", "sub:show"].includes(cmd) || (cmd === "boardnote" && !item.dataset.note);
-    if (cmd === "boardfree") return true;
+    if (kept) return !["open", "reveal", "embed", "boardnote", "copypath", "sub:show"].includes(cmd) || (cmd === "boardnote" && !item.dataset.note);
     if (cmd === "boardnote") return !(board && item.dataset.note);
     if (cmd === "embed") return !board || !P.current || P.current.kind === "pdf" || !!P.current.readonly;
     if (cmd === "hide" || cmd === "unhide") return kind !== "many" && (cmd === "unhide") !== isHidden(path);
@@ -1286,7 +1283,6 @@
     if (cmd === "newnote" || cmd === "newfolder" || cmd === "newboard" || cmd === "newbook") P.openNewNote({ newfolder: "folder", newboard: "board", newbook: "notebook" }[cmd] || "note", into);
     else if (cmd === "embed") P.embedBoard(path);
     else if (cmd === "boardnote") { MdOverview.close(false); post("note", { path: item.dataset.note }); }
-    else if (cmd === "boardfree") post("board-free", { path });
     else if (fileCmd(cmd, [path], into || (path ? parentOf(path) : folder.root))) { /* done */ }
     else if (cmd.startsWith("sort:")) setSort(cmd.slice(5));
     else if (cmd === "history:show") openHistory();

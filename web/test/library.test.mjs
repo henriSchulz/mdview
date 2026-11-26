@@ -22,6 +22,9 @@ const files = {
   "Analysis/Lectures/Lecture 08.md": "# Lecture 08\n\ntext\n",
   "Velum/Opal tokens.md": "# Opal tokens\n\n- [ ] a task\n",
   "Inbox.md": "# Inbox\n\ntext\n",
+  "Uni/Zebra overview.md": "---\ntop: true\n---\n\n# Zebra overview\n\nThe dates of the term, the rooms and what is read in which week of it.\n",
+  "Uni/Algebra.md": "# Algebra\n\nGroups, rings, fields.\n",
+  "Uni/Sheets/One.md": "# One\n\ntext\n",
   ".mdview/project.json": "{\"id\":\"x\",\"version\":1}",
 };
 
@@ -88,8 +91,8 @@ test("the library: search, the Library's rows, the folder's own folders and no n
   await opened();
   let now = await seen();
   assert.equal(now.search, true, "the search at its head");
-  assert.deepEqual(now.lib, ["all", "recent", "today", "tasks", "shared", "boards"]);
-  assert.deepEqual(now.dirs, ["Analysis", "Velum"], "the folder's own folders, no deeper");
+  assert.deepEqual(now.lib, ["all", "recent", "today", "tasks", "shared"]);
+  assert.deepEqual(now.dirs, ["Analysis", "Uni", "Velum"], "the folder's own folders, no deeper");
   assert.deepEqual(now.notes, [], "no note in it");
   assert.deepEqual(now.on, ["Analysis"], "the folder of the note shown is marked");
   // a folder chosen: All Notes in it, beside the sidebar — which stays, with its button
@@ -99,41 +102,59 @@ test("the library: search, the Library's rows, the folder's own folders and no n
   assert.equal(await page.evaluate(() => document.body.dataset.sidebar), "open", "the sidebar stays over All Notes");
   assert.equal(await page.evaluate(() => document.querySelector(".tab-side").getClientRects().length > 0), true, "and so does its button");
   assert.deepEqual((await seen()).on, ["Velum"]);
-  // All Notes and the whiteboards: All Notes, the whole folder
+  // All Notes: the folders, from the top — no other view of it, no choice at its head but tiles or list
   await page.click('#sidebar [data-smart="all"]');
-  await page.waitForFunction(() => MdOverview.where()?.scope === "all", null, { timeout: 5000 });
+  await page.waitForFunction(() => MdOverview.where()?.at.length === 0, null, { timeout: 5000 });
   assert.deepEqual((await seen()).on, ["All Notes"]);
-  await page.click('#sidebar [data-smart="boards"]');
-  await page.waitForFunction(() => MdOverview.where()?.scope === "boards", null, { timeout: 5000 });
-  assert.deepEqual((await seen()).on, ["Whiteboards"]);
-  // and they are asked for: the list comes, not "Looking for Whiteboards…" for ever (#55)
-  await page.waitForFunction(() => !/Looking for Whiteboards/.test(document.querySelector("#overview .ov-body").textContent), null, { timeout: 5000 });
+  assert.equal(await page.evaluate(() => document.querySelectorAll('#overview [data-seg="scope"], #overview .ov-pastebtn').length), 0);
   // the gear at its lower right, New at its foot
   const foot = await page.evaluate(() => { const sb = document.getElementById("sidebar").getBoundingClientRect(), g = document.getElementById("settings-btn").getBoundingClientRect(), n = document.querySelector('#sidebar [data-act="newmenu"]').getBoundingClientRect(); return { gearRight: g.right > sb.right - 60 && g.right <= sb.right, gearLow: g.bottom > sb.bottom - 40, newLeft: n.left < sb.left + 40 && n.bottom > sb.bottom - 50 }; });
   assert.deepEqual(foot, { gearRight: true, gearLow: true, newLeft: true });
 });
 
-test("All Notes' head beside the sidebar, at every width: the view, the pasteboard and \"…\" on one line, New beside the title (#56)", async () => {
-  await page.evaluate(() => { const s = JSON.parse(localStorage.getItem("mdview:set") || "{}"); s.ovHome = true; localStorage.setItem("mdview:set", JSON.stringify(s)); }); // (Home among the choices: the widest of them, as Henri has it)
+test("All Notes' head beside the sidebar, at every width: the view and \"…\" on one line, New beside the title (#56)", async () => {
   await page.goto(`${base}/r/octo/notes?n=Inbox.md`);
   await untilNote("Inbox.md");
   await opened();
-  await page.click('#sidebar [data-smart="boards"]');
-  await page.waitForFunction(() => MdOverview.where()?.scope === "boards", null, { timeout: 5000 });
+  await page.click('#sidebar [data-smart="all"]');
+  await page.waitForFunction(() => !!MdOverview.where(), null, { timeout: 5000 });
   const wrong = [];
   for (let w = 1280; w >= 400; w -= 20) {
     await page.setViewportSize({ width: w, height: 800 });
     await page.waitForTimeout(60);
     const at = await page.evaluate(() => {
       const r = (s) => document.querySelector("#overview .ov-head " + s).getBoundingClientRect(), mid = (b) => Math.round(b.top + b.height / 2);
-      const view = r('[data-seg="layout"]'), paste = r(".ov-pastebtn"), more = r(".ov-more"), add = r(".ov-add"), title = r(".ov-title"), count = r(".ov-count");
-      return { together: Math.abs(mid(more) - mid(view)) <= 1 && Math.abs(mid(paste) - mid(view)) <= 1, addByTitle: mid(add) >= title.top && mid(add) <= count.bottom };
+      const view = r('[data-seg="layout"]'), more = r(".ov-more"), add = r(".ov-add"), title = r(".ov-title"), count = r(".ov-count");
+      return { together: Math.abs(mid(more) - mid(view)) <= 1, addByTitle: mid(add) >= title.top && mid(add) <= count.bottom };
     });
     if (!at.together || !at.addByTitle) wrong.push({ w, ...at });
   }
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.evaluate(() => { const s = JSON.parse(localStorage.getItem("mdview:set") || "{}"); delete s.ovHome; localStorage.setItem("mdview:set", JSON.stringify(s)); });
   assert.deepEqual(wrong, []);
+});
+
+test("a folder's top note (top: true) stands apart at its head, large — above the folders and the other notes", async () => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`${base}/r/octo/notes?n=Uni/Algebra.md`);
+  await untilNote("Algebra.md");
+  await page.evaluate(() => MdOverview.open());
+  await page.waitForFunction(() => /dates of the term/.test(document.querySelector("#overview .ov-top .ov-snip")?.textContent || ""), null, { timeout: 8000 });
+  await page.waitForTimeout(600);
+  const at = await page.evaluate(() => {
+    const box = (e) => e.getBoundingClientRect(), top = document.querySelector("#overview .ov-tops .ov-top"), others = [...document.querySelectorAll("#overview .ov-grid .ov-item")];
+    return { name: top.querySelector(".ov-name").textContent, above: others.every((o) => box(o).top > box(top).bottom), wider: box(top).width > 2 * box(others[0]).width,
+      apart: others.map((o) => o.querySelector(".ov-name").textContent), home: document.querySelectorAll('#overview [data-v="home"]').length };
+  });
+  assert.deepEqual(at, { name: "Zebra overview", above: true, wider: true, apart: ["Sheets", "Algebra"], home: 0 });
+  if (process.env.SHOTS) await page.screenshot({ path: join(process.env.SHOTS, "top-wide.png") });
+  await page.setViewportSize({ width: 390, height: 780 });
+  await page.waitForTimeout(500);
+  const narrow = await page.evaluate(() => { const b = document.querySelector("#overview .ov-top").getBoundingClientRect(); return b.left >= 0 && b.right <= innerWidth; });
+  assert.ok(narrow, "on a small screen the card stays within it");
+  if (process.env.SHOTS) await page.screenshot({ path: join(process.env.SHOTS, "top-narrow.png") });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.click("#overview .ov-top");
+  await untilNote("Zebra overview.md");
 });
 
 test("nothing was refused or thrown along the way", () => {

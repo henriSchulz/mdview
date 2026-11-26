@@ -308,11 +308,6 @@ test("All Notes names a notebook a notebook, after a reload too; a picture that 
   assert.equal(await tile("Heft.board.svg").locator(".ov-snip").innerText(), "Notebook");
   assert.equal(await tile("Tafel.board.svg").locator(".ov-snip").innerText(), "Whiteboard");
   await page.click('#overview [data-seg="layout"] [data-v="tiles"]');
-  // the folder's whiteboards: the notebook is one too, signed as a notebook
-  await page.click('#overview [data-seg="scope"] [data-v="boards"]');
-  await page.waitForFunction((p) => document.querySelector(`#overview .ov-item[data-path="${p}"][data-book]`), `${R}/Heft.board.svg`, { timeout: 10000 });
-  assert.equal(await page.evaluate((p) => document.querySelector(`#overview .ov-item[data-path="${p}"]`).hasAttribute("data-book"), `${R}/Tafel.board.svg`), false);
-  await page.click('#overview [data-seg="scope"] [data-v="folders"]');
   // two whiteboards made without a name: the second gets a number
   for (const n of ["", " 2"]) {
     await page.click("#overview .ov-add");

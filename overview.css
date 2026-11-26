@@ -20,26 +20,25 @@
 body[data-tabs] #overview { padding-top: calc(var(--tabs-h) + 28px); } /* (under the tabs) */
 @media print { #overview { display: none !important; } }
 
-.ov-head, .ov-dir, .ov-name, .ov-none, .ov-row, .ov-sub { font-variation-settings: "opsz" 17; } /* (SF Pro's text cut, as the sidebar and the menus) */
+.ov-head, .ov-name, .ov-none, .ov-row, .ov-sub { font-variation-settings: "opsz" 17; } /* (SF Pro's text cut, as the sidebar and the menus) */
 .ov-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 12px; max-width: 1400px; margin: 0 auto 28px; }
 .ov-title { margin: 0; font: 700 28px/1.2 var(--ui); letter-spacing: -0.01em; color: var(--fg); }
 .ov-count { font: 400 13px/1.2 var(--ui); color: var(--fg2); }
 .ov-body { max-width: 1400px; margin: 0 auto; }
-.ov-dir { margin: 28px 0 12px; font: 600 13px/1.3 var(--ui); color: var(--fg2); }
 .ov-none { color: var(--fg2); text-align: center; padding-top: 16vh; }
 .ov-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 30px 26px; }
 
 /* a tile: the note as a small sheet of paper with what it says on it; under the sheet its name and
  * when it was changed. The tile itself is no card: the sheet is. It comes in after the one before
  * it (the first few), then rests. */
-.ov-item, .ovh-card {
+.ov-item {
   --paper: var(--bg);                 /* the sheet */
   --edge: var(--line-strong);         /* its edge: a hairline */
   --rest: 0 1px 2px rgb(0 0 0 / 0.04), 0 6px 18px rgb(0 0 0 / 0.07);    /* its shadow lying, and lifted */
   --lifted: 0 1px 2px rgb(0 0 0 / 0.05), 0 12px 28px rgb(0 0 0 / 0.14);
 }
-body[data-mode="light"] :is(.ov-item, .ovh-card) { --paper: #fff; }
-body[data-mode="dark"] :is(.ov-item, .ovh-card) { --paper: color-mix(in srgb, var(--fg) 7%, var(--bg)); --edge: rgb(255 255 255 / 0.12); --rest: 0 6px 18px rgb(0 0 0 / 0.3); --lifted: 0 12px 28px rgb(0 0 0 / 0.45); }
+body[data-mode="light"] .ov-item { --paper: #fff; }
+body[data-mode="dark"] .ov-item { --paper: color-mix(in srgb, var(--fg) 7%, var(--bg)); --edge: rgb(255 255 255 / 0.12); --rest: 0 6px 18px rgb(0 0 0 / 0.3); --lifted: 0 12px 28px rgb(0 0 0 / 0.45); }
 .ov-tile {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -152,7 +151,7 @@ body[data-overview] #toolbar :is([data-act="outline"], [data-act="find"], [data-
 .ov-seg { position: relative; align-self: center; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 2px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--fg) 7%, transparent); user-select: none; -webkit-user-select: none; }
 .ov-opt { position: relative; display: grid; place-items: center; min-width: var(--control-height, 28px); height: calc(var(--control-height, 28px) - 4px); padding: 0 12px; border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--fg2); font: 500 12px/1 var(--ui); white-space: nowrap; cursor: default; transition: color var(--dur-fast) var(--ease-out); }
 .ov-opt[title] { padding: 0 8px; }
-.ov-opt[hidden] { display: none; } /* (Home without its setting: `display: grid` above would show it, and the thumb counts what shows) */
+.ov-opt[hidden] { display: none; } /* (All Notes among the choices: `display: grid` above would show it, and the thumb counts what shows) */
 .ov-opt svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .ov-opt:hover, .ov-opt[aria-checked="true"] { color: var(--fg); transition-duration: var(--dur-instant); }
 .ov-opt:focus-visible { outline-offset: -2px; }
@@ -181,6 +180,28 @@ body[data-mode="dark"] .ov-thumb { background: color-mix(in srgb, var(--fg) 18%,
 /* the menu is open on it: the pointer is on the menu, not the tile, and the tile keeps the pose it had under it (above, with :hover) */
 .ov-tile.ctx-target .ov-sheet { box-shadow: 0 0 0 0.5px var(--edge), var(--lifted); }
 .ov-tile .ov-rename { position: static; width: 100%; height: 24px; margin: -3px 0; padding: 0 6px; font-size: 13px; text-align: center; }
+
+/* the top notes of a folder ("top: true"), apart at its head: broad cards on raised paper, a line under them */
+.ov-tops { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 18px; margin-bottom: 30px; padding-bottom: 30px; border-bottom: 0.5px solid var(--line); }
+.ov-tops:has(+ :empty:last-child) { margin-bottom: 0; padding-bottom: 0; border-bottom: 0; } /* (nothing but top notes in the folder) */
+.ov-top {
+  display: flex; align-items: stretch; gap: 22px; min-width: 0; height: 220px; box-sizing: border-box; padding: 18px;
+  border-radius: var(--radius-popover); background: var(--raised); box-shadow: 0 0 0 0.5px var(--edge), var(--rest);
+  color: var(--fg); text-align: left; cursor: default; outline: var(--focus-ring) solid transparent; outline-offset: 3px; user-select: none; -webkit-user-select: none;
+  transition: transform var(--spring-smooth-dur) var(--spring-smooth), box-shadow var(--dur-fast) var(--ease-out), outline-color var(--dur-fast) var(--ease-out);
+}
+#overview[data-open] .ov-top:is(:hover, .ctx-target) { transform: translateY(-2px); box-shadow: 0 0 0 0.5px var(--edge), var(--lifted); }
+#overview[data-open] .ov-top:active:not(.ctx-target) { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+#overview[data-keys] .ov-top:focus-visible, .ov-top.picked { outline-color: var(--accent); }
+.ov-top .ov-sheet { flex: none; width: 150px; height: 100%; aspect-ratio: auto; margin: 0; padding: 12px 12px 0; box-sizing: border-box; overflow: hidden; border-radius: var(--radius-control); background: var(--paper); box-shadow: 0 0 0 0.5px var(--edge); }
+.ov-top .ov-text { display: flex; flex-direction: column; gap: 8px; padding: 4px 0; }
+.ov-top .ov-name { font: 700 22px/1.25 var(--ui); letter-spacing: -0.01em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+.ov-top .ov-snip { white-space: normal; font-size: 14px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+.ov-top .ov-when { margin-top: auto; }
+.ov-top[aria-current] .ov-name { color: var(--accent-text); }
+.ov-top .ov-rename { position: static; width: 100%; height: 30px; padding: 0 8px; font-size: 18px; }
+@media (max-width: 560px) { .ov-top { height: 164px; gap: 14px; padding: 12px; } .ov-top .ov-sheet { width: 96px; padding: 8px 8px 0; } .ov-top .ov-name { font-size: 17px; } .ov-top .ov-snip { font-size: 13px; -webkit-line-clamp: 3; } }
+@media (prefers-reduced-motion: reduce) { #overview[data-open] .ov-top:is(:hover, :active, .ctx-target) { transform: none; } }
 
 /* the list: a row per note — its sheet in small, its name with its first words under it, and at the
  * end when it was changed. No card around them: rows on the page, divided by a hairline that begins
@@ -252,67 +273,6 @@ body[data-mode="dark"] .ov-thumb { background: color-mix(in srgb, var(--fg) 18%,
 .ov-row.ov-file[data-kind="board"] .ov-mini img { object-fit: contain; }
 /* put away, and shown all the same (Show › Hidden Items) */
 .ov-item.is-hidden > :is(.ov-sheet, .ov-stack, .ov-mini, .ov-text, .ov-name, .ov-sub, .ov-when) { opacity: 0.45; }
-/* the whiteboards: which of them, above the tiles */
-.ov-filter { display: flex; margin: 0 0 24px; }
-/* the pasteboard: a chat of blocks of text, its buttons above and under it */
-#overview[data-scope="paste"] :is(.ov-add, .ov-more, .ov-seg, .ov-pastebtn) { display: none; } /* (a tab of its own: nothing of All Notes about it) */
-.ov-pastebtn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.ov-paste { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 12px; height: calc(100dvh - 200px); min-height: 320px; }
-/* (a narrow window has the toolbar at its foot: the chat ends above it) */
-@media (max-width: 760px) { .ov-paste { height: calc(100dvh - 280px - env(safe-area-inset-bottom, 0px)); } }
-.ov-paste-bar { display: flex; align-items: center; gap: 8px; min-height: var(--control-height, 28px); }
-.ov-paste-bar .ov-space { flex: 1; }
-.ov-paste .btn { height: var(--control-height, 28px); padding: 0 12px; font-size: 13px; }
-.ov-paste-said { font: 400 13px/1.2 var(--ui); font-variation-settings: "opsz" 17; color: var(--fg2); transition: color var(--dur-fast) var(--ease-out); }
-.ov-paste-said[data-warn] { color: var(--c-red, var(--fg)); }
-/* the blocks: one under the other, the newest at the foot, like a chat */
-.ov-paste-list {
-  box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; padding: 14px;
-  border: var(--hairline); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--fg) 3%, var(--bg));
-}
-.ov-paste-empty { display: none; margin: auto; max-width: 320px; text-align: center; font: 400 13px/1.45 var(--ui); color: var(--fg2); }
-.ov-paste-list[data-empty] .ov-paste-empty { display: block; }
-.ov-pm {
-  flex: none; box-sizing: border-box; max-width: min(100%, 720px); align-self: flex-start; padding: 8px 12px 10px; border-radius: var(--radius-popover);
-  background: color-mix(in srgb, var(--fg) 7%, var(--bg)); user-select: text; -webkit-user-select: text;
-  transition: opacity var(--dur-fast) var(--ease-exit);
-}
-.ov-pm.is-mine { align-self: flex-end; background: color-mix(in srgb, var(--accent) 14%, var(--bg)); }
-.ov-pm.leaving { opacity: 0; }
-.ov-pm.entering { animation: ov-pm-in var(--dur-base) var(--ease-out); }
-@keyframes ov-pm-in { from { opacity: 0; transform: translateY(6px); } }
-@media (prefers-reduced-motion: reduce) { .ov-pm.entering { animation-name: ov-pm-fade; } @keyframes ov-pm-fade { from { opacity: 0; } } }
-.ov-pm-meta { display: flex; align-items: center; gap: 8px; min-height: 22px; font: 400 12px/1.2 var(--ui); color: var(--fg2); }
-.ov-pm-from { font-weight: 600; }
-.ov-pm-at { flex: 1; }
-.ov-pm-copy {
-  flex: none; height: 22px; padding: 0 8px; border: 0; border-radius: var(--radius-chip); background: none; color: var(--fg2); font: inherit; cursor: default;
-  opacity: 0; transition: opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
-}
-.ov-pm:hover .ov-pm-copy, .ov-pm-copy:focus-visible { opacity: 1; }
-@media (hover: none) { .ov-pm-copy { opacity: 1; } }
-.ov-pm-copy:hover { background: var(--fill-hover); color: var(--fg); transition-duration: var(--dur-instant); }
-.ov-pm-copy:active { background: var(--fill-pressed); transform: scale(var(--press-scale)); }
-.ov-pm-text { margin-top: 2px; font: 400 14px/1.55 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; color: var(--fg); }
-/* the field a block is made in, with its buttons */
-.ov-paste-compose { display: flex; align-items: flex-end; gap: 8px; }
-.ov-paste-text {
-  box-sizing: border-box; flex: 1; min-width: 0; height: 40px; max-height: 160px; resize: none; overflow-y: hidden; margin: 0; padding: 9px 14px;
-  border: var(--hairline); border-radius: var(--radius-control); outline: 0;
-  background: color-mix(in srgb, var(--fg) 3%, var(--bg)); color: var(--fg);
-  font: 400 14px/1.5 var(--mono); tab-size: 4; white-space: pre-wrap; overflow-wrap: anywhere;
-  user-select: text; -webkit-user-select: text;
-  transition: border-color var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
-}
-.ov-paste-compose .btn { height: 40px; }
-.ov-paste-text:focus { border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
-.ov-paste-text::placeholder { color: var(--fg2); font-family: var(--ui); }
-/* (not read yet: nothing is typed into it) */
-.ov-paste:not([data-state="ok"]) :is(.ov-paste-text, .ov-paste .btn) { opacity: 0.5; }
-.ov-paste .btn:disabled { opacity: 0.4; }
-.ov-paste-none { display: none; }
-.ov-paste:is([data-state="off"], [data-state="signin"], [data-state="missing"], [data-state="unreachable"]) > :not(.ov-paste-none) { display: none; }
-.ov-paste:is([data-state="off"], [data-state="signin"], [data-state="missing"], [data-state="unreachable"]) > .ov-paste-none { display: grid; }
 /* several at once: what is selected — a tile wears a ring, a row the fill a chosen row has */
 #overview { user-select: none; -webkit-user-select: none; }
 .ov-tile.picked { outline: var(--focus-ring, 2px) solid var(--accent); outline-offset: 5px; background: color-mix(in srgb, var(--accent) 8%, transparent); }
@@ -329,54 +289,20 @@ body[data-mode="dark"] .ov-thumb { background: color-mix(in srgb, var(--fg) 18%,
 .ov-head { align-items: center; gap: 12px; }
 .ov-tools, .ov-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; } .ov-acts { flex-wrap: nowrap; } /* (the choices and the buttons after them go to a new line together; only a line too narrow for all of them breaks them up) */
 .ov-count { align-self: center; padding-top: 6px; }
-.ov-add, .ov-more, .ov-pastebtn {
+.ov-add, .ov-more {
   width: 34px; height: 34px; background: var(--raised); color: var(--fg);
   box-shadow: 0 0 0 0.5px var(--line), 0 1px 3px rgb(0 0 0 / 0.1);
 }
 .ov-add { margin-right: 4px; }
-.ov-add:hover, .ov-add.ctx-target, :is(.ov-more, .ov-pastebtn):is(:hover, .ctx-target) { background: color-mix(in srgb, var(--fg) 6%, var(--raised)); }
+.ov-add:hover, .ov-add.ctx-target, .ov-more:is(:hover, .ctx-target) { background: color-mix(in srgb, var(--fg) 6%, var(--raised)); }
 .ov-add svg { stroke-width: 2.2; }
-:is(.ov-more, .ov-pastebtn) { align-self: center; display: grid; place-items: center; flex: none; padding: 0; border: 0; border-radius: var(--radius-popover); cursor: default; outline: var(--focus-ring) solid transparent; outline-offset: 2px; transition: background-color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
-:is(.ov-more, .ov-pastebtn):active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
-:is(.ov-more, .ov-pastebtn):focus-visible { outline-color: var(--accent); }
+.ov-more { align-self: center; display: grid; place-items: center; flex: none; padding: 0; border: 0; border-radius: var(--radius-popover); cursor: default; outline: var(--focus-ring) solid transparent; outline-offset: 2px; transition: background-color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+.ov-more:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+.ov-more:focus-visible { outline-color: var(--accent); }
 .ov-more svg { width: 18px; height: 18px; fill: currentColor; stroke: none; }
 .ov-seg { padding: 3px; border-radius: var(--radius-popover); background: var(--raised); box-shadow: 0 0 0 0.5px var(--line), 0 1px 3px rgb(0 0 0 / 0.1); }
 .ov-opt { height: calc(var(--control-height, 28px)); border-radius: calc(var(--radius-popover) - 3px); }
 .ov-thumb { top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px) / var(--n, 2)); border-radius: calc(var(--radius-popover) - 3px); background: color-mix(in srgb, var(--fg) 8%, transparent); box-shadow: none; }
-body[data-mode="dark"] :is(.ov-add, .ov-more, .ov-pastebtn), body[data-mode="dark"] .ov-seg { box-shadow: 0 0 0 0.5px var(--line-strong); }
+body[data-mode="dark"] :is(.ov-add, .ov-more), body[data-mode="dark"] .ov-seg { box-shadow: 0 0 0 0.5px var(--line-strong); }
 body[data-mode="dark"] .ov-thumb { background: color-mix(in srgb, var(--fg) 16%, transparent); }
 
-/* ---- Home (overview.js: buildHome — Settings › All Notes › Home): cards in two columns, then the folders and the files.
- * Cards as Finder's and Settings' Home have them (the lab's mdview.html, proposal B): raised paper, a title, a line under it. */
-.ovh-cols { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 18px; align-items: start; }
-.ovh-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
-.ovh-card { min-width: 0; padding: 16px 18px 14px; border-radius: var(--radius-popover); background: var(--raised); box-shadow: 0 0 0 0.5px var(--edge), var(--rest); }
-.ovh-card > h2 { margin: 0; font: 600 15px/1.3 var(--ui); color: var(--fg); }
-.ovh-sub { margin: 2px 0 14px; font: 400 12px/1.3 var(--ui); color: var(--fg3); }
-.ovh-card .ov-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-.ovh-card .ov-sheet { aspect-ratio: 3 / 2.6; } /* (a lower sheet: the card is a glance, not the list) */
-.ovh-list { display: flex; flex-direction: column; }
-.ovh-row { display: flex; align-items: center; gap: 10px; min-height: 34px; padding: 0 8px; margin: 0 -8px; border-radius: var(--radius-control); font: 400 13px/1.3 var(--ui); color: var(--fg); cursor: default;
-           outline: var(--focus-ring) solid transparent; outline-offset: -2px; }
-.ovh-row + .ovh-row { box-shadow: inset 0 0.5px 0 var(--line); }
-#overview[data-open] .ovh-row:hover, .ovh-row.ctx-target { background: var(--sb-hover); box-shadow: none; }
-#overview[data-open] .ovh-row:hover + .ovh-row { box-shadow: none; }
-#overview[data-keys] :is(.ovh-row, .ovh-folder):focus-visible { outline-color: var(--accent); }
-.ovh-sign { flex: none; display: grid; place-items: center; width: 18px; color: var(--fg3); }
-.ovh-sign > svg, .ovh-disc > svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.ovh-sign > svg { width: 15px; height: 15px; }
-.ovh-box { width: 14px; height: 14px; border-radius: 4px; box-shadow: inset 0 0 0 1.5px var(--line-strong); }
-.ovh-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ovh-right { flex: none; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg3); font-size: 12px; font-variant-numeric: tabular-nums; }
-.ovh-none { margin: 4px 0; font: 400 13px/1.4 var(--ui); color: var(--fg3); }
-.ovh-head { margin-top: 30px; }
-.ovh-folders { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
-.ovh-folder { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 11px 14px; border-radius: var(--radius-control); background: var(--raised); box-shadow: 0 0 0 0.5px var(--edge), var(--rest); cursor: default;
-              outline: var(--focus-ring) solid transparent; outline-offset: 2px; transition: transform var(--spring-smooth-dur) var(--spring-smooth), box-shadow var(--dur-fast) var(--ease-out); }
-#overview[data-open] .ovh-folder:is(:hover, .ctx-target) { transform: translateY(-2px); box-shadow: 0 0 0 0.5px var(--edge), var(--lifted); }
-.ovh-disc { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: color-mix(in srgb, var(--c, var(--accent)) 16%, transparent); color: var(--c, var(--accent)); }
-.ovh-disc > svg { width: 17px; height: 17px; }
-.ovh-folder .ovh-text { display: flex; flex-direction: column; min-width: 0; font: 500 13px/1.3 var(--ui); color: var(--fg); }
-.ovh-folder .ovh-right { max-width: none; font-weight: 400; }
-#overview[data-scope="home"] [data-seg="layout"] { display: none; } /* (Home is laid out as it is: tiles or a list is the folders' choice) */
-@media (max-width: 860px) { .ovh-cols { grid-template-columns: minmax(0, 1fr); } }

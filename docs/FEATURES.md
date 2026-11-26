@@ -699,13 +699,10 @@ and shut back into it — or a file of the folder, of its own.
   (active mode; in the other two its link is copied, to be pasted) — or its row is pulled onto
   the note. It stands there as a board made in the note does (`![](Name.board.svg)`), and stays
   a file of its own: several notes can show the same board.
-- **All of the folder's whiteboards**: All Notes › *Whiteboards* shows them and nothing else —
-  those that are files and those a note keeps — each with the note it stands in, or "In no
-  note" — all of them alike, with no choice among them. A notebook among them has a notebook's
-  sign, and is called Notebook, not Whiteboard, wherever All Notes and the sidebar say a file's kind
-  (told by its file's head; in the browser that is read for the list). A board whose picture
-  cannot be shown has its sign on its tile, never the web view's broken picture. A click opens the board. A board a note keeps has Show the Note It Is In and Keep as a File of Its Own in its
-  menu (from then on it is listed in the folder, and stays when the note lets it go).
+- **A whiteboard of the folder** stands in All Notes among its folder's files; a notebook has a notebook's sign, and
+  is called Notebook, not Whiteboard, wherever All Notes and the sidebar say a file's kind (told by its file's head; in
+  the browser that is read for the list). A board whose picture cannot be shown has its sign on its tile, never the web
+  view's broken picture. A board a note keeps is reached through its note.
 - **In the note** it stands as a picture of what is on it, in a frame — in every mode, in the
   browser and in a shared note. A click opens it (in the active mode too; the block is chosen by
   its handle or with `Esc`, like any block, and can be moved, copied and deleted like one).
@@ -892,8 +889,7 @@ them is not there).
   the `+` of All Notes. Nothing is asked: it is made in that folder as "Untitled Notebook" (a
   number after it where that is taken; `Untitled Notebook.board.svg`, as a whiteboard's file)
   with one white squared page, and opened; its name is given in the notebook's More. It is listed, opened, embedded in a
-  note, renamed, moved and trashed as a whiteboard that is a file is (All Notes › *Whiteboards*
-  shows it too).
+  note, renamed, moved and trashed as a whiteboard that is a file is.
 - **The paper** (the button at the bottom right): GoodNotes' writing papers, each shown as a small
   page — Blank; Dotted and Squared (5 mm); Narrow Ruled (7.1 mm) and Wide Ruled (8.7 mm) under a
   head; Legal (wide lines under a deeper head, a double red margin); Cornell (the head, the cue
@@ -994,10 +990,10 @@ width: wide
 
 `top: true` makes the note the first of its folder — the folder's overview, its dashboard: in the
 sidebar and in All Notes it stands before the folders and before the other notes, whatever the
-order chosen, with a pin before its name, the name stronger. Several such notes of a folder stand
+order chosen, with a pin before its name, the name stronger — in All Notes' folders as a large card apart. Several such notes of a folder stand
 together at its head, in the order chosen. It is set in the panel's Style part (**First in its
 folder**) or written into the properties; taken away, the note stands where the order puts it. The
-desktop apps (Linux, macOS) read it off the files; the web app does not yet.
+desktop apps (Linux, macOS) read it off the files, the web app off the notes' texts, a moment after the list is there.
 
 Two properties say how the note itself is shown — in the reading view, the active mode and the
 web app, a shared note too. They can be chosen in the panel's Style part:
@@ -1178,11 +1174,10 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
 - **Its layout** (settings › Sidebar › Layout) — the rows, and what a click, a pull, a right click
   does on them, are the same in all of them:
   - **Library** (the default since 2026-11-04, as the Velum lab's app shell draws a sidebar): the
-    search at its head; the Library — All Notes, Recents, Today, With Tasks, Shared, Whiteboards,
+    search at its head; the Library — All Notes, Recents, Today, With Tasks, Shared,
     each with how many it holds (nothing where none) —; under **Folders** the folder's own folders,
     no deeper and no note, each in its colour and sign and with how many notes it holds. A folder
-    chosen is All Notes in that folder, beside the sidebar; All Notes and Whiteboards are All Notes
-    and its whiteboards; Recents, Today, With Tasks and Shared list their notes in the sidebar in
+    chosen is All Notes in that folder, beside the sidebar; All Notes is All Notes at the top; Recents, Today, With Tasks and Shared list their notes in the sidebar in
     place of the folders. The row of what is shown is marked (the folder a note lies in, while the
     note shows). Over All Notes it stays, with its button. At its foot **New** (a note, a folder, a
     whiteboard, a notebook …) and the history's clock; the gear at its lower right. A sheets or
@@ -1230,21 +1225,15 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   it, figures drawn for it. Show › Hidden Items (settings: Sidebar › Hidden items) lists all
   that, and what was hidden by hand, dimmed; a hidden file's menu then has Show Again. A folder's
   menu has Rename and Move to Trash as a file's has.
-- **All Notes** (`Ctrl+Alt+G`): every note as a tile — a small sheet of paper showing its
-  beginning, under it its name and when it was changed; a folder is a stack of sheets in its
-  colour, with its sign (the same on the stack, in the list and in the sidebar) — or as a list: a row per note with its sheet in small, its name, its
-  first words (what it says: not a drawing's style sheet or a code block) and when it was changed. Two
-  switches at the head: *Folders* (one folder at a time, click into its folders, `Backspace` goes up) or
-  *Whiteboards* (below) — and *Home* first where it is on; *All Notes*, every note grouped by folder, is no longer among
-  them (Henri, 2026-10-30) — and tiles or list. It opens on
-  *Folders*, in the folder of the note on screen, whatever was shown last — or on *Home*, with **Settings › All Notes ›
-  Home** on: a page of cards, the first switch then *Home*. *Continue*: the three notes opened last, as tiles. *Open
-  Tasks*: the open tasks (`- [ ]`) of the thirty notes changed last, with the note each is in — read from the notes'
-  beginnings, so a task far down a long note is not seen; a click opens the note. *Today*: the notes changed today. Then
-  the folders, each a card with its sign on a disc of its colour and how many notes it holds (a click goes into it, as
-  *Folders*), and the whiteboards and PDFs changed last. A click, a right click, `Ctrl`+click and the keys do on them what
-  they do on the tiles. In the browser too. The switches, the
-  pasteboard's button and `…` are raised alike and stand together: where the head is too narrow
+- **All Notes** (`Ctrl+Alt+G`): one folder at a time — click into its folders, `Backspace` goes up —, every note as a
+  tile, a small sheet of paper showing its beginning, under it its name and when it was changed; a folder is a stack of
+  sheets in its colour, with its sign (the same on the stack, in the list and in the sidebar) — or as a list: a row per
+  note with its sheet in small, its name, its first words (what it says: not a drawing's style sheet or a code block)
+  and when it was changed. One switch at the head: tiles or list. It opens in the folder of the note on screen. There is
+  no other view: no *Home* page, no list of whiteboards, no pasteboard (Henri, 2026-11-26: less is more). **Top notes** — a note whose properties say `top: true` — stand apart at the head of their
+  folder, each a broad card with its sheet, its name large, its first words and when it was changed, a line under them;
+  then the folders and the other notes. A single one takes the whole width. The switches, the
+  `…` are raised alike and stand together: where the head is too narrow
   for them beside the name, they go to a line of their own together. Arrows move, `Enter` opens, `F2` renames, `Del` trashes; a right click has the file menu.
   The `+` at the head makes a new note (asked for nothing: "Untitled", see below) or folder in the folder shown. A sheet under the pointer
   lifts a little, a folder's stack fans out. Other files it is set to show stand after the notes: a picture as itself, any
@@ -1380,55 +1369,6 @@ Without a link, and without GitHub, everything above works as it does.
   history stays here.
 - **Nothing is ever overwritten**: the app does not force a push and does not rewrite versions;
   a file changed since it was last kept is never replaced by what comes from the other side.
-
-### The pasteboard
-
-A linked project has a pasteboard: a small chat of blocks of text, the same on every device that
-shows the project — to carry a line, an address, a piece of code from one computer to another. It
-is no note, in no version and in no commit; the web app's server keeps it.
-
-- **Where**: a tab of its own — the clipboard's button in All Notes' head opens it (or goes to
-  it, where it is open already), named *Pasteboard*. The field for a new block, under the blocks,
-  is ready to be typed into as it shows; another tab takes it out of sight, its tab brings it back.
-- **A block each time**: whatever is pasted is a block of its own at once — pasted into the field
-  (`Ctrl+V`, or the context menu) or with the **Paste** button (the clipboard's text). What is
-  typed becomes one with **Send** or Enter (Shift+Enter is a new line in it). The newest is at the
-  foot, as in a chat; a new one fades in, and the list follows it down unless it was scrolled up
-  to read.
-- **Where it came from**: every block says the device it was made on (the name set in Settings ›
-  History, else the computer's or the browser's own) and when — a time for today, a date and a
-  time before. What this device made stands at the right and tinted; what another made, at the
-  left. A block put there by an older version of the app, or without a device, says none.
-- **Copy on every block**: it shows when the pointer is over the block (always on a touch
-  screen) and puts that block's text, and nothing else, on the clipboard.
-- **Clear** (at the top, right) takes every block away — everywhere. A block is never changed
-  once it is made.
-- **Live**: a block is on the other devices within a moment, without anything done — in the
-  application and in the browser alike, for as long as the pasteboard is on screen. The line
-  above the blocks says how it stands: Sending…, or On every device.
-- **Two at once**: what two devices made at the same time is both there, in the order of the
-  times; a Clear on one does not take away a block another made after it.
-- **Whose it is**: the repository's. Whoever may write to it has the pasteboard; signed in with
-  GitHub, in the application (Settings › History) as in the browser. A folder that is not linked
-  has none, and the page says so. It takes 200 000 characters in all: a block that would be more than that is not made (it says so).
-- **Without a connection** the blocks made keep showing and are sent once the server is reached
-  again.
-- **A copy in the folder**: while the application shows the pasteboard, what stands on it is
-  written into the project as `.mdview/pasteboard.md` — a heading with the device and the time
-  above each block's text, the newest last, as the blocks are made, here or elsewhere — for
-  who reads the folder and not the window: an agent at work in it. It is only a copy: what is
-  written into the file goes nowhere, it is in no version and never sent to the repository, and
-  with the pasteboard off screen it stays as it last stood. The browser keeps none.
-- **From a command line** — for an agent, or a script: `mdview paste` says what stands on the
-  pasteboard of the project it is run in (every block under its heading), `mdview paste TEXT…`
-  makes TEXT a new block after those that stand there (named for this device as "… (mdview
-  paste)"), `mdview paste -` takes the text from standard input, `--append` (`-a`) is the same,
-  `--in FOLDER` names the project. What is written is on every device at once, as if pasted.
-  `mdview paste --wait` (`-w`, with a number of seconds: 300 without, 540 at most) waits
-  until something else stands there and has stood still for a moment, and says that — so an agent
-  can ask for something and take it when it comes; nothing came: it ends with 3. The application does it, with its sign-in: the one that runs, or — with none running —
-  one started for it, without a window. Where it cannot be done the command says why and ends
-  with 1: no linked project, nobody signed in, the server not reached.
 
 ### In the browser
 
@@ -1584,7 +1524,7 @@ counts — and has no writing help by a model.
   nothing happens. When the desktop's keyboard comes up and the window grows shorter, the
   caret (or the field) stays in sight.
 - **Reading**: the sidebar, tabs, the four modes, wikilinks, pictures, formulas, PDFs, finding
-  and All Notes — with the repository's pasteboard — as here. An address names the note it shows, to keep or send.
+  and All Notes — as here. An address names the note it shows, to keep or send.
 - **Writing**: what is typed is kept in the browser at once — a reload or a crash loses nothing —
   and becomes a commit after the quiet while, with `Ctrl+S`, and when the tab is left. A commit
   names the GitHub account and the browser it was made in.
@@ -1616,7 +1556,7 @@ counts — and has no writing help by a model.
   more than a commit takes. A file over 14 MB is not taken, and a message says which; nor more
   than 400 files at once. Files still on their way when the tab is closed are not added.
 - **Whiteboards as files**, as here: New Whiteboard, a board's row and its menu (Embed in This
-  Note), All Notes › *Whiteboards* with its three views, Keep as a File of Its Own. What is drawn
+  Note). What is drawn
   is a commit like what is typed; a tile shows the board as the repository has it. What a note
   keeps — a whiteboard made in it, a picture put into it *in the browser* — is in no list, as
   here; Show › Hidden Items lists it, dimmed, with the names that begin with a dot and the build
@@ -1671,7 +1611,7 @@ Claude Code: `claude mcp add --transport http mdview <address>/mcp`.
   touched (the app's `.mdview`, GitHub's `.github`).
 - **How a note is written**: `notes_guide` hands the client the rules for a note in this app —
   the repository's skill (`skill/mdview-notes`), without what holds only on a computer of its own
-  (where a file is saved, Git, the pasteboard). The client is told to read it before it writes.
+  (where a file is saved, Git). The client is told to read it before it writes.
 - **What is written** is one commit each, at once, named after the file, with Claude (MCP) as its
   device in History. Links to a moved note in other notes stay as they were.
 - **Not there**: empty folders (Git keeps none: a folder comes to be with its first file),
@@ -1888,7 +1828,7 @@ the right. A change takes effect at once.
 | General | language of the app's texts (English, German), the mode a new window starts in |
 | Appearance | text size of a note, the look (Markdown Notes, Velum, Velum Refined, Velum Focus — where Velum is installed: *Look* above), how callouts and Focus look (Box, Tip, Label), the sidebar's layout (Library, Sheets, Rail, List, Tiles), sharper text (letters on whole pixels; at the next start) |
 | Sidebar | order of the notes, which kinds it lists beside notes (PDFs, pictures, sound and video, whiteboards, other files — all of them at first), hidden items |
-| All Notes | Home (it opens on a page of cards), all notes, one folder at a time or the whiteboards; tiles or a list; which kinds it lists beside notes |
+| All Notes | tiles or a list; which kinds it lists beside notes |
 | History | the folder's history at a glance (turning it on and off, linking it to a repository on GitHub), how long a change waits to be kept, this device's name, signing in with GitHub and getting a repository |
 | Editing | formatting bar, `/` menu, Markdown shown at the caret, typographic quotes, wrapping of new paragraphs, where pasted pictures go, the quick notes' key for a new one and their folder |
 | New Markdown | as the document does it, or fixed marks for bullets, numbers, italic and bold |
@@ -1921,8 +1861,7 @@ glass, menus of the same glass), and two more on top of Velum, after the Velum l
   button at the window's top left and a round *Go to…* button at its top right; the toolbar one bar of glass at the window's
   foot, beginning with All Notes, then the modes (the outline's list opens above it); the outline as marks at the window's
   right edge, the heading being read the longer one; under the pointer the marks open into the headings (from 900 px). The
-  assistant opens over the bar, in the middle. With **Home** on, Home is the lab's start: a greeting, a large field that opens
-  *Go to…*, the folders as chips, the notes opened last and those changed this week, each a row with its first words.
+  assistant opens over the bar, in the middle.
 
 What both have, as the lab draws them: the note set at 15 px, headings 30 / 20; the island — in Focus without back and
 forward (`Alt+←` `→` still go; Refined keeps them beside the sidebar's button), the modes with reading first, the assistant's button beside find (the bubble at the corner goes);

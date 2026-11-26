@@ -141,11 +141,8 @@ fn default_prefs() -> Map<String, Value> {
         "aiClaude": "",           // the model the claude command is asked for ("": its own)
         "aiComplete": false,
         "panel": false, "panelTab": "insert",   // the panel at the window's right (insert, format): open, and its tab
-        "ovScope": "all", "ovLayout": "tiles",  // all notes: "all" | "folders" (one at a time), as "tiles" | "list"
         // what All Notes lists beside the notes — its own choice, apart from the sidebar's
         "ovPdf": true, "ovImages": true, "ovMedia": true, "ovBoards": true, "ovOther": true,
-        "ovBoardsShow": "all",      // the whiteboards shown there: "all" | "embedded" (a note shows them) | "loose" (none does)
-        "ovHome": false,          // All Notes opens on a Home (cards: Continue, Open Tasks, Today, Folders) — overview.js
         "look": "refined",        // the window's look (Velum Refined to begin with: Henri, 2026-10-30): "app" (its own) | "velum" (the desktop's Velum lab: viewer/look.css, only where Velum is) | "refined" | "focus" (the lab's mdview.html proposals A and C, on top of "velum")
         "calloutStyle": "box",    // how callouts and Focus look: "box" (a tinted box, a bar) | "tip" (a large sign beside the text) | "label" (a line, the title on its edge)
         "docZoom": 100,           // the note's text, in percent (Ctrl + and −)
@@ -634,7 +631,6 @@ pub fn run(handle: AppHandle, tx: Sender<Event>, rx: Receiver<Event>) {
         let first = env("MDVIEW_UPDATE_FIRST_MS").and_then(|ms| ms.parse().ok()).unwrap_or(UPDATE_FIRST_MS); // (the override: for the rig)
         app.after(first, Event::UpdateTick); // (a few seconds after the start, then every few hours)
     }
-    std::sync::LazyLock::force(&crate::paste::STARTED);
     github::resume(app.tx.clone(), app.keyring_place()); // (a sign-in kept from before)
     for event in rx {
         app.on_event(event);

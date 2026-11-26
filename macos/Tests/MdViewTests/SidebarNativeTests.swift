@@ -12,7 +12,7 @@ final class SidebarNativeTests: ShellTest {
         write("Plans/Plan.md", "# Plan\n")
         let w = openPainted(folder: dir)
         _ = page(w, "(MdPage.showSidebar(true, false), 1)")
-        XCTAssertTrue(wait(5) { (w.sidebarCard?.rows.count ?? 0) >= 9 }, "the card's rows did not come (\(w.sidebarCard?.rows.count ?? 0))")
+        XCTAssertTrue(wait(5) { (w.sidebarCard?.rows.count ?? 0) >= 8 }, "the card's rows did not come (\(w.sidebarCard?.rows.count ?? 0))")
         return w
     }
     func labels(_ w: NoteWindow) -> [String] { w.sidebarCard!.rows.map { $0["label"] as? String ?? "" } }
@@ -26,7 +26,7 @@ final class SidebarNativeTests: ShellTest {
     /// The card holds the Library's rows with their counts, the folders' heading and the folders — the page's own unseen.
     func testTheCardHoldsThePagesRows() {
         let w = folderWindow()
-        XCTAssertEqual(Array(labels(w).prefix(6)), ["All Notes", "Recents", "Today", "With Tasks", "Shared", "Whiteboards"])
+        XCTAssertEqual(Array(labels(w).prefix(5)), ["All Notes", "Recents", "Today", "With Tasks", "Shared"])
         XCTAssertTrue(labels(w).contains("Folders"))
         XCTAssertEqual(labels(w).suffix(2), ["Notizen", "Plans"])
         XCTAssertEqual(w.sidebarCard!.rows[0]["n"] as? String, "3")

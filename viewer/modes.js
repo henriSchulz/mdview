@@ -55,7 +55,7 @@
   function openBoardFile(path) {
     const img = new Image();
     img.dataset.board = path;
-    loadBoard().then(() => { if (window.MdBoard.shown) window.MdBoard.close(true); return window.MdBoard.open(img); }).then((ok) => { if (ok && window.MdOverview) MdOverview.boardsStale(); }).catch(() => toast("Couldn't open the whiteboard"));
+    loadBoard().then(() => { if (window.MdBoard.shown) window.MdBoard.close(true); return window.MdBoard.open(img); }).catch(() => toast("Couldn't open the whiteboard"));
   }
   /* … and shown in the note on screen, as a picture is: put in at the caret in the active mode; in
    * the other two its link goes to the clipboard, to be put where it belongs. */

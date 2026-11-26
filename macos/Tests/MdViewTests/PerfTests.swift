@@ -183,7 +183,7 @@ final class PerfTests: ShellTest {
         func probe(_ p: String, mode: String) -> [String: Double] {
             if mode == "tile" {
                 let at = String(p.dropFirst(corpus.count + 1)).split(separator: "/").dropLast().map(String.init)
-                _ = page(w, "(MdOverview.close(false), MdOverview.open(null, { scope: 'folders', at: \(jsonString(at)) }), 1)")
+                _ = page(w, "(MdOverview.close(false), MdOverview.open({ at: \(jsonString(at)) }), 1)")
                 wait(5) { (self.page(w, "[...document.querySelectorAll('#overview .ov-item')].some((e) => e.dataset.path === \(jsonString(p)))") as? Bool) == true }
                 wait(0.8)
             }

@@ -47,7 +47,18 @@
    * each marked `hidden`; what tools make is named then and not gone into. (scan.rs: walk)
    * coming: files on their way into the repository (paths below the base), each marked so.
    * books: whiteboards that are notebooks (paths below the base), each marked `book`. */
-  function buildTree(base, files, { show = ["pdf"], titles = null, opened = {}, changed = null, keep = [], away = null, all = false, coming = null, books = null } = {}) {
+  /* Whether a note's properties say `top: true` (scan.rs: note_top): first in its folder, and apart in All Notes. */
+  function noteTop(text) {
+    const lines = String(text || "").replace(/^\uFEFF/, "").split(/\r?\n/);
+    if (lines[0].trimEnd() !== "---") return false;
+    for (const l of lines.slice(1)) {
+      if (l.trim() === "---" || l.trim() === "...") return false;
+      const key = ["top:", '"top":', "'top':"].find((k) => l.startsWith(k));
+      if (key) return l.slice(key.length).split(" #")[0].trim().toLowerCase() === "true";
+    }
+    return false;
+  }
+  function buildTree(base, files, { tops = null, show = ["pdf"], titles = null, opened = {}, changed = null, keep = [], away = null, all = false, coming = null, books = null } = {}) {
     const put = away instanceof Set ? away : new Set(away || []);
     const isAway = (rel) => { const parts = rel.split("/"); return parts.some((p, i) => p.startsWith(".") || (put.size > 0 && put.has(parts.slice(0, i + 1).join("/")))); };
     const node = (path) => ({ name: nameOf(path), path, dirs: [], notes: [], ...(path !== base && isAway(path.slice(base.length + 1)) ? { hidden: true } : {}) });
@@ -64,7 +75,7 @@
       if (built >= 0) { const d = dir(base + "/" + parts.slice(0, built + 1).join("/")); d.hidden = true; heavy.add(d.path); continue; } // (thousands of files nobody wrote)
       const path = base + "/" + rel, kind = kindOf(rel), mark = { ...(hidden ? { hidden: true } : {}), ...(coming && coming.has(rel) ? { coming: true } : {}) };
       if (kind === "md") {
-        dir(dirOf(path)).notes.push({ name: stemOf(rel), path, real: path, title: titles ? titles.get(path) ?? null : null, mtime: (changed && changed.get(path)) || 0, ...mark, opened: opened[path] || 0 });
+        dir(dirOf(path)).notes.push({ name: stemOf(rel), path, real: path, title: titles ? titles.get(path) ?? null : null, mtime: (changed && changed.get(path)) || 0, ...(tops && tops.has(path) ? { top: true } : {}), ...mark, opened: opened[path] || 0 });
       } else {
         const group = kind === "pdf" ? "pdf" : kind === "image" ? "image" : kind === "audio" || kind === "video" ? "media" : "other";
         if (!show.includes(group)) continue;
@@ -477,5 +488,5 @@
     return { parts };
   }
 
-  root.MdWebCore = { FOLDERS, looksOf, looksText, lookSet, looksMoved, HIDDEN, hiddenOf, hiddenText, hiddenMoved, nameParts, freeName, isNotebook, ATTACH, attachOf, attachText, mentions, KEPT, foundIn, cleanName, titleName, toggleTask, subject, merge3, MD_EXT, nameOf, dirOf, extOf, stemOf, kindOf, isMd, naturalCmp, shown, buildTree, notesOf, noteTitle, resolver, wikiTargets, pdfBacklinks, SHARES, sharesOf, sharesText, shareOf, linkPath, tabs };
+  root.MdWebCore = { FOLDERS, looksOf, looksText, lookSet, looksMoved, HIDDEN, hiddenOf, hiddenText, hiddenMoved, nameParts, freeName, isNotebook, ATTACH, attachOf, attachText, mentions, KEPT, foundIn, cleanName, titleName, toggleTask, subject, merge3, MD_EXT, nameOf, dirOf, extOf, stemOf, kindOf, isMd, naturalCmp, shown, buildTree, noteTop, notesOf, noteTitle, resolver, wikiTargets, pdfBacklinks, SHARES, sharesOf, sharesText, shareOf, linkPath, tabs };
 })(typeof window !== "undefined" ? window : globalThis);

@@ -25,7 +25,7 @@ console.log(`assets: ${files.length} files, ${folders.join(", ")} and the guide 
 
 // The rules for writing a note, for a client of the Model Context Protocol (lib/mcp/tools.ts,
 // notes_guide): the skill of the repository (skill/mdview-notes), without what only holds on the
-// author's own computer (where a file is saved, Git, the pasteboard: SKILL.md's last part and
+// author's own computer (where a file is saved, Git: SKILL.md's last part and
 // history.md) — and with a head of its own. Written as a module of the server, so it is in the build wherever that runs.
 const skill = readFileSync(join(root, "skill", "mdview-notes", "SKILL.md"), "utf8").replace(/^---\n[\s\S]*?\n---\n/, "");
 const LOCAL = ["Where it goes"];

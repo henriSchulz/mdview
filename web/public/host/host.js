@@ -14,7 +14,7 @@
 "use strict";
 (() => {
   const C = window.MdWebCore, W = window.MdWeb; // { owner, repo, user: { login, name } }
-  const BASE = `/${W.owner}/${W.repo}`, FILES = location.origin + "/file", API = `/api/r/${encodeURIComponent(W.owner)}/${encodeURIComponent(W.repo)}`, PASTE = `/paste/${encodeURIComponent(W.owner)}/${encodeURIComponent(W.repo)}`;
+  const BASE = `/${W.owner}/${W.repo}`, FILES = location.origin + "/file", API = `/api/r/${encodeURIComponent(W.owner)}/${encodeURIComponent(W.repo)}`;
   const tell = (name, ...args) => { const f = window.MdView && window.MdView[name]; if (f) return f(...args); };
   const toast = (text) => tell("toast", text);
   const fileUrl = (path) => FILES + path.split("/").map(encodeURIComponent).join("/");
@@ -254,6 +254,19 @@
     const looks = looksNow(), a = rel(was);
     if (Object.keys(looks).some((k) => k === a || k.startsWith(a + "/"))) write(C.FOLDERS, C.looksText(C.looksMoved(looks, a, rel(to))));
   }
+  /* The notes that say `top: true`, as far as their texts are here (looked at once a text). */
+  const topOf = new Map(); // blob → whether it says so
+  function topsNow() {
+    const out = new Set();
+    for (const p of every()) {
+      if (!C.isMd(p)) continue;
+      if (drafts.has(p)) { if (C.noteTop(drafts.get(p).text)) out.add(BASE + "/" + p); continue; }
+      const sha = (blobOf(p) || {}).sha;
+      if (!topOf.has(sha)) { const t = texts.get(sha); if (t == null) continue; topOf.set(sha, C.noteTop(t)); }
+      if (topOf.get(sha)) out.add(BASE + "/" + p);
+    }
+    return out;
+  }
   function sendFolder() {
     // (what the sidebar lists or All Notes does: the page shows each its own part — viewer/sidebar.js, listed)
     const show = ["pdf", "image", "media", "other"]; // (everything that lies there: each takes out the kinds it is set not to list)
@@ -265,7 +278,7 @@
     const changed = byDate() ? new Map(every().map((r) => [BASE + "/" + r, changedAt(r)])) : null;
     if (changed) askDates();
     const payload = {
-      root: BASE, name: W.repo, tree: treeNow({ show, titles, changed, opened: here.opened, keep: [...keptDirs], all: !!prefs.showHidden, coming: new Set([...uploads, ...queued.keys()]) }), // (all: what is put away too, dimmed — where the settings ask for it)
+      root: BASE, name: W.repo, tree: treeNow({ show, titles, tops: topsNow(), changed, opened: here.opened, keep: [...keptDirs], all: !!prefs.showHidden, coming: new Set([...uploads, ...queued.keys()]) }), // (all: what is put away too, dimmed — where the settings ask for it)
       titles: !!here.sidebar.titles, visible: here.sidebar.visible !== false, width: here.sidebar.width || 0, history: standing(), shared: sharedNow(), looks: looksNow(),
     };
     const blob = JSON.stringify(payload);
@@ -1144,27 +1157,6 @@
       commit();
     },
 
-    /* The project's pasteboard (overview.js), kept by the server (lib/paste.ts): what stands there
-     * — with wait, answered only once it is another text than the page has — and a writing. The
-     * text is the page's own (the list of blocks, overview.js); the device is what a block made
-     * here is said to come from. */
-    async "paste-get"({ n, rev, wait }) {
-      try {
-        const res = await ask(`${PASTE}?rev=${Number(rev) || 0}${wait ? "&wait=1" : ""}`);
-        if (!res.ok) return tell("pasteboard", { n, error: res.status === 404 ? "missing" : "unreachable" });
-        const now = await res.json();
-        tell("pasteboard", { n, text: now.text, rev: now.rev, device: device.name });
-      } catch { tell("pasteboard", { n, error: "unreachable" }); }
-    },
-    async "paste-put"({ n, text, base }) {
-      try {
-        const res = await ask(PASTE, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, base, by: device.name }) });
-        if (!res.ok && res.status !== 409) return tell("pasteboard", { put: true, n, error: res.status === 413 ? "large" : "unreachable" });
-        const now = await res.json();
-        tell("pasteboard", res.ok ? { put: true, n, rev: now.rev, device: device.name } : { put: true, n, text: now.text, rev: now.rev, device: device.name });
-      } catch { tell("pasteboard", { put: true, n, error: "unreachable" }); }
-    },
-
     // sharing (active/share.js)
     "share-info"({ path }) { if (exists(path) && C.isMd(path)) return tellShare(path); },
     async "share-set"({ path, password }) {
@@ -1290,35 +1282,6 @@
       sendFolder();
       tell("revealRows", [path]);
       tell("openBoardFile", path);
-    },
-    /* Every whiteboard of the repository, for All Notes: those that are files of their own and
-     * those a note keeps (which the list leaves out), each with the notes that show it
-     * (folder.rs: send_boards). */
-    async boards() {
-      if (project() && [...drafts.keys()].some(isBoard)) await commit(); // (drawn on and shut: a tile shows the repository's picture, so that is kept first)
-      const boards = every().filter((r) => isBoard(r) && C.shown(r)).sort(C.naturalCmp).slice(0, 2000), notes = every().filter((r) => C.isMd(r) && C.shown(r)).slice(0, 4000);
-      const all = await owned();
-      // (mtime: what tells the page a picture is another by now, as a tile's — previews)
-      const out = boards.map((r) => ({ path: BASE + "/" + r, name: C.nameOf(r), url: fileUrl(BASE + "/" + r), mtime: drafts.has(r) ? drafts.get(r).at || 1 : parseInt(((blobOf(r) || {}).sha || "0").slice(0, 12), 16), kept: Object.hasOwn(all, r), in: [] }));
-      await readHeads(boards.filter((r) => bookOf(r) === undefined));
-      for (const b of out) b.book = !!bookOf(b.path.slice(BASE.length + 1));
-      if (out.length) {
-        await loadAll(); // (every note's text: which of them names a board)
-        for (const n of notes) {
-          const text = drafts.has(n) ? drafts.get(n).text : texts.get((blobOf(n) || {}).sha);
-          if (typeof text === "string" && text.includes(".board.svg")) for (const b of out) if (C.mentions(text, b.name)) b.in.push(BASE + "/" + n);
-        }
-      }
-      tell("setBoards", out);
-    },
-    /* A whiteboard a note keeps becomes a file of its own: listed in the repository, and no
-     * longer taken away with what the note no longer shows. */
-    async "board-free"({ path }) {
-      if (!exists(path) || !isBoard(path) || !mayWrite()) return;
-      const all = await owned();
-      if (Object.hasOwn(all, rel(path))) { delete all[rel(path)]; write(C.ATTACH, C.attachText(all)); }
-      sendFolder();
-      return on.boards();
     },
 
     // writing
@@ -1608,7 +1571,7 @@
     if (!moved) return;
     if (unsaved()) { conflicts = await settle(); later(); } // (what was written here, against what is there now)
     tabs.forget(exists);
-    if (here.sidebar.titles) await loadAll();
+    if (here.sidebar.titles) await loadAll(); else loadAll().then(sendFolder);
     sendFolder();
     if (onScreen && !exists(onScreen)) return showNothing();
     sendTabs();
@@ -1635,6 +1598,8 @@
     tabs = C.tabs(kept && kept.paths.length ? kept : null, isDir);
     if (here.sidebar.titles) await loadAll();
     sendFolder();
+    // (which notes say `top: true` is in their texts: fetched behind the list, which is sent again with them marked)
+    loadAll().then(sendFolder);
     // a start opens on All Notes, in the repository itself (Henri, 2026-10-14) — not on the note last shown: the tabs as they
     // were, an empty one shown (the page shows All Notes in it). Only an address that names a note opens that note — and a
     // reload shows what was shown (the tab it was on).

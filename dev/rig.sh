@@ -61,7 +61,6 @@
 #   dev/rig.sh glass                 a menu over the note: what is behind it blurred or covered, never read through
 #   dev/rig.sh split                 a note and a PDF side by side and nothing else (two notes are not), swapped, a note beside a PDF written in, a link leading on in the sheet
 #   dev/rig.sh sheets                the sidebar's sheets show the file: a note's beginning, a PDF's first page, a whiteboard, a picture
-#   dev/rig.sh pastetab              All Notes opens on the folders; the pasteboard in a tab of its own, from its button; every whiteboard listed
 #   dev/rig.sh colwidth              the line between two table columns pulled with a real pointer: the widths follow, the note says them
 #   dev/rig.sh icons                 a folder's colour from the more and its sign from Lucide's many: searched in English and German, kept, there again after a restart
 #   dev/rig.sh splitscroll           a note and a PDF side by side, each scrolled with a real wheel down and all the way up again
@@ -665,62 +664,6 @@ PY
     f=$(ls "$R/out"/*.sheets.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
     ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
-  pastetab)
-    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N"; rm -f "$R/out"/*.pastetab.json "$R/out"/*.paste.json
-    printf '# Alpha\n\nText.\n\n![](Skizze.board.svg)\n' > "$N/Alpha.md"; node "$D/make-board.mjs" > "$N/Skizze.board.svg"; node "$D/make-board.mjs" > "$N/Lose.board.svg"
-    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
-    app 60 MDVIEW_PROBE="$D/probe-pastetab.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
-    for _ in $(seq 300); do [[ -n $(ls "$R/out"/*.paste.json "$R/out"/*.pastetab.json 2>/dev/null) ]] && break; sleep 0.1; done; sleep 0.4; shot "$R/out/pastetab.png"
-    for _ in $(seq 300); do ls "$R/out"/*.pastetab.json >/dev/null 2>&1 && break; sleep 0.1; done
-    pkill -f "^$APP" 2>/dev/null
-    f=$(ls "$R/out"/*.pastetab.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
-    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
-    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
-  panelfine)
-    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N"; rm -f "$R/out"/*.panelfine.json "$R/out"/*.look.json
-    printf '# Alpha\n\nA paragraph to press in.\n\nAnother one.\n' > "$N/Alpha.md"; printf '# Beta\n\nText.\n' > "$N/Beta.md"
-    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
-    app 60 MDVIEW_PROBE="$D/probe-panelfine.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
-    for _ in $(seq 300); do [[ -n $(ls "$R/out"/*.look.json "$R/out"/*.panelfine.json 2>/dev/null) ]] && break; sleep 0.1; done; sleep 0.2; shot "$R/out/panelfine-overview.png"
-    for _ in $(seq 300); do ls "$R/out"/*.panelfine.json >/dev/null 2>&1 && break; sleep 0.1; done
-    pkill -f "^$APP" 2>/dev/null
-    f=$(ls "$R/out"/*.panelfine.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
-    jq -r '.steps[], (.error // empty | "FAIL " + .), (.errors[]? | "FAIL page error: " + .)' "$f"
-    ! jq -r '.steps[], (.error // empty | "FAIL " + .), (.errors[]? | "FAIL page error: " + .)' "$f" | grep -q '^FAIL' ;;
-  search)
-    # Search (viewer/search.js, search.rs): a folder of 400 notes, four of them with the word; one of those long, under properties;
-    # one long note full of the letter typed first (#58: every letter seconds late)
-    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N/sub"
-    python3 - "$N" <<'PY'
-import sys, random
-n = sys.argv[1]; random.seed(4)
-words = "lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua".split()
-for i in range(400):
-    open(f"{n}/filler {i:03}.md", "w").write(f"# Filler {i}\n\n" + "\n\n".join(" ".join(random.choice(words) for _ in range(40)) for _ in range(6)) + "\n")
-far = "\n\n".join(f"Paragraph {k}: " + " ".join(random.choice(words) for _ in range(30)) for k in range(40))
-open(f"{n}/Uniform convergence.md", "w").write("---\ntags: [analysis]\n---\n# Uniform convergence\n\nOne N serves every x at once.\n\n- [ ] Learn the uniform bound by heart\n\n" + far + "\n\nThe far uniform paragraph stands here, under forty others.\n\n" + far + "\n\n## Closing uniform remarks\n\nThe end.\n")
-open(f"{n}/Sheet 8.md", "w").write("# Sheet 8\n\n> [!tip] Hint\n> the convergence is uniform: the sup tends to 0\n")
-open(f"{n}/Weekly review.md", "w").write("# Weekly review\n\n- exam topics: uniform convergence, power series\n")
-open(f"{n}/Dini.md", "w").write("# Dini\n\nThe proof, compact sets.\n")
-open(f"{n}/Membrane notes.md", "w").write("# Membrane notes\n\n" + "\n\n".join(" ".join(random.choice(words) for _ in range(30)) for _ in range(300)) + "\n") # (thousands of m: #58)
-open(f"{n}/sub/Deep.md", "w").write("# Deep\n\n```python\nuniform_bound = 3\n```\n")
-PY
-    rm -f "$R/out"/*.search.json "$R/out"/*.shot-search.json "$R/out/search.png"
-    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st" # (what an earlier run opened is not this one's)
-    # (the desktop's own Velum, as Henri has it — copied, so nothing of it is written — or, without one, Opal in the light)
-    rm -rf "$R/velum-search"; mkdir -p "$R/velum-search"
-    if [[ -f $HOME/.local/state/velum/settings.json ]]; then cp "$HOME/.local/state/velum/colors.toml" "$R/velum-search/" 2>/dev/null; jq '.tablet = false' "$HOME/.local/state/velum/settings.json" > "$R/velum-search/settings.json" # (the desktop, not its tablet mode)
-    else printf '%s\n' 'mode = "light"' 'background = "#fbfaf8"' 'foreground = "#1c1a17"' 'accent = "#138474"' > "$R/velum-search/colors.toml"; echo '{"variant":"opal","appearance":"light"}' > "$R/velum-search/settings.json"; fi
-    app 150 MDVIEW_VELUM_STATE="$R/velum-search" MDVIEW_PROBE="$D/probe-search.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
-    for _ in $(seq 900); do { ls "$R/out"/*.shot-search.json || ls "$R/out"/*.search.json; } >/dev/null 2>&1 && break; sleep 0.1; done; sleep 1; shot "$R/out/search.png"
-    for _ in $(seq 900); do ls "$R/out"/*.search.json >/dev/null 2>&1 && break; sleep 0.1; done
-    pkill -f "^$APP" 2>/dev/null
-    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st" # (the settings of the test never stay)
-    ls "$R/out"/*.search.json >/dev/null 2>&1 || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
-    jq -r '.steps[], (.error // empty)' "$R/out"/*.search.json
-    echo "picture: $R/out/search.png"
-    ! jq -r '.steps[]' "$R/out"/*.search.json | grep -q '^FAIL' && ! jq -e '.error' "$R/out"/*.search.json >/dev/null
-    ;;
   sidebar)
     # the sidebar's layouts over one folder, the search, a folder's colour and sign
     rm -rf "$R/work"; mkdir -p "$R/work/notes/Studium" "$R/work/notes/Projekte/Deep"

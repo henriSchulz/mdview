@@ -23,7 +23,6 @@ mod hidden;
 mod history;
 mod host;
 mod looks;
-mod paste;
 mod scan;
 mod search;
 mod share;
@@ -80,8 +79,6 @@ pub enum Event {
     GitHubRenew { turn: u64 },
     /// asked: the user's joining (the conflicts' window): if it did not go, that is said
     Reconciled { root: PathBuf, standing: Value, asked: bool },
-    /// the web app's answer about a project's pasteboard (paste.rs), for the window that asked
-    Paste { label: String, said: Value },
     /// time to look whether the other side of a linked project has something new
     SyncTick,
     /// asked: the page's doing (projects taken in), so what went wrong is said, and the folder told anew
@@ -244,10 +241,6 @@ fn main() {
     // (a name that is not UTF-8 — Latin-1, from an old zip or a Samba share — is taken as near as it goes: env::args
     // panicked on it, and the app was gone at its start. Review 2026-11-17.)
     let args: Vec<String> = std::env::args_os().skip(1).map(|a| a.to_string_lossy().into_owned()).collect();
-    // (`mdview paste …`: a command, no window — the running application is asked, paste.rs)
-    if args.first().is_some_and(|a| a == "paste") {
-        std::process::exit(paste::cli(&args[1..]));
-    }
     let cwd = std::env::current_dir().map(|d| scan::s(&d)).unwrap_or_default();
     let _ = tx.send(Event::Open { args, cwd });
 

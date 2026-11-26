@@ -265,7 +265,6 @@
     }
   }
   function pasteText(r) {
-    if (window.MdOverview && MdOverview.pasted(r)) return; // (the pasteboard's Paste button asked)
     if (P.mode === "active" && window.MdActive?.view?.editable && typeof r.text === "string") MdActive.clip.insertPlain(MdActive.view.pm, r.text);
   }
   /* Tooltips of the app's own (after 700 ms, in the app's look) for everything that has a
@@ -335,7 +334,7 @@
     noteRead: (...a) => (String(a[0]).startsWith("search:") ? P.searchRead(...a) : P.splitGot(...a)), searchResults: (...a) => P.searchGot(...a), noteSaved: (...a) => P.splitSaved(...a), pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, scrollToFragment, toast, updateNotice: (n) => P.updateNotice(n),
     setMode, flush, saveFailed, setFolder, setTabs, clear, noteRenamed, insertImage, pasteText, pasteClip,
     setPrefs, insertDropped, openBoardFile: (path) => P.openBoardFile(path), revealRows: (paths) => P.revealRows(paths),
-    setBoards: (list) => window.MdOverview && MdOverview.boards(list), pasteboard: (m) => window.MdOverview && MdOverview.pasteboard(m), // (a whiteboard that is a file of the folder opened; rows just made brought into sight; the folder's whiteboards, for All Notes)
+    // (a whiteboard that is a file of the folder opened; rows just made brought into sight)
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, toggleProp, setProp, doc: { BACKGROUNDS, look: () => docShown, facts: docFacts, set: docSet }, pages: { parse: parsePages, text: pagesText, view: pageView, put: pagePut, copy: pageCopy, adopt: pageAdopt, fileLine: pageFileLine, isRow: (raw) => PAGE_ROW.test(String(raw || "").trim()), idOf: (raw) => (PAGE_ROW.exec(String(raw || "").trim()) || [])[3] || null, STYLES: PAGE_STYLES, facts: pageFacts, append: (id, markdown) => pageAppend(id, markdown),
       // a page's line: how it looks — and the line that says it looks another way
@@ -355,7 +354,7 @@
         // (the note as its file has it — its pages are sections of that text — and that text put anew, as one step back)
         fileText: aiFileText, setFileText: aiSetFileText, undoFileText: () => trailStep(-1),
         where: () => { const v = P.current && viewOf(P.current), out = []; for (let pg = v && v.page; pg && pg.id != null; pg = pg.parent) out.unshift(pg.title || "Untitled"); return out; }, on: aiOn, load: loadAi, transform: (view, range) => loadAi().then((ai) => ai.transform(view, range)).catch(() => {}), toBoard: (view, range) => loadAi().then((ai) => ai.toBoard(view, range)).catch(() => {}) }, emptyState, zoomImage, zoomFigure, zoomFigureAt, going, sortNotes, svgPicture, htmlFrame, plainCode, lockScroll, texHtml, imageSize, picText, alignMark, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, codeLang, listed, rowIcon, when: quickWhen, markNote: (el) => P.markNote(el), navHere: (pl) => P.navHere(pl), folderTab: (path) => P.folderTab && P.folderTab(path), folderLook: (path) => ({ color: colorVar(lookOf(path).color),
-          sign: folderGlyph(lookOf(path)) }), tableLook, tableMark, tableStyle, headColor, ruleLook, fileMenu: (...a) => openCtx(...a), pasteTab: () => P.pasteTab(), fileCmd: (...a) => P.fileCmd(...a), addFiles: (...a) => P.addFiles(...a),
+          sign: folderGlyph(lookOf(path)) }), tableLook, tableMark, tableStyle, headColor, ruleLook, fileMenu: (...a) => openCtx(...a), fileCmd: (...a) => P.fileCmd(...a), addFiles: (...a) => P.addFiles(...a),
       hydrate: (root) => renderMermaid(P.generation, null, root), // diagrams in freshly inserted HTML
       board: { open: openBoard, is: isBoardImg, make: newBoard, load: loadBoard },
       filework: P.FILEWORK, get current() { return P.current; }, get folder() { return P.folder; }, get top() { return topRoom(); }, get left() { return P.sbRoom(); } },

@@ -20,7 +20,8 @@ const text = (s: string): Said => ({ content: [{ type: "text", text: s }] });
 
 // The hardest rules of notes_guide, said again where a note is written, so they are in front of the client
 // whether or not it read the guide.
-const RULES = "Rules (full text: notes_guide): one subject, 200–500 words, formal prose, first sentence is the matter. Write only what is known and exact — leave out what is unsure, never hedge (\"vermutlich\") or mark it (\"?\", \"TBD\"). No open points, to-dos, next steps, outlook, summary or section nobody asked for. Never Mermaid: a figure is an svg fence or left out. No bullet lists except a true enumeration; terms are a definition list, values a table. Nothing addressed to the user or about how the note was made.";
+const RULES = "Rules (full text: notes_guide): a new note begins with the property background: cyan (---, background: cyan, ---), one subject, 200–500 words, formal prose, first sentence is the matter. Write only what is known and exact — leave out what is unsure, never hedge (\"vermutlich\") or mark it (\"?\", \"TBD\"). No open points, to-dos, next steps, outlook, summary or section nobody asked for. Never Mermaid: a figure is an svg fence or left out. No bullet lists except a true enumeration; terms are a definition list, values a table. Nothing addressed to the user or about how the note was made.";
+
 const REPO = { type: "string", description: 'The repository, "owner/name", as list_repositories names it.' };
 const PATH = { type: "string", description: "A file's path in the repository, with /." };
 

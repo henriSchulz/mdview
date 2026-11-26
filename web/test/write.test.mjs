@@ -946,7 +946,7 @@ test("the settings show what there is here, not the desktop's own", async () => 
     general: ["lang", "startMode"],
     appearance: ["docZoom", "look", "calloutStyle", "sidebarLayout"], // (the look in the browser too: it wears Opal — Henri, 2026-10-30)
     sidebarPage: ["sidebarSort", "# Sidebar shows, beside notes", "sidebarPdf", "sidebarImages", "sidebarMedia", "sidebarBoards", "sidebarOther", "showHidden"],
-    allNotes: ["ovHome", "ovLayout", "# All Notes shows, beside notes", "ovPdf", "ovImages", "ovMedia", "ovBoards", "ovOther"],
+    allNotes: ["ovLayout", "# All Notes shows, beside notes", "ovPdf", "ovImages", "ovMedia", "ovBoards", "ovOther"],
     history: ["# This folder", "historyState", "historyName", "historyBranch", "historyCount", "historyLast", "historyChanged", "historyLink", "historyQuiet", "# This device", "deviceName", "deviceId"],
     editing: ["bar", "slash", "syntax", "quotes", "# Paragraphs", "wrap", "# Pictures", "images"],
     newMarkdown: ["style"],

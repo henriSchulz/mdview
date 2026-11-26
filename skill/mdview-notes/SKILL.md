@@ -144,11 +144,22 @@ tables, lists, callouts and figures stay what they are; a note is not written in
 
 ## The file
 
+- **Every new note begins with the property `background: cyan`**, before its title:
+
+  ```markdown
+  ---
+  background: cyan
+  ---
+
+  # Title
+  ```
+
+  Another ground only where Henri asks for it. A note that is there keeps what it has.
 - `# Title` as the first line after the properties; the file is named like the title
   (`Fourier Transform.md`, spaces are fine).
-- Properties only when they say something: `tags`, `date`, `color` (red, orange, yellow, green,
-  cyan, blue, magenta: a dot in All Notes). `width: wide` only for a note of wide tables or
-  figures; `background` is Henri's to set in the app.
+- Further properties only when they say something: `tags`, `date`, `color` (red, orange, yellow,
+  green, cyan, blue, magenta: a dot in All Notes). `width: wide` only for a note of wide tables or
+  figures. `top: true` makes a note its folder's top note, shown large at its head: only when asked.
 - A blank line before and after every block (list, fence, callout, table, column marker).
 
 ## What the app renders
@@ -216,11 +227,11 @@ click opens the PDF there:
   come; pictures exist beside the note; a PDF embed names a PDF and a page that exist, with
   `x1 < x2` and `y1 < y2` inside the page.
 - No HTML for what Markdown does (`<br>`, `<kbd>`, `<details>` are fine); no `$` around a price or
-  a shell variable in running text; no frontmatter the note does not need.
+  a shell variable in running text; `background: cyan` is there, and no property the note does not need.
 
 ## Where it goes
 
 Save where Henri says; without a place, ask, or use the folder he has open. Open it only when he
 asks: `mdview "FILE.md"`. In a folder that is a project with its history on, commit what you wrote
 the way the app would: `history.md` beside this file has the rules (when a commit is allowed, its
-form, when to push, the pasteboard). Elsewhere write the file and leave Git alone.
+form, when to push). Elsewhere write the file and leave Git alone.

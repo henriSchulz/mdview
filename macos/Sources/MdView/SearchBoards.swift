@@ -1,6 +1,6 @@
 // Whiteboards (board.js): a board for a note, a board's text for the page and back, pictures put on it, the
 // folder's boards for All Notes, and what is drawn on a PDF. Rust: shell/files.rs (board_*, ink_*), shell/folder.rs
-// (new_board, send_boards, board_free), attach.rs (owner, own, disown — the same attachments.json).
+// (new_board, board_free), attach.rs (owner, own, disown — the same attachments.json).
 import AppKit
 import CryptoKit
 import UniformTypeIdentifiers
@@ -48,25 +48,11 @@ func searchWriteNew(_ folder: String, tries: Int = 100, data: Data, name: (Int) 
     throw POSIXError(.EEXIST)
 }
 
-/// Every file below dir — names with a dot and what is built left out, as the folder's list does.
-private func searchEachFile(_ dir: String, _ depth: Int, _ f: (String) -> Void) {
-    for name in (try? Lib.fm.contentsOfDirectory(atPath: dir)) ?? [] where !name.hasPrefix(".") {
-        let p = Lib.join(dir, name)
-        if Lib.isDir(p) { if depth < 12 && !Lib.skipDirs.contains(name) { searchEachFile(p, depth + 1, f) } }
-        else if Lib.isFile(p) { f(p) }
-    }
-}
-
 /// A notebook: a whiteboard whose head says how its paper is (board/paper.js).
 private func searchIsNotebook(_ path: String) -> Bool {
     guard let head = Lib.read(path, limit: 4096), let r = head.range(of: "<![CDATA[") else { return false }
     let lines = head[r.lowerBound...].components(separatedBy: "\n")
     return lines.count > 1 && lines[1].hasPrefix("{\"board\"") && lines[1].contains("\"paper\":{")
-}
-
-/// Does the note's text name the file? (as it is, or as an address writes it: %20 for a space)
-private func searchMentions(_ text: String, _ name: String) -> Bool {
-    !name.isEmpty && (text.contains(name) || (text.removingPercentEncoding ?? text).contains(name))
 }
 
 extension NoteWindow {
@@ -254,41 +240,6 @@ extension NoteWindow {
         boardPaths.insert(path)
         js("MdView.revealRows", [[path]])
         js("MdView.openBoardFile", [path])
-    }
-
-    /// Every whiteboard of the folder, for All Notes: those that are files of their own and those a note keeps (which the
-    /// folder's list leaves out), each with the notes that show it.
-    func sendBoards() {
-        guard let folder else { return }
-        var boards: [String] = [], notes: [String] = []
-        searchEachFile(folder, 0) { p in
-            if Lib.isBoard(p) && boards.count < 2000 { boards.append(p) } else if Lib.isMd(p) && notes.count < 4000 { notes.append(p) }
-        }
-        var out: [[String: Any]] = boards.map { b in
-            ["path": b, "name": Lib.name(b), "url": Page.fileURL(b), "mtime": Lib.mtime(b), "kept": SearchAttach.owner(b) != nil,
-             "book": searchIsNotebook(b), "in": [String]()]
-        }
-        if !boards.isEmpty {
-            for note in notes {
-                guard let text = Lib.read(note, limit: 4_000_000), text.contains(".board.svg") else { continue }
-                for (k, b) in boards.enumerated() where searchMentions(text, Lib.name(b)) {
-                    var list = out[k]["in"] as? [String] ?? []
-                    list.append(note)
-                    out[k]["in"] = list
-                }
-            }
-        }
-        boardPaths = Set(boards)
-        js("MdView.setBoards", [out])
-    }
-
-    /// A whiteboard a note keeps becomes a file of its own: listed in the folder, and no longer taken away with what
-    /// the note no longer shows.
-    func boardFree(_ path: String) {
-        guard knows(path), Lib.isBoard(path) else { return }
-        SearchAttach.disown(path)
-        rescan()
-        sendBoards()
     }
 
     // MARK: what is drawn on a PDF (board/pdf.js): a whiteboard's file in the base folder's .mdview/pdf, never the PDF

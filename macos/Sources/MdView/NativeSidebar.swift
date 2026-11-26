@@ -1,6 +1,6 @@
 // The sidebar is the system's (Phase 4 of the native work, 2026-11-17) — in the Library layout, the one Henri has: a card of
 // Liquid Glass over the page (NSGlassEffectView; before macOS 26 the sidebar's material), with the search, the Library's
-// rows (All Notes, Recents, Today, With Tasks, Shared, Whiteboards) and their counts, the folders with their colours, and
+// rows (All Notes, Recents, Today, With Tasks, Shared) and their counts, the folders with their colours, and
 // at its foot New, the history and the settings. The page stays what it was: it counts, sorts, searches, marks the row
 // shown, opens, peeks and pins — its own card is still there, unseen (data-mac-sb), and every row of the system's clicks
 // the page's row. The page says what its card holds and how it stands (`macsb`); the system's card glides with it.
@@ -295,7 +295,7 @@ final class NativeSidebar: NSObject, NSTableViewDataSource, NSTableViewDelegate,
     static let capIndent: CGFloat = 20
     /// The Library's rows have the system's signs; a folder the folder's own (its colour, or the sign chosen for it).
     static let smartSigns = ["smart:all": "square.stack", "smart:recent": "clock", "smart:today": "calendar", "smart:tasks": "checkmark.circle",
-                             "smart:shared": "person.2", "smart:boards": "scribble.variable"]
+                             "smart:shared": "person.2"]
     static func sign(_ r: [String: Any]) -> NSImage? {
         let key = r["k"] as? String ?? ""
         if let s = smartSigns[key] { return NSImage(systemSymbolName: s, accessibilityDescription: nil) }

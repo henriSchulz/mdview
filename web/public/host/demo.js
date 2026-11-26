@@ -120,7 +120,6 @@ The whiteboard in the note (tap it to open it):
       tell("linkResolved", target, p ? { path: p, url: fileUrl(p), kind: C.kindOf(p) } : null);
     },
     reload() { if (onScreen) render(onScreen, { keepScroll: true }); },
-    "paste-get"({ n }) { tell("pasteboard", { n, error: "signin" }); }, // (a pasteboard is a signed-in account's: the sample notes have none)
     previews({ paths: wanted }) {
       const out = {};
       for (const p of (wanted || []).filter((x) => notes.has(x))) out[p] = { text: notes.get(p).slice(0, 4000), mtime: notes.get(p).length + 1 };
