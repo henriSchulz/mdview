@@ -136,7 +136,7 @@ test("signed in, a client lists, reads, searches and writes the notes", async ()
   const note = await fetch(base + "/mcp", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` }, body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) });
   assert.equal(note.status, 202);
   const listed = (await rpc(t, "tools/list")).body.result.tools.map((x) => x.name);
-  assert.deepEqual(listed, ["notes_guide", "list_repositories", "list_files", "read_file", "search_notes", "write_note", "edit_note", "move_note"]);
+  assert.deepEqual(listed, ["notes_guide", "list_repositories", "list_files", "read_file", "search_notes", "write_note", "edit_note", "upload_link", "upload_file", "move_note", "copy_file", "delete_file"]);
 
   // how a note is written: the skill of the repository, without what holds only on the author's computer
   assert.match(init.body.result.instructions, /notes_guide/);
@@ -196,4 +196,70 @@ test("signed in, a client lists, reads, searches and writes the notes", async ()
   assert.match((await tool(renewed.access_token, "read_file", { repo: "octo/notes", path: "Welcome.md" })).text, /first note/);
   const other = await fetch(meta.token_endpoint, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form({ grant_type: "refresh_token", refresh_token: renewed.refresh_token, client_id: "someone-else" }) });
   assert.equal((await other.json()).error, "invalid_grant", "a refresh token is its client's only");
+});
+
+test("files are uploaded, moved, copied and deleted — and what the app keeps about them follows", async () => {
+  gh.repo.files.clear();
+  const json = (p) => JSON.parse(gh.repo.files.get(p).toString());
+  put("Uni/Analysis.md", "# Analysis\n");
+  put("Uni/Sheets/One.md", "# One\n");
+  put(".github/workflows/x.yml", "on: push\n");
+  put(".mdview/shares.json", JSON.stringify({ version: 1, shares: { abc: { path: "Uni/Analysis.md", created: "2026-01-01T00:00:00Z" }, def: { path: "Uni/Sheets/One.md", created: "2026-01-01T00:00:00Z" } } }));
+  put(".mdview/folders.json", JSON.stringify({ version: 1, folders: { Uni: { color: "red" }, "Uni/Sheets": { icon: "book" } } }));
+  put(".mdview/hidden.json", JSON.stringify({ version: 1, hidden: ["Uni/Sheets"] }));
+  const { tokens } = await signIn();
+  const t = tokens.access_token, repo = "octo/notes";
+
+  // a link to send a file to: bytes as they are, once
+  const said = (await tool(t, "upload_link", { repo, path: "assets/shot.png" })).text;
+  const url = /'(http[^']+\/mcp\/upload\/[^']+)'/.exec(said)[1];
+  assert.ok(url.startsWith(base + "/mcp/upload/"));
+  const bytes = randomBytes(300_000);
+  const send = (u, body) => fetch(u, { method: "PUT", body, redirect: "manual" });
+  const sent = await send(url, bytes);
+  assert.equal(sent.status, 200, await sent.clone().text());
+  assert.match(await sent.text(), /Uploaded assets\/shot\.png \(300000 B/);
+  assert.ok(gh.repo.files.get("assets/shot.png").equals(bytes));
+  assert.equal((await send(url, bytes)).status, 404, "a link is good once");
+  assert.equal((await send(base + "/mcp/upload/nothing", bytes)).status, 404);
+  const again = /'(http[^']+)'/.exec((await tool(t, "upload_link", { repo, path: "assets/shot.png" })).text)[1];
+  assert.equal((await send(again, "other")).status, 409, "not replaced unasked");
+  const large = /'(http[^']+)'/.exec((await tool(t, "upload_link", { repo, path: "assets/large.bin" })).text)[1];
+  assert.equal((await send(large, Buffer.alloc(20 * 1024 * 1024 + 1))).status, 413);
+  for (const path of [".github/workflows/y.yml", ".mdview/shares.json", "../x", "a/.hidden"]) assert.ok((await tool(t, "upload_link", { repo, path })).error, path);
+
+  // given in the call
+  assert.match((await tool(t, "upload_file", { repo, path: "Data/a.csv", content: "a;b\n" })).text, /Uploaded/);
+  assert.match((await tool(t, "upload_file", { repo, path: "Data/b.bin", content_base64: Buffer.from([0, 1, 2, 255]).toString("base64") })).text, /4 B/);
+  assert.deepEqual([...gh.repo.files.get("Data/b.bin")], [0, 1, 2, 255]);
+  assert.ok((await tool(t, "upload_file", { repo, path: "Data/c", content_base64: "!!" })).error);
+  assert.ok((await tool(t, "upload_file", { repo, path: "Data/c" })).error);
+  assert.ok((await tool(t, "upload_file", { repo, path: "Data", content: "x" })).error, "a folder is there");
+  assert.ok((await tool(t, "upload_file", { repo, path: "Data/a.csv/x", content: "x" })).error, "a file is not a folder");
+
+  // a folder moved: all in it, and its shares, looks and what was hidden
+  assert.ok((await tool(t, "move_note", { repo, from: "Uni", to: "Uni/Inner" })).error, "not into itself");
+  assert.ok((await tool(t, "move_note", { repo, from: "Uni", to: "Data" })).error, "never onto what is there");
+  assert.ok((await tool(t, "move_note", { repo, from: ".github/workflows/x.yml", to: "x.yml" })).error);
+  assert.match((await tool(t, "move_note", { repo, from: "Uni", to: "Archive/Uni" })).text, /Moved Uni to Archive\/Uni \(2 files/);
+  assert.ok(gh.repo.files.has("Archive/Uni/Sheets/One.md") && !gh.repo.files.has("Uni/Analysis.md"));
+  assert.equal(json(".mdview/shares.json").shares.abc.path, "Archive/Uni/Analysis.md");
+  assert.deepEqual(Object.keys(json(".mdview/folders.json").folders), ["Archive/Uni", "Archive/Uni/Sheets"]);
+  assert.deepEqual(json(".mdview/hidden.json").hidden, ["Archive/Uni/Sheets"]);
+
+  // copied: the original stays
+  assert.match((await tool(t, "copy_file", { repo, from: "Archive/Uni", to: "Copy" })).text, /2 files/);
+  assert.ok(gh.repo.files.has("Copy/Sheets/One.md") && gh.repo.files.has("Archive/Uni/Sheets/One.md"));
+  assert.match((await tool(t, "copy_file", { repo, from: "assets/shot.png", to: "assets/shot 2.png" })).text, /1 file,/);
+  assert.ok(gh.repo.files.get("assets/shot 2.png").equals(bytes));
+
+  // deleted: a folder only when said so; its shares end
+  assert.match((await tool(t, "delete_file", { repo, path: "Archive/Uni" })).text, /recursive/);
+  assert.match((await tool(t, "delete_file", { repo, path: "Archive/Uni", recursive: true })).text, /2 files/);
+  assert.ok(![...gh.repo.files.keys()].some((p) => p.startsWith("Archive/")));
+  assert.deepEqual(json(".mdview/shares.json").shares, {});
+  assert.deepEqual(json(".mdview/folders.json").folders, {});
+  assert.match((await tool(t, "delete_file", { repo, path: "Data/a.csv" })).text, /Deleted/);
+  assert.ok(!gh.repo.files.has("Data/a.csv"));
+  assert.ok(gh.repo.files.has(".github/workflows/x.yml"));
 });

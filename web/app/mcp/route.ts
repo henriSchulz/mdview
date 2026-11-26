@@ -23,7 +23,7 @@ function signIn(request: Request, why = "") {
   });
 }
 
-async function answer(m: Rpc, access: string): Promise<object | null> {
+async function answer(m: Rpc, access: string, here: string): Promise<object | null> {
   const ok = (result: object) => ({ jsonrpc: "2.0", id: m.id, result });
   const fail = (code: number, message: string) => ({ jsonrpc: "2.0", id: m.id ?? null, error: { code, message } });
   if (m.jsonrpc !== "2.0" || typeof m.method !== "string") return fail(-32600, "Not a request");
@@ -34,8 +34,8 @@ async function answer(m: Rpc, access: string): Promise<object | null> {
       return ok({
         protocolVersion: VERSIONS.includes(asked) ? asked : VERSIONS[0],
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: "mdview", title: "Markdown Notes", version: "1.0.0" },
-        instructions: "The user's notes in Markdown Notes (mdview), kept in GitHub repositories: list_repositories first, then list_files, read_file, search_notes. Notes are Markdown with the app's own additions (callouts, [[wikilinks]], KaTeX, svg figures — never Mermaid): before writing or changing a note, read notes_guide once — how a note is written for the app. A note holds only what is known and exact: no open points, no to-dos, no bullet lists as the default. What is written is committed at once.",
+        serverInfo: { name: "mdview", title: "Markdown Notes", version: "1.1.0" },
+        instructions: "The user's notes in Markdown Notes (mdview), kept in GitHub repositories: list_repositories first, then list_files, read_file, search_notes. Notes are Markdown with the app's own additions (callouts, [[wikilinks]], KaTeX, svg figures — never Mermaid): before writing or changing a note, read notes_guide once — how a note is written for the app. A note holds only what is known and exact: no open points, no to-dos, no bullet lists as the default. Files of any kind are uploaded with upload_link (or upload_file for short text), and files and folders moved (move_note), copied (copy_file) and deleted (delete_file, only when asked to). What is written is committed at once.",
       });
     }
     case "ping": return ok({});
@@ -43,7 +43,7 @@ async function answer(m: Rpc, access: string): Promise<object | null> {
     case "tools/call": {
       const name = String(m.params?.name || ""), args = (m.params?.arguments && typeof m.params.arguments === "object" ? m.params.arguments : {}) as Record<string, unknown>;
       if (!TOOLS.some((t) => t.name === name)) return fail(-32602, `No tool ${name}`);
-      return ok(await call(access, name, args));
+      return ok(await call(access, name, args, here));
     }
     default: return fail(-32601, `No method ${m.method}`);
   }
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
   if (body === undefined || body === null || typeof body !== "object") return NextResponse.json({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Not JSON" } }, { status: 400, headers: CORS });
   try {
     const all = Array.isArray(body) ? body : [body];
-    const said = (await Promise.all(all.map((m) => answer(m, who.access).catch((e) => {
+    const said = (await Promise.all(all.map((m) => answer(m, who.access, origin(request)).catch((e) => {
       if (e instanceof Refused) throw e;
       return { jsonrpc: "2.0", id: m.id ?? null, error: { code: -32603, message: String((e as Error).message || e) } };
     })))).filter(Boolean);

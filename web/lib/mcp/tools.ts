@@ -1,38 +1,26 @@
 // What a client of the Model Context Protocol may do with the user's notes: the repositories the
 // app was given on GitHub, and in each its notes (Markdown), whiteboards (*.board.svg) and PDFs —
-// listed, read, searched; notes written, changed and moved, each as one commit, as the browser
-// makes them (app/api/r/…/commit). With the user's own GitHub token: nothing the app was not given
+// listed, read, searched; notes written and changed; files and folders uploaded, moved, copied and
+// deleted (files.ts), each as one commit, as the browser makes them (app/api/r/…/commit). With the user's own GitHub token: nothing the app was not given
 // there is reached.
 import { extractText, getDocumentProxy } from "unpdf";
-import { commit, Denied, Moved, projects, raw, repositories, state, texts, type Entry } from "../github";
+import { projects, raw, repositories, state, texts, type Entry } from "../github";
 import { boardText } from "./board";
+import { b64, BOARD, commitOnce, copy, good, kindOf, MD, move, nameOf, no, noMermaid, PDF, remove, Said400, uploadFile, uploadLink } from "./files";
 import { GUIDE } from "./guide.gen";
 
 export type Tool = { name: string; title: string; description: string; inputSchema: object; annotations: Record<string, boolean | string> };
 export type Said = { content: { type: "text"; text: string }[]; isError?: boolean };
 
-const MD = /\.(md|markdown|mdown|mkd|mkdn|mdx)$/i, BOARD = /\.board\.svg$/i, PDF = /\.pdf$/i;
 const SKIP = new Set(["node_modules", "__pycache__", "target", "venv", ".venv", "dist", "build"]); // (as the desktop's scan: scan.rs SKIP_DIRS)
 const HIDDEN = ".mdview/hidden.json"; // what the user put out of sight (hidden.rs)
 const LISTED = 2000, SEARCHED = 3000, HITS = 60, READ = 400_000; // files listed, notes searched, hits shown, characters read at most
-const DEVICE = "Device: Claude (MCP)\nClient: mcp";
 
-const kindOf = (p: string) => (BOARD.test(p) ? "whiteboard" : MD.test(p) ? "note" : PDF.test(p) ? "pdf" : "file");
-const nameOf = (p: string) => p.slice(p.lastIndexOf("/") + 1);
-// a path of the repository: no way out of it, nothing of Git's own (as app/api/r/…/commit)
-const good = (p: unknown): p is string => typeof p === "string" && p.length > 0 && p.length < 1000 && !p.startsWith("/") && !p.split("/").some((part) => part === "" || part === "." || part === ".." || part === ".git");
-
-class Said400 extends Error {}
-const no = (why: string): never => { throw new Said400(why); };
 const text = (s: string): Said => ({ content: [{ type: "text", text: s }] });
 
 // The hardest rules of notes_guide, said again where a note is written, so they are in front of the client
 // whether or not it read the guide.
 const RULES = "Rules (full text: notes_guide): one subject, 200–500 words, formal prose, first sentence is the matter. Write only what is known and exact — leave out what is unsure, never hedge (\"vermutlich\") or mark it (\"?\", \"TBD\"). No open points, to-dos, next steps, outlook, summary or section nobody asked for. Never Mermaid: a figure is an svg fence or left out. No bullet lists except a true enumeration; terms are a definition list, values a table. Nothing addressed to the user or about how the note was made.";
-// what no note may hold: refused, so the client writes it again by the rules
-const MERMAID = /^\s*(`{3,}|~{3,})\s*mermaid\b/im;
-const noMermaid = (t: unknown) => { if (typeof t === "string" && MERMAID.test(t)) no("A mermaid fence is not allowed in a note: draw the figure as an svg fence (notes_guide, Formulas and figures) or leave it out."); };
-
 const REPO = { type: "string", description: 'The repository, "owner/name", as list_repositories names it.' };
 const PATH = { type: "string", description: "A file's path in the repository, with /." };
 
@@ -44,7 +32,11 @@ export const TOOLS: Tool[] = [
   { name: "search_notes", title: "Search notes", description: "The lines of the notes (and of the text on whiteboards) that hold a text, case not minded; also notes whose name holds it.", inputSchema: { type: "object", properties: { repo: REPO, query: { type: "string" }, folder: { type: "string", description: "Only in this folder (and below)." } }, required: ["repo", "query"] }, annotations: { readOnlyHint: true } },
   { name: "write_note", title: "Write a note", description: "A note written whole: made where there is none, replaced where there is one (only with replace: true). One commit. " + RULES, inputSchema: { type: "object", properties: { repo: REPO, path: { type: "string", description: "The note's path, ending in .md." }, content: { type: "string", description: "The whole note, in Markdown." }, replace: { type: "boolean", description: "Replace a note that is there already." } }, required: ["repo", "path", "content"] }, annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true } },
   { name: "edit_note", title: "Change a note", description: "A part of a note replaced: old_text must stand in it exactly once (give more of what is around it if not). One commit. " + RULES, inputSchema: { type: "object", properties: { repo: REPO, path: PATH, old_text: { type: "string" }, new_text: { type: "string" } }, required: ["repo", "path", "old_text", "new_text"] }, annotations: { readOnlyHint: false, destructiveHint: true } },
-  { name: "move_note", title: "Move or rename", description: "A note, whiteboard or PDF moved or renamed — never onto a file that is there. Links to it in other notes stay as they are. One commit.", inputSchema: { type: "object", properties: { repo: REPO, from: PATH, to: PATH }, required: ["repo", "from", "to"] }, annotations: { readOnlyHint: false, destructiveHint: false } },
+  { name: "upload_link", title: "Upload a file", description: "A link to send a file to, for a client that can run curl: any file — picture, PDF, whiteboard, note — as its bytes, without them passing through the conversation. The answer is the command. The way for anything but short text. Pictures and files a note shows belong in assets/ at the top of the repository; a note of any folder names them assets/name.png.", inputSchema: { type: "object", properties: { repo: REPO, path: { type: "string", description: "Where the file is kept in the repository, with its name and ending." }, replace: { type: "boolean", description: "Replace a file that is there already." } }, required: ["repo", "path"] }, annotations: { readOnlyHint: false, destructiveHint: true } },
+  { name: "upload_file", title: "Upload a small file", description: "A file whose content is given here: a text (content) or, only where it is very small and upload_link cannot be used, base64 (content_base64). One commit. A note that is being written is write_note's.", inputSchema: { type: "object", properties: { repo: REPO, path: { type: "string", description: "Where the file is kept in the repository, with its name and ending." }, content: { type: "string", description: "A text file's content." }, content_base64: { type: "string", description: "Any file's bytes, as base64." }, replace: { type: "boolean", description: "Replace a file that is there already." } }, required: ["repo", "path"] }, annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true } },
+  { name: "move_note", title: "Move or rename", description: "A file of any kind, or a folder with all that is in it, moved or renamed — never onto something that is there; a folder comes to be with its first file. Shared links, folder colours and what is hidden go along. Links to it in notes stay as they are (a note's assets/ links hold in every folder). One commit.", inputSchema: { type: "object", properties: { repo: REPO, from: PATH, to: { type: "string", description: "The whole new path, name included — not only the folder it goes into." } }, required: ["repo", "from", "to"] }, annotations: { readOnlyHint: false, destructiveHint: false } },
+  { name: "copy_file", title: "Copy", description: "A file, or a folder with all that is in it, copied — never onto something that is there. One commit.", inputSchema: { type: "object", properties: { repo: REPO, from: PATH, to: { type: "string", description: "The copy's whole path, name included." } }, required: ["repo", "from", "to"] }, annotations: { readOnlyHint: false, destructiveHint: false } },
+  { name: "delete_file", title: "Delete", description: "A file deleted, or (with recursive: true) a folder with all that is in it. Only what the user asked to have deleted. Shared links to it end. Its versions stay in the repository's history. One commit.", inputSchema: { type: "object", properties: { repo: REPO, path: PATH, recursive: { type: "boolean", description: "Delete a folder with all that is in it." } }, required: ["repo", "path"] }, annotations: { readOnlyHint: false, destructiveHint: true } },
 ];
 
 async function repoOf(access: string, name: unknown) {
@@ -88,25 +80,7 @@ function pagesOf(spec: unknown, total: number): number[] {
 
 const cut = (s: string) => (s.length > READ ? `${s.slice(0, READ)}\n\n[… cut off: ${s.length - READ} more characters]` : s);
 
-/** One commit; if someone wrote meanwhile, once more on what is there now. */
-async function commitOnce(access: string, owner: string, repo: string, headline: string, make: (st: { branch: string; head: string; tree: Entry[] }) => Promise<Parameters<typeof commit>[7]>) {
-  for (let turn = 0; ; turn++) {
-    const st = await state(access, owner, repo);
-    if (!st) no(`${owner}/${repo} is not reachable any more.`);
-    const at = st!.empty ? { branch: "main", head: "", tree: [] } : { branch: st!.branch, head: st!.head, tree: st!.tree };
-    try {
-      return await commit(access, owner, repo, at.branch, at.head, headline, DEVICE, await make(at));
-    } catch (e) {
-      if (e instanceof Moved && turn === 0) continue;
-      if (e instanceof Denied) no("GitHub does not let this account write to the repository.");
-      throw e;
-    }
-  }
-}
-
-const b64 = (s: string) => Buffer.from(s, "utf8").toString("base64");
-
-export async function call(access: string, name: string, a: Record<string, unknown>): Promise<Said> {
+export async function call(access: string, name: string, a: Record<string, unknown>, origin: string): Promise<Said> {
   try {
     if (name === "notes_guide") return text(GUIDE);
     if (name === "list_repositories") {
@@ -120,7 +94,13 @@ export async function call(access: string, name: string, a: Record<string, unkno
       return text(mine.map((r) => `- ${r.name}${r.private ? " (private)" : ""}${r.about ? ` — ${r.about}` : ""}`).join("\n"));
     }
     const { owner, repo, st } = await repoOf(access, a.repo);
-    if (st.empty) return name === "write_note" ? await write(access, owner, repo, a) : text(`${owner}/${repo} is empty.`);
+    if (name === "upload_link") return text(uploadLink(access, owner, repo, a, origin));
+    if (name === "upload_file") return text(await uploadFile(access, owner, repo, a));
+    if (name === "write_note") return await write(access, owner, repo, a);
+    if (st.empty) return text(`${owner}/${repo} is empty.`);
+    if (name === "move_note") return text(await move(access, owner, repo, a));
+    if (name === "copy_file") return text(await copy(access, owner, repo, a));
+    if (name === "delete_file") return text(await remove(access, owner, repo, a));
     const files = await shown(access, owner, repo, st.tree);
     if (name === "list_files") {
       const here = files.filter((e) => inFolder(a.folder)(e.path) && (a.all === true || kindOf(e.path) !== "file"));
@@ -157,7 +137,6 @@ export async function call(access: string, name: string, a: Record<string, unkno
       const parts = [named.length ? `Names:\n${named.slice(0, HITS).map((p) => `- ${p}`).join("\n")}` : "", hits.length ? `Lines:\n${hits.join("\n")}${hits.length >= HITS ? "\n[… more: say more of what is looked for, or name a folder]" : ""}` : ""].filter(Boolean);
       return text(parts.length ? parts.join("\n\n") : `"${a.query}" is in no note.`);
     }
-    if (name === "write_note") return await write(access, owner, repo, a);
     if (name === "edit_note") {
       if (!good(a.path) || !MD.test(a.path)) no("path: a note's path, ending in .md");
       if (typeof a.old_text !== "string" || !a.old_text || typeof a.new_text !== "string") no("old_text and new_text: texts");
@@ -169,17 +148,6 @@ export async function call(access: string, name: string, a: Record<string, unkno
         return { additions: [{ path: e.path, contents: b64(was.replace(a.old_text as string, () => a.new_text as string)) }], deletions: [] };
       });
       return text(`Changed ${a.path} (commit ${head.slice(0, 7)}).`);
-    }
-    if (name === "move_note") {
-      if (!good(a.from) || !good(a.to)) no("from and to: paths in the repository");
-      if (a.from === a.to) no("from and to are the same.");
-      if (kindOf(a.from as string) !== kindOf(a.to as string)) no("A move keeps what kind of file it is: the same ending.");
-      const head = await commitOnce(access, owner, repo, nameOf(a.to as string), async (at) => {
-        const e = at.tree.find((f) => f.path === a.from) || no(`${a.from} is not there.`);
-        if (at.tree.some((f) => f.path === a.to)) no(`${a.to} is there already.`);
-        return { additions: [], deletions: [e.path], links: [{ path: a.to as string, sha: e.sha }] };
-      });
-      return text(`Moved ${a.from} to ${a.to} (commit ${head.slice(0, 7)}).`);
     }
     return { ...text(`No tool ${name}.`), isError: true };
   } catch (e) {

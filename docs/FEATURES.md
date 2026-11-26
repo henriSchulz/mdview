@@ -1661,13 +1661,21 @@ Claude Code: `claude mcp add --transport http mdview <address>/mcp`.
   (`read_file`); search the lines of notes and whiteboards and the names of notes
   (`search_notes`); write a note whole (`write_note` — one there already only with
   `replace: true`), change a part of one (`edit_note`: the text replaced must stand in it once),
-  and move or rename a file (`move_note` — never onto one that is there).
+  and move or rename a file or a folder (`move_note` — never onto what is there; shared links,
+  folder looks and what is hidden go along, links in notes stay as they are).
+- **Files**: upload any file — `upload_link` hands a client with a shell a link it sends the
+  bytes to (`curl -T`, once, for ten minutes, 20 MB at most), `upload_file` takes a short text or
+  base64 in the call —, copy a file or folder (`copy_file`) and delete one (`delete_file`; a
+  folder only with `recursive: true`; its shared links end, its versions stay in the history). One
+  there already is replaced only with `replace: true`. Nothing whose name begins with a dot is
+  touched (the app's `.mdview`, GitHub's `.github`).
 - **How a note is written**: `notes_guide` hands the client the rules for a note in this app —
   the repository's skill (`skill/mdview-notes`), without what holds only on a computer of its own
   (where a file is saved, Git, the pasteboard). The client is told to read it before it writes.
 - **What is written** is one commit each, at once, named after the file, with Claude (MCP) as its
   device in History. Links to a moved note in other notes stay as they were.
-- **Not there**: deleting, pictures, writing whiteboards or PDFs.
+- **Not there**: empty folders (Git keeps none: a folder comes to be with its first file),
+  downloading a picture or other file that is not text, editing whiteboards or PDFs in place.
 
 ### Sharing a note
 
