@@ -27,7 +27,7 @@ body[data-split-sizing] :is(#content, #active, #editor, .split-body) { pointer-e
 
 /* the sheet's own run: as the note's column at the left — its measure, the room above the first line, the type */
 .split-body { position: absolute; inset: 0; overflow: auto; overscroll-behavior: contain; outline: none; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--fg) 22%, transparent) transparent; }
-.split-doc { box-sizing: content-box; max-width: var(--measure); margin: 0 auto; padding: 28px 40px 40vh; zoom: var(--doc-zoom, 1); }
+.split-doc { box-sizing: content-box; max-width: var(--measure); margin: 0 auto; padding: 28px var(--gutter) 40vh; zoom: var(--doc-zoom, 1); }
 body:not([data-tabs]) .split-doc { padding-top: 56px; }
 .split-doc > :first-child { margin-top: 0; }
 .split-doc a { cursor: pointer; }

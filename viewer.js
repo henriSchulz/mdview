@@ -29,10 +29,10 @@
   const { topRoom, setTabs } = P; // viewer/tabs.js
   const { followWiki, docZoom, follow, pasteClip, setPrefs, lockScroll } = P; // viewer/toolbar.js
 
-  /* The text column's width, as a share of the room the note has (the window beside the sidebar, a half of a split): the note
-   * says which (its property "width" — the panel's Document part); in a narrow window it is the whole room at least 30rem. */
-  const share = (p) => `max(${p}%, min(100%, 30rem))`;
-  const MEASURES = { narrow: share(40), normal: share(50), wide: share(66), full: "none" }; // (Henri, 2026-10-14: what was narrow is normal now)
+  /* The text column's width: a width made for reading, a little more where the room (the window beside the sidebar, a half of
+   * a split) is large — the note says which (its property "width" — the panel's Document part). Where the room is smaller than
+   * that, the column takes it all but the margins (page.css: --gutter). */
+  const MEASURES = { narrow: "clamp(34rem, 40%, 42rem)", normal: "clamp(44rem, 50%, 54rem)", wide: "clamp(60rem, 66%, 84rem)", full: "none" }; // (normal: page.css says it too)
   let sortedBy = "opened", measured = "normal", zoomed = 100, listedAs = "";
   function measureSync() {
     const measure = MEASURES[docShown.width] ? docShown.width : "normal";

@@ -1005,7 +1005,7 @@ web app, a shared note too. They can be chosen in the panel's Style part:
   From one note to another the ground that was fades into the next (the strip of tabs with it);
   while a note is on its way the sheet stays, empty, with one wheel on it — the mode's button turns
   none of its own meanwhile.
-- `width`: how much of the window the text column takes — `narrow`, `wide` or `full` (`normal`,
+- `width`: how wide the text column is — `narrow`, `wide` or `full` (`normal`,
   where it says nothing). `wide: true`, as it was written before, is `wide`.
 
 ### HTML
@@ -1085,11 +1085,11 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
     theme's own ground, no sheet), gray, a soft run of two of the theme's colours, or paper (dots,
     a grid, lines). It follows the light and the dark theme, and stays with the window while the
     note is scrolled.
-  - *Page width* (Style): how much of the window the text column takes in this note — Narrow,
-    Normal, Wide or Full Width, a choice of four. Each is a share of the room the note has (two fifths,
-    half, two thirds of it, all of it; in a narrow window the whole room, at least 30rem), so
-    a large screen gives a note a broad column too. It is the note's alone: the settings have no
-    width of their own.
+  - *Page width* (Style): how wide the text column is in this note — Narrow, Normal, Wide or Full Width, a choice of
+    four. Narrow, Normal and Wide are widths made for reading (Normal 704 to 864 px, Narrow 544 to 672, Wide 960 to
+    1344: the more of it the larger the room), not a share of the window: where the room is smaller the column takes all
+    of it but a margin at each side (a twentieth of the room, 20 to 64 px; under 900 px the ground around a sheet takes
+    8 px). It is the note's alone: the settings have no width of their own.
 
   Background and Page width are properties of the note (`background`, `width` — see Properties):
   chosen here they are written into its frontmatter, as one step that `Ctrl+Z` takes back, and the

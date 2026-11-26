@@ -157,6 +157,20 @@ test("a folder's top note (top: true) stands apart at its head, large — above 
   await untilNote("Zebra overview.md");
 });
 
+test("a note's column is a width made for reading, not a share of the window: all of a small screen but its margins, no wider on a large one", async () => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`${base}/r/octo/notes?n=Inbox.md`);
+  await untilNote("Inbox.md");
+  const column = async (w) => {
+    await page.setViewportSize({ width: w, height: 900 });
+    await page.waitForTimeout(500);
+    return page.evaluate(() => { const c = document.querySelector("#content"), s = getComputedStyle(c); return Math.round(c.clientWidth - parseFloat(s.paddingLeft) - parseFloat(s.paddingRight)); });
+  };
+  const small = await column(390), tablet = await column(820), large = await column(2560);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  assert.deepEqual([small, tablet, large], [350, 704, 864]);
+});
+
 test("nothing was refused or thrown along the way", () => {
   assert.deepEqual(problems.filter((p) => !/favicon|404/.test(p)), []);
 });

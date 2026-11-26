@@ -19,7 +19,7 @@ body[data-tabs] #twin { top: var(--tabs-h); }
 #twin::before { content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 1px; background: var(--line-strong); }
 
 .twin-body { position: absolute; inset: 0; overflow: auto; overscroll-behavior: contain; outline: none; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--fg) 22%, transparent) transparent; }
-.twin-doc { box-sizing: content-box; max-width: var(--measure); margin: 0 auto; padding: 28px 40px 40vh; zoom: var(--doc-zoom, 1); cursor: default; }
+.twin-doc { box-sizing: content-box; max-width: var(--measure); margin: 0 auto; padding: 28px var(--gutter) 40vh; zoom: var(--doc-zoom, 1); cursor: default; }
 body:not([data-tabs]) .twin-doc { padding-top: 56px; }
 .twin-doc > :first-child { margin-top: 0; }
 .twin-doc a { cursor: pointer; }

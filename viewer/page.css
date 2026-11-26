@@ -17,7 +17,10 @@
   --code-bg: color-mix(in srgb, var(--fg) 4.5%, var(--bg));
   --surface: color-mix(in srgb, var(--bg) 97%, transparent);
   --mono: "JetBrainsMono Nerd Font", "JetBrains Mono", monospace;
-  --measure: max(50%, min(100%, 30rem)); /* (the text column: a share of the room the note has — viewer.js, MEASURES) */
+  /* the text column: a width made for reading — as wide as that where there is room, else all of it but a margin at each
+   * side (viewer.js: MEASURES; not a share of the window: on a small screen half of it stood empty, Henri 2026-11-26) */
+  --measure: clamp(44rem, 50%, 54rem);
+  --gutter: clamp(20px, 5%, 64px);
   /* the app's own parts (sidebar, toolbar, menus) are laid out as macOS lays them out, in sizes
    * measured there. The colours stay the theme's, at the strengths of macOS's fills. */
   --ui: "SF Pro", "Inter", system-ui, sans-serif;
@@ -88,14 +91,15 @@ body[data-mode="dark"] {
  * always shows, in a narrow window too — a border that lets it through, the sheet painted within it) */
 :root[data-doc-bg] > body:not([data-overview]) :is(#content, #editor, #active) {
   margin: 56px auto var(--doc-gap);
-  padding: 40px 40px 40vh;
+  padding: 40px var(--gutter) 40vh;
   min-height: calc(100vh - 56px - var(--doc-gap));
   box-sizing: content-box;
   border: solid transparent; border-width: 0 var(--doc-gap);
   border-radius: calc(var(--radius-panel) + var(--doc-gap));
   background: var(--c-background) padding-box;
 }
-@media (max-width: 640px) { :root[data-doc-bg] > body:not([data-overview]) :is(#content, #editor, #active) { padding: 32px 20px 40vh; } }
+@media (max-width: 900px) { :root { --doc-gap: 8px; } } /* (little room: the ground around the sheet takes less of it) */
+@media (max-width: 640px) { :root[data-doc-bg] > body:not([data-overview]) :is(#content, #editor, #active) { padding: 32px var(--gutter) 40vh; } }
 @media print {
   :root[data-doc-bg] { background: var(--c-background); }
   :root[data-doc-bg]::before { display: none; }
@@ -123,7 +127,7 @@ body {
 #content {
   max-width: var(--measure);
   margin: 0 auto;
-  padding: 56px 40px 40vh;
+  padding: 56px var(--gutter) 40vh;
   opacity: 0;
   transition: opacity var(--dur-base) var(--ease-out), transform var(--spring-smooth-dur) var(--spring-smooth);
 }

@@ -7,10 +7,10 @@
   display: none;
   max-width: var(--measure);
   margin: 0 auto;
-  padding: 56px 40px 40vh;
+  padding: 56px var(--gutter) 40vh;
   transition: opacity var(--dur-fast) var(--ease-out), transform var(--spring-smooth-dur) var(--spring-smooth);
 }
-@media (max-width: 640px) { #active { padding: 48px 20px 40vh; } }
+@media (max-width: 640px) { #active { padding: 48px var(--gutter) 40vh; } }
 body[data-view="active"] #active { display: block; }
 body[data-view="active"] #content { display: none; }
 body.swapping #active { opacity: 0; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit); }
