@@ -162,6 +162,9 @@ test("an iPad: the menus — the outline from the top right, the pencil writes, 
   assert.equal(await p.evaluate(() => document.querySelector('#ipad-tools [data-ip="write"]').getAttribute("aria-pressed")), "true");
   const rail = await rect(p, "#rrail");
   assert.ok(1180 - rail.right <= 24 && 820 - rail.bottom <= 30 && rail.h === 44 && rail.w > 3 * 44, `the rail lies at the bottom right: ${JSON.stringify(rail)}`);
+  // one capsule, not two lying on each other: nothing of the signs' own card beside it
+  const card = await p.evaluate(() => { const t = document.querySelector("#rrail .rp-tabs"), s = getComputedStyle(t), r = t.getBoundingClientRect(); return [r.height, s.boxShadow, s.backgroundColor]; });
+  assert.deepEqual(card, [44, "none", "rgba(0, 0, 0, 0)"]);
   // insert: the panel opens above the rail
   await tap(d, '#rrail .rp-tab[data-tab="insert"]');
   const panel = await rect(p, "#rpanel");

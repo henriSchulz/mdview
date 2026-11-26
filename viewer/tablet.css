@@ -48,7 +48,9 @@
   /* the bottom right: the active mode's rail (insert, format, style, information), lying down as a capsule; its panel above it */
   :root[data-ipad] #rrail { top: auto; right: var(--ip-gap); bottom: var(--ip-bottom); height: var(--ip-size); padding: 0 2px; border-radius: var(--radius-pill); transform-origin: right bottom; translate: 0 10px; }
   :root[data-ipad] body[data-rail] #rrail { translate: 0 0; }
-  :root[data-ipad] #rrail .rp-tabs { flex-direction: row; gap: 0; height: 100%; align-items: center; }
+  /* (the capsule is #rrail: the card the signs stand in elsewhere is not drawn here — its ground, its corners and its 4 px
+     around lay over the capsule, 52 px high in 44: Henri 2026-11-26, „was lappt das im UI über“) */
+  :root[data-ipad] #rrail .rp-tabs { flex-direction: row; gap: 0; height: 100%; align-items: center; padding: 0; border-radius: 0; background: none; box-shadow: none; }
   :root[data-ipad] #rrail .rp-tab { width: var(--ip-size); height: var(--ip-size); border-radius: 50%; }
   :root[data-ipad] #rrail .rp-tab[data-tab="insert"] { order: 9; }
   :root[data-ipad] #rrail .rp-tab[data-tab="insert"] > svg { width: 30px; height: 30px; padding: 6px; box-sizing: border-box; border-radius: 50%; background: var(--fg); color: var(--bg); stroke-width: 2.4; }
