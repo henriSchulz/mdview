@@ -282,7 +282,7 @@ or the tests see the old ones.
 | `web/lib/types.ts` | What kind of content a file of a repository is sent as, by its ending. |
 | `web/lib/welcome.ts` | The welcome page: what is seen at the address without signing in. |
 | `web/lib/mcp/board.ts` | A whiteboard told in words, for a client of the Model Context Protocol: what is written on it — text, sticky … |
-| `web/lib/mcp/files.ts` | A repository's files for a client of the Model Context Protocol: uploaded (also through a one-time link, `web/app/mcp/upload`), moved, copied, deleted, the app's lists in `.mdview` following. |
+| `web/lib/mcp/files.ts` | The files of a repository for a client of the Model Context Protocol: put there, moved, copied, deleted — … |
 | `web/lib/mcp/oauth.ts` | Signing a client of the Model Context Protocol in — Claude, Claude Code, any other: OAuth 2.1 as the protocol … |
 | `web/lib/mcp/tools.ts` | What a client of the Model Context Protocol may do with the user's notes: the repositories the app was given … |
 | `web/host/contract.ts` | The seam between the page (viewer.js and friends, the desktop app's own, unchanged) and whatever hosts it. |
