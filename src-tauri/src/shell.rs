@@ -24,7 +24,6 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogResult};
 use crate::ai::{self, Completer, Drawing, Illustrator, Talk, Talker};
 use crate::github::{self, News, Session};
 use crate::history::{self, Historian, Place, Stamp};
-use crate::paste;
 use crate::share;
 use crate::update;
 use crate::sync::{self, Access};
