@@ -83,6 +83,10 @@ in `NoteWindow.on` or handed to the area's `handleFiles` / `handleSearch` / `han
   start screen has no bar; full screen and the focus mode have none either. The colours of the system are the page's:
   its accent and its highlight (System Settings › Appearance, followed live), where Velum gives none. A folder's or a
   note's window opens where it was closed, as large as it was (state: `frames`); a new one, a step down from the last.
+- **The tabs are the system's** (NativeTabs.swift): from two tabs on, a capsule of Liquid Glass under the bar, the tabs
+  in equal parts of it, a round button for a new one. The page's own strip stays laid out, unseen, and keeps the room; it
+  says which tabs there are (`mactabs`), and a hand on the system's is done by the page (`__macTab`). The row leaves while
+  a dialog of the page's is open over it.
 - **The sidebar is the system's** in the Library layout (NativeSidebar.swift): a card of Liquid Glass (NSGlassEffectView;
   before macOS 26 the sidebar's material) over the page, with a search field, the Library's rows and their counts (SF
   Symbols), the folders in their colours, and New, the history and the settings at its foot. The page stays its owner —

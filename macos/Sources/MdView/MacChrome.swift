@@ -4,7 +4,7 @@
 // button of the bar clicks the page's own (unseen, still laid out, so what hangs from one hangs under the bar's), and the
 // page says how its buttons stand (`macbar`, a script of the window's own) — nothing of what they do is written twice.
 // The page is told how high the bar is (--mac-bar); under it the note goes on, seen through it (#mac-bar). The tabs stand in
-// a row under the bar while there are two or more, as the Finder's and Safari's.
+// a row under the bar while there are two or more, as the Finder's and Safari's (NativeTabs.swift).
 import AppKit
 import WebKit
 
@@ -226,7 +226,6 @@ final class MacChrome: NSObject, NSToolbarDelegate {
         ":root[data-mac] #tabs{background:transparent!important;padding-top:calc(var(--mac-bar,52px) + 2px)!important}" +
         ":root[data-mac] #tabs::after{display:none!important}" +
         ":root[data-mac] #tabs :is(.tab-side,.tab-nav,[data-act=overview],.tab-sync){display:none!important}" +
-        ":root[data-mac]:not([data-mac-tabs]) #tabs .tab-row{visibility:hidden!important}" +
         "#mac-bar{position:fixed;top:0;left:0;right:0;height:calc(var(--tabs-h) + 16px);z-index:14;pointer-events:none;" +
         "-webkit-mask-image:linear-gradient(#000 calc(100% - 16px),transparent);mask-image:linear-gradient(#000 calc(100% - 16px),transparent);" +
         "background:color-mix(in srgb,var(--bg) 74%,transparent);-webkit-backdrop-filter:saturate(1.8) blur(18px);backdrop-filter:saturate(1.8) blur(18px)}" +

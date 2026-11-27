@@ -321,7 +321,7 @@
     navClosed = setTimeout(() => { if (!document.body.hasAttribute("data-overview") && P.current && P.current.path) navHere({ note: P.current.path }); }, 400);
   }).observe(document.body, { attributes: true, attributeFilter: ["data-overview"] });
 
-  Object.assign(P, { tabbar, tabRow, tabsOn, topRoom, tabEls, paintTab, setTabs, folderTab, navHere, navGo, navPaint });
+  Object.assign(P, { selectTab, closeTab, tabbar, tabRow, tabsOn, topRoom, tabEls, paintTab, setTabs, folderTab, navHere, navGo, navPaint });
   // … and what changes while the page runs (set from elsewhere where a second function is given)
   P.live({
     tabs: [() => tabs],

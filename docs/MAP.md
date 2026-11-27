@@ -246,6 +246,7 @@ or the tests see the old ones.
 | `macos/Sources/MdView/Menu.swift` | The menu bar. Where a command is the page's (the modes, the sidebar, Find …) the item sends the key the page … |
 | `macos/Sources/MdView/NativeMenu.swift` | The page's menus as the system's own (MdHost.menu — viewer/base.js hostMenu): the page hands over rows, the … |
 | `macos/Sources/MdView/NativeSidebar.swift` | The sidebar is the system's (Phase 4 of the native work, 2026-11-17) — in the Library layout, the one Henri … |
+| `macos/Sources/MdView/NativeTabs.swift` | The tabs are the system's: a row under the window's bar as Finder's and Safari's — a capsule of Liquid Glass … |
 | `macos/Sources/MdView/NoteWindow.swift` | One window: a WKWebView with the page, and the shell's half of the conversation — what the page says … |
 | `macos/Sources/MdView/Page.swift` | The page a window shows — what src-tauri/src/shell.rs `load_shell` builds: the scripts and sheets in their … |
 | `macos/Sources/MdView/Resolver.swift` | Where a [[wikilink]] leads, as Obsidian does it: next to the note, at the vault root, then anywhere below the … |
