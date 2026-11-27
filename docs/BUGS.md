@@ -704,6 +704,10 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     window of the application, a folder on a disk) is in the web host's
     `hide` (`settings-info` in `web/public/host/host.js`), and a value the host was not told is a
     row not shown — never a nought or a placeholder in its place. A new row: decide it for both.
+132. **The settings are opened one way, the page's `openSettings`** (2026-11-27, Henri: "settings öffnet sich auf Mac 2
+     mal"): a host may show them in a window of its own (`MdHost.settings`). The editor's own Mod-, opened the page's
+     dialog while the page's key opened that window — both at once. No second binding and no `A.prefs.open()` from a menu
+     or a key. Check: `SettingsTests.testTheKeyWhileWritingOpensOneWindowOnly`.
 56. **In the browser the page comes first, and a file the repository has is never sent again.**
     What is done to a file — moved, renamed, copied, hidden, deleted — changes the host's own
     tree and is told to the page at once (`noteRenamed`, `setFolder`); the commit follows

@@ -419,7 +419,6 @@
     "Mod-`": C.toggleMark(M.code),
     "Mod-k": (state, dispatch, view) => A.link.edit(view),
     "Mod-Alt-f": (s, d, v) => A.notes.insert(s, d, v),
-    "Mod-,": () => A.prefs.open(),
     "Shift-Mod-0": keepBid(setParagraph),
     "Shift-Mod-7": toggleList(N.ordered_list),
     "Shift-Mod-8": toggleList(N.bullet_list),

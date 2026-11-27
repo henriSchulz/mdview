@@ -115,3 +115,18 @@ final class SettingsTests: ShellTest {
         try p.run(); p.waitUntilExit()
     }
 }
+
+extension SettingsTests {
+    /// ⌘, in the writing mode — and the context menu's "Settings…" — open the system's window alone (Henri, 2026-11-27:
+    /// "settings öffnet sich auf Mac 2 mal": the editor's own key opened the page's settings, and the page's key the system's).
+    func testTheKeyWhileWritingOpensOneWindowOnly() {
+        let w = open(write("A.md", "# A\n\nSome text.\n"))
+        _ = page(w, "(MdPage.setMode('active'), 1)")
+        XCTAssertTrue(wait(10) { (self.page(w, "!!document.querySelector('#active .ProseMirror')") as? Bool) == true }, "no editor")
+        wait(0.5)
+        _ = page(w, "(document.querySelector('#active .ProseMirror').dispatchEvent(new KeyboardEvent('keydown', { key: ',', code: 'Comma', metaKey: true, bubbles: true, cancelable: true })), 1)")
+        XCTAssertTrue(wait(10) { SettingsWindow.shared.window?.isVisible == true }, "no settings window")
+        wait(1)
+        XCTAssertEqual(page(w, "!!document.querySelector('#settings[data-open]')") as? Bool, false, "the page's own settings opened too")
+    }
+}

@@ -257,7 +257,7 @@
       const group = A.slash.entries(view).find((e) => e && e.key === "slash.columns");
       if (group) items.push(null, { id: "slash.columns", label: T("slash.columns"), items: group.items.map((e) => e && { id: e.key, icon: e.icon, label: e.label || T(e.key, e.n), run: () => e.act(view), disabled: e.disabled, danger: e.danger }) });
     }
-    items.push(null, item("prefs.open", () => A.prefs.open(), { key: "Ctrl+," }));
+    items.push(null, item("prefs.open", () => (window.MdPage?.openSettings ? MdPage.openSettings() : A.prefs.open()), { key: "Ctrl+," })); // (the page's way: a host with a settings window of its own shows that one)
     return items;
   }
   /* A link in the text made a block of its own (style: a row, a card): it goes out of the text and
