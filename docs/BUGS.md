@@ -533,6 +533,12 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     cheap: no blurred shadow and no rounded clip around a large canvas (a PDF's pages), no blend
     mode on an empty layer, no `backdrop-filter` under `data-flat`. Measured, not guessed, at twice
     the size: `rig.sh scrollperf` (frames and CPU while a note on each ground, and a PDF, scroll).
+131. **A note's ground is let through by whatever lies over it, in every look** (2026-11-27, #60: "Hintergrund wird nicht
+    korrekt angezeigt"). A look that paints the body or a band over the page (`viewer/look.css`, the Velum look, the default)
+    says what it does under `data-doc-bg` too: a rule as strong as `page.css`'s and later in the page wins over it, and the
+    ground was left in the scrollbar's track only. The ground's picture is set by `background-image`, not in the
+    `background` shorthand behind the colour — two pictures there (grid) and the whole declaration is thrown out.
+    `web/test/ground.test.mjs`.
 75. **No blurred shade on what stands beside a scroll.** A `box-shadow` with a blur is blurred
     anew in every frame the window is painted — without the DMA-BUF renderer every step of a
     scroll; the sidebar's shade, its whole height long, made a note scrolled beside it take half

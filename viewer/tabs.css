@@ -30,8 +30,8 @@ body[data-tabs] #tabs { display: block; }
  * out. The sheet begins a little under the strip, with the ground between them. */
 /* (drawn where the window's ground is, not held there with `fixed`, which paints the window anew at each step of a scroll —
  * page.css: the strip's picture begins where the window's does, --tabs-x to its left, and its shade's the strip's height above, --tabs-y) */
-:root[data-doc-bg] > body:not([data-overview]) #tabs { background: var(--doc-ground) var(--doc-image) calc(-1 * var(--tabs-x, 0px)) 0 / var(--doc-size-win); }
-:root[data-doc-bg] > body:not([data-overview]) #tabs::after { background: var(--doc-ground) var(--doc-image) calc(-1 * var(--tabs-x, 0px)) calc(-1 * var(--tabs-y, var(--tabs-h))) / var(--doc-size-win); }
+:root[data-doc-bg] > body:not([data-overview]) #tabs { background-color: var(--doc-ground); background-image: var(--doc-image); background-position: calc(-1 * var(--tabs-x, 0px)) 0; background-size: var(--doc-size-win); }
+:root[data-doc-bg] > body:not([data-overview]) #tabs::after { background-color: var(--doc-ground); background-image: var(--doc-image); background-position: calc(-1 * var(--tabs-x, 0px)) calc(-1 * var(--tabs-y, var(--tabs-h))); background-size: var(--doc-size-win); }
 :root[data-doc-bg] > body:not([data-overview]) #tabs::after { -webkit-mask-image: linear-gradient(#000, transparent); mask-image: linear-gradient(#000, transparent); }
 :root[data-doc-bg] > body[data-tabs]:not([data-overview]) :is(#content, #editor, #active) { margin-top: calc(var(--tabs-h) + var(--doc-gap)); min-height: calc(100vh - var(--tabs-h) - 2 * var(--doc-gap)); }
 body[data-sidebar="open"] #tabs { padding-left: calc(var(--sb-w) + 6px); } /* (the strip's tabs make room for the card) */

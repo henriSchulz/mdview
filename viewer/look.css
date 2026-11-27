@@ -21,6 +21,8 @@
   --tabs-h: calc(var(--tab-h) + 2 * var(--v-space-4) + var(--v-space-10));
 }
 :root[data-velum][data-look="velum"] body { background: var(--v-bg-content); }
+/* (a note with a ground of its own, page.css: the body lets it through — the rule above is as strong as page.css's and comes later, #60) */
+:root[data-velum][data-look="velum"][data-doc-bg] > body:not([data-overview]) { background: transparent; }
 
 /* ---- the sidebar: a card of the sidebar's tone, concentric with the window */
 :root[data-velum][data-look="velum"] #sidebar {
@@ -445,4 +447,7 @@
  * the top is the note's ground down to the tabs' lower edge and only then fades, and the active mode's handles and lines (z-index
  * 23–26 in active/blocks.css) go under the band (14) and the tabs (15) — over the note they still are */
 :root[data-velum][data-look="velum"] body[data-tabs]::after { background: linear-gradient(var(--v-bg-content) calc(100% - var(--v-space-16)), transparent); }
+/* (a ground of the note's own, page.css: the band draws the window's picture where it lies — at the window's corner, so 0 0 —
+ * and thins out the same way; in the window's colour it was a pale strip across the ground, #60) */
+:root[data-velum][data-look="velum"][data-doc-bg] > body[data-tabs]:not([data-overview])::after { background-color: var(--doc-ground); background-image: var(--doc-image); background-position: 0 0; background-size: var(--doc-size-win); -webkit-mask-image: linear-gradient(#000 calc(100% - var(--v-space-16)), transparent); mask-image: linear-gradient(#000 calc(100% - var(--v-space-16)), transparent); }
 :root[data-velum][data-look="velum"] body[data-tabs] :is(.blk-h, .tbl-h, .col-grip, .col-x, .blk-line, .tbl-line) { z-index: 13; }
